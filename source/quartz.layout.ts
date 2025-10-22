@@ -24,6 +24,7 @@ export const defaultContentPageLayout: PageLayout = {
   ],
   left: [
     Component.PageTitle(),
+    Component.NuggetsLogo(),
     Component.MobileOnly(Component.Spacer()),
     Component.Search(),
     Component.Darkmode(),
