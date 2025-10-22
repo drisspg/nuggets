@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "README.md",
+                "file": "source/content/Why Rtol and Atol are set the way they are in pytorch assert_close?.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "README"
+              "title": "Why Rtol and Atol are set the way they are in pytorch assert_close?"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "README.md",
+                "file": "source/content/Why Rtol and Atol are set the way they are in pytorch assert_close?.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for README"
+              "title": "Backlinks for Why Rtol and Atol are set the way they are in pytorch assert_close?"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "README.md",
+                "file": "source/content/Why Rtol and Atol are set the way they are in pytorch assert_close?.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from README"
+              "title": "Outgoing links from Why Rtol and Atol are set the way they are in pytorch assert_close?"
             }
           },
           {
@@ -142,13 +142,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "README.md",
+                "file": "source/content/Why Rtol and Atol are set the way they are in pytorch assert_close?.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of README"
+              "title": "Outline of Why Rtol and Atol are set the way they are in pytorch assert_close?"
             }
           }
         ]
@@ -166,13 +166,17 @@
       "daily-notes:Open today's daily note": false,
       "templates:Insert template": false,
       "command-palette:Open command palette": false,
-      "bases:Create new base": false
+      "bases:Create new base": false,
+      "obsidian-git:Open Git source control": false,
+      "obsidian-excalidraw-plugin:New drawing": false
     }
   },
-  "active": "f32ef382d54e5cb3",
+  "active": "d108d7fcc2bcf97b",
   "lastOpenFiles": [
-    "source/README.md",
+    "source/content/index.md",
+    "source/content/Why Rtol and Atol are set the way they are in pytorch assert_close?.md",
     "README.md",
+    "source/README.md",
     "source/CODE_OF_CONDUCT.md"
   ]
 }
