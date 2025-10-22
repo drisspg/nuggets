@@ -1,7 +1,14 @@
 ---
-title: My GitHub Pages Notebook!
+title: Nuggets Blog
+description: Nuggets of ML engineering, testing, and tooling insights.
+tags: [home]
+layout: landing
 ---
 
-Hello world!
+# Welcome
 
-Write some words here!
+Enjoy the rambilings
+
+## Recent Notes
+
+- [[Why Rtol and Atol are set the way they are in pytorch assert_close?]]

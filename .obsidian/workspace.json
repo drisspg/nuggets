@@ -173,6 +173,9 @@
   },
   "active": "d108d7fcc2bcf97b",
   "lastOpenFiles": [
+    "source/content/posts/experiment-reports-template.md",
+    "source/content/posts/data-pipeline-checklist.md",
+    "source/content/posts",
     "AGENTS.md",
     "source/content/index.md",
     "source/content/Why Rtol and Atol are set the way they are in pytorch assert_close?.md",
