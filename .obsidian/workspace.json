@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "source/content/Why Rtol and Atol are set the way they are in pytorch assert_close?.md",
+                "file": "source/content/FlexAttention Determinism.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Why Rtol and Atol are set the way they are in pytorch assert_close?"
+              "title": "FlexAttention Determinism"
             }
           }
         ]
@@ -173,6 +173,16 @@
   },
   "active": "f32ef382d54e5cb3",
   "lastOpenFiles": [
+    "source/public/media/Screenshot-2025-10-17-at-12.11.58-PM.png",
+    "source/public/media/Screenshot-2025-10-17-at-12.01.00-PM.png",
+    "source/public/media/Screenshot-2025-10-17-at-11.34.06-AM.png",
+    "source/public/FlexAttention-Determinism.html",
+    "source/content/media/Screenshot 2025-10-17 at 12.01.00 PM.png",
+    "source/content/media/Screenshot 2025-10-17 at 12.11.58 PM.png",
+    "source/content/media/Screenshot 2025-10-17 at 11.34.06 AM.png",
+    "source/content/Why Rtol and Atol are set the way they are in pytorch assert_close?.md",
+    "source/content/FlexAttention Determinism.md",
+    "source/FlexAttention Determinism",
     "source/public/404.html",
     "source/public/media/Pasted-image-20251001172822.png",
     "source/public/media",
@@ -184,9 +194,6 @@
     "source/public/sitemap.xml",
     "source/public/tags/index.html",
     "source/public/tags/home.html",
-    "source/public/tags",
-    "source/public/index.html",
-    "source/public/Why-Rtol-and-Atol-are-set-the-way-they-are-in-pytorch-assert_close.html",
     "source/node_modules/mathjax-full/README.md",
     "source/node_modules/mathjax-full/CONTRIBUTING.md",
     "source/node_modules/pixi.js/README.md",
@@ -210,11 +217,7 @@
     "source/node_modules/hast-util-from-html/node_modules/@types/unist/README.md",
     "source/node_modules/hast-util-to-jsx-runtime/node_modules/vfile-message/readme.md",
     "source/node_modules/hast-util-from-html/node_modules/vfile-message/readme.md",
-    "source/node_modules/hast-util-raw/node_modules/@types/unist/README.md",
-    "source/node_modules/hast-util-to-jsx-runtime/node_modules/unist-util-stringify-position/readme.md",
     "source/node_modules/cli-spinner/img/spinner.gif",
-    "source/node_modules/psl/browserstack-logo.svg",
-    "source/content/media/Pasted image 20251001172822.png",
-    "Pasted image 20251001172822.png"
+    "source/node_modules/psl/browserstack-logo.svg"
   ]
 }

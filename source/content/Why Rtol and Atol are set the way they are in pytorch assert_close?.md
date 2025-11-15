@@ -1,4 +1,4 @@
-There is a great helper in PyTorch `torch.testing.assert_close` I use it all the time. And sometimes it fails. If you are like me you might have looked at its definition when this is happens and seen this table: https://github.com/pytorch/pytorch/blob/5cedc5a0ff236529f76ac514805b825bc73e1a74/torch/testing/_comparison.py#L1418
+`There is a great helper in PyTorch `torch.testing.assert_close` I use it all the time. And sometimes it fails. If you are like me you might have looked at its definition when this is happens and seen this table: https://github.com/pytorch/pytorch/blob/5cedc5a0ff236529f76ac514805b825bc73e1a74/torch/testing/_comparison.py#L1418
 
 ```Shell
     +---------------------------+------------+----------+
