@@ -15,4 +15,4 @@ Open the printed URL to browse the site.
 
 ## Deploy
 - Push to `main` to trigger the GitHub Actions build.
-- Published site: https://defenderofbasic.github.io/obsidian-quartz-template
+- Published site: https://drisspg.github.io/nuggets/
