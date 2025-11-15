@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+.quartz-cache/
+dist/
+.cache/
+.npm/
+.husky/_/
+.vscode/
