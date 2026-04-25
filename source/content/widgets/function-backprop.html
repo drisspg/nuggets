@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f120e;
+        --panel: #151913;
+        --panel-2: #1c221a;
+        --rule: #303a31;
+        --text: #f0eadf;
+        --muted: #9da797;
+        --accent: #8da07d;
+        --target: #e2b86f;
+        --pred: #66d7c6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          IBM Plex Sans,
+          Inter,
+          system-ui,
+          sans-serif;
+        margin: 0;
+        overscroll-behavior: none;
+      }
+
+      main {
+        background:
+          radial-gradient(circle at 20% 18%, rgba(102, 215, 198, 0.1), transparent 20rem),
+          radial-gradient(circle at 82% 18%, rgba(226, 184, 111, 0.12), transparent 22rem),
+          linear-gradient(180deg, #151913, #0f120e);
+        border: 1px solid var(--rule);
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: minmax(0, 1fr) 260px;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+        padding: 1rem;
+      }
+
+      .lab {
+        display: grid;
+        min-width: 0;
+      }
+
+      .kicker,
+      label,
+      button,
+      select,
+      .metric-name,
+      .window-label {
+        font-family:
+          IBM Plex Mono,
+          ui-monospace,
+          monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .kicker {
+        color: var(--accent);
+        font-size: 0.68rem;
+      }
+
+      h1,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-family: Newsreader, Georgia, serif;
+        font-size: clamp(1.8rem, 4vw, 3.35rem);
+        letter-spacing: -0.055em;
+        line-height: 0.98;
+      }
+
+      .dek {
+        color: var(--muted);
+        font-size: 0.95rem;
+        line-height: 1.55;
+        max-width: 54rem;
+      }
+
+      .windows {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+        min-height: 360px;
+      }
+
+      .window {
+        background: rgba(15, 18, 14, 0.72);
+        border: 1px solid var(--rule);
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        min-height: 340px;
+        overflow: hidden;
+      }
+
+      .window-label {
+        align-items: center;
+        border-bottom: 1px solid var(--rule);
+        color: var(--muted);
+        display: flex;
+        font-size: 0.62rem;
+        justify-content: space-between;
+        padding: 0.55rem 0.65rem;
+      }
+
+      .plot-wrap,
+      .network-wrap {
+        min-height: 0;
+        position: relative;
+      }
+
+      .network-wrap {
+        overflow: hidden;
+      }
+
+      canvas,
+      svg {
+        inset: 0;
+        position: absolute;
+      }
+
+      canvas {
+        height: 100%;
+        width: 100%;
+      }
+
+      #plot {
+        cursor: crosshair;
+      }
+
+      svg {
+        height: 100%;
+        pointer-events: none;
+        width: 100%;
+      }
+
+      #network {
+        min-height: 100%;
+        min-width: 100%;
+      }
+
+      aside {
+        border-left: 1px solid var(--rule);
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding-left: 1rem;
+      }
+
+      .metrics {
+        display: grid;
+        gap: 0.7rem;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .metric {
+        background: rgba(240, 234, 223, 0.035);
+        border: 1px solid rgba(240, 234, 223, 0.08);
+        padding: 0.7rem;
+      }
+
+      .metric.wide {
+        grid-column: 1 / -1;
+      }
+
+      .metric-name {
+        color: var(--muted);
+        display: block;
+        font-size: 0.58rem;
+      }
+
+      output {
+        color: var(--text);
+        display: block;
+        font-family:
+          IBM Plex Mono,
+          ui-monospace,
+          monospace;
+        font-size: 1.1rem;
+        font-variant-numeric: tabular-nums;
+        margin-top: 0.2rem;
+      }
+
+      #sampleOut {
+        min-height: 2.6em;
+        white-space: pre;
+      }
+
+      .controls {
+        border-top: 1px solid var(--rule);
+        display: grid;
+        gap: 0.8rem;
+        padding-top: 1rem;
+      }
+
+      label {
+        color: var(--muted);
+        display: grid;
+        font-size: 0.62rem;
+        gap: 0.35rem;
+      }
+
+      input,
+      select {
+        accent-color: var(--accent);
+        width: 100%;
+      }
+
+      .checkbox-label {
+        align-items: center;
+        display: flex;
+        gap: 0.55rem;
+      }
+
+      .checkbox-label input {
+        width: auto;
+      }
+
+      select {
+        background: var(--panel-2);
+        border: 1px solid var(--rule);
+        color: var(--text);
+        font-size: 0.65rem;
+        padding: 0.55rem 0.6rem;
+      }
+
+      button {
+        background: var(--panel-2);
+        border: 1px solid var(--rule);
+        color: var(--text);
+        cursor: pointer;
+        font-size: 0.65rem;
+        padding: 0.65rem 0.7rem;
+      }
+
+      button:hover,
+      select:hover {
+        border-color: var(--accent);
+      }
+
+      .button-grid {
+        display: grid;
+        gap: 0.45rem;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .legend {
+        border-top: 1px solid var(--rule);
+        color: var(--muted);
+        display: grid;
+        font-size: 0.78rem;
+        gap: 0.45rem;
+        line-height: 1.4;
+        padding-top: 1rem;
+      }
+
+      .chip {
+        border: 1px solid var(--rule);
+        display: inline-block;
+        height: 0.72rem;
+        margin-right: 0.35rem;
+        vertical-align: -0.08rem;
+        width: 0.72rem;
+      }
+
+      .target-chip {
+        background: var(--target);
+      }
+
+      .pred-chip {
+        background: var(--pred);
+      }
+
+      .activation-chip {
+        background: linear-gradient(90deg, #18211b, var(--pred));
+      }
+
+      @media (max-width: 980px) {
+        main,
+        .windows {
+          grid-template-columns: 1fr;
+        }
+
+        main {
+          overflow: visible;
+        }
+
+        aside {
+          border-left: 0;
+          border-top: 1px solid var(--rule);
+          padding-left: 0;
+          padding-top: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="lab">
+        <div class="windows">
+          <section class="window">
+            <div class="window-label">
+              <span>target / prediction</span><span>drag to edit</span>
+            </div>
+            <div class="plot-wrap"><canvas id="plot"></canvas></div>
+          </section>
+          <section class="window">
+            <div class="window-label">
+              <span>mlp activation view</span><span id="sampleLabel">x=0.00</span>
+            </div>
+            <div class="network-wrap"><svg id="network" viewBox="0 0 560 420"></svg></div>
+          </section>
+        </div>
+      </section>
+      <aside>
+        <div class="metrics">
+          <div class="metric">
+            <span class="metric-name">step</span>
+            <output id="stepOut">0</output>
+          </div>
+          <div class="metric">
+            <span class="metric-name">loss</span>
+            <output id="lossOut">0.000</output>
+          </div>
+          <div class="metric wide">
+            <span class="metric-name">inspect x</span>
+            <output id="sampleOut">x=0.00 → y=0.00</output>
+          </div>
+        </div>
+        <div class="controls">
+          <label>
+            inspect x
+            <input id="inspectX" type="range" min="0" max="159" value="80" />
+          </label>
+          <label class="checkbox-label">
+            <input id="trainOnlyInspect" type="checkbox" />
+            train only inspected x
+          </label>
+          <label>
+            activation
+            <select id="activation">
+              <option value="tanh">tanh</option>
+              <option value="relu">relu</option>
+              <option value="sigmoid">sigmoid</option>
+            </select>
+          </label>
+          <label>
+            hidden layers
+            <input id="layerCount" type="range" min="1" max="3" value="2" />
+          </label>
+          <label>
+            neurons / layer
+            <input id="hiddenCount" type="range" min="4" max="16" value="10" />
+          </label>
+          <label>
+            learning rate
+            <input id="lr" type="range" min="1" max="70" value="16" />
+          </label>
+          <label>
+            training speed
+            <input id="speed" type="range" min="1" max="24" value="8" />
+          </label>
+          <div class="button-grid">
+            <button id="pause">pause</button>
+            <button id="reset">reset net</button>
+            <button id="sine">sine</button>
+            <button id="spike">spiky</button>
+          </div>
+        </div>
+        <div class="legend">
+          <p><span class="chip target-chip"></span>target curve</p>
+          <p><span class="chip pred-chip"></span>MLP prediction</p>
+          <p><span class="chip activation-chip"></span>activation heat</p>
+          <p>Click the plot to choose the x shown in the MLP window.</p>
+        </div>
+      </aside>
+    </main>
+    <script>
+      const plot = document.querySelector("#plot")
+      const ctx = plot.getContext("2d")
+      const network = document.querySelector("#network")
+      const stepOut = document.querySelector("#stepOut")
+      const lossOut = document.querySelector("#lossOut")
+      const sampleOut = document.querySelector("#sampleOut")
+      const sampleLabel = document.querySelector("#sampleLabel")
+      const inspectInput = document.querySelector("#inspectX")
+      const trainOnlyInspectInput = document.querySelector("#trainOnlyInspect")
+      const activationInput = document.querySelector("#activation")
+      const layerInput = document.querySelector("#layerCount")
+      const hiddenInput = document.querySelector("#hiddenCount")
+      const lrInput = document.querySelector("#lr")
+      const speedInput = document.querySelector("#speed")
+      const pauseButton = document.querySelector("#pause")
+      const resetButton = document.querySelector("#reset")
+      const sineButton = document.querySelector("#sine")
+      const spikeButton = document.querySelector("#spike")
+
+      const target = Array.from({ length: 160 }, (_, i) => Math.sin((i / 159) * Math.PI * 2) * 0.55)
+      let model
+      let step = 0
+      let sampleIndex = 80
+      let trainCursor = 0
+      let paused = false
+      let drawing = false
+      let last = performance.now()
+      let initSeed = 0
+
+      function nextRandom() {
+        initSeed = (1664525 * initSeed + 1013904223) >>> 0
+        return initSeed / 4294967296
+      }
+
+      function rand(scale) {
+        return (nextRandom() * 2 - 1) * scale
+      }
+
+      function architecture() {
+        return [
+          1,
+          ...Array.from({ length: Number(layerInput.value) }, () => Number(hiddenInput.value)),
+          1,
+        ]
+      }
+
+      function resetModel() {
+        initSeed = 0xdecafbad
+        const dims = architecture()
+        model = {
+          weights: [],
+          biases: [],
+        }
+        for (let layer = 1; layer < dims.length; layer++) {
+          const fanIn = dims[layer - 1]
+          model.weights.push(
+            Array.from({ length: dims[layer] }, () =>
+              Array.from({ length: fanIn }, () => rand(Math.sqrt(2 / fanIn))),
+            ),
+          )
+          model.biases.push(Array.from({ length: dims[layer] }, () => rand(0.1)))
+        }
+        step = 0
+      }
+
+      function xForIndex(index) {
+        return (index / (target.length - 1)) * 2 - 1
+      }
+
+      function activate(value) {
+        switch (activationInput.value) {
+          case "relu":
+            return Math.max(0, value)
+          case "sigmoid":
+            return 1 / (1 + Math.exp(-value))
+          default:
+            return Math.tanh(value)
+        }
+      }
+
+      function activationDerivative(value, activated) {
+        switch (activationInput.value) {
+          case "relu":
+            return value > 0 ? 1 : 0
+          case "sigmoid":
+            return activated * (1 - activated)
+          default:
+            return 1 - activated * activated
+        }
+      }
+
+      function forward(x) {
+        const activations = [[x]]
+        const preactivations = []
+        let current = [x]
+        for (let layer = 0; layer < model.weights.length; layer++) {
+          const z = model.weights[layer].map((row, i) =>
+            row.reduce((sum, weight, j) => sum + weight * current[j], model.biases[layer][i]),
+          )
+          const isOutput = layer === model.weights.length - 1
+          current = isOutput ? z : z.map(activate)
+          preactivations.push(z)
+          activations.push(current)
+        }
+        return { x, preactivations, activations, y: current[0] }
+      }
+
+      function gradients(x, yTarget, cache) {
+        const weightGrads = model.weights.map((layer) => layer.map((row) => row.map(() => 0)))
+        const biasGrads = model.biases.map((layer) => layer.map(() => 0))
+        let delta = [cache.y - yTarget]
+        for (let layer = model.weights.length - 1; layer >= 0; layer--) {
+          const prev = cache.activations[layer]
+          for (let i = 0; i < delta.length; i++) {
+            biasGrads[layer][i] = delta[i]
+            for (let j = 0; j < prev.length; j++) weightGrads[layer][i][j] = delta[i] * prev[j]
+          }
+          if (layer > 0) {
+            const nextDelta = Array.from({ length: model.weights[layer][0].length }, (_, j) => {
+              let upstream = 0
+              for (let i = 0; i < delta.length; i++)
+                upstream += model.weights[layer][i][j] * delta[i]
+              return (
+                upstream *
+                activationDerivative(
+                  cache.preactivations[layer - 1][j],
+                  cache.activations[layer][j],
+                )
+              )
+            })
+            delta = nextDelta
+          }
+        }
+        return { weightGrads, biasGrads }
+      }
+
+      function trainSample(index) {
+        const x = xForIndex(index)
+        const cache = forward(x)
+        const grad = gradients(x, target[index], cache)
+        const lr = Number(lrInput.value) / 1000
+        for (let layer = 0; layer < model.weights.length; layer++) {
+          for (let i = 0; i < model.weights[layer].length; i++) {
+            model.biases[layer][i] -= lr * grad.biasGrads[layer][i]
+            for (let j = 0; j < model.weights[layer][i].length; j++) {
+              model.weights[layer][i][j] -= lr * grad.weightGrads[layer][i][j]
+            }
+          }
+        }
+        step++
+      }
+
+      function averageLoss() {
+        let total = 0
+        for (let i = 0; i < target.length; i += 4) {
+          const error = forward(xForIndex(i)).y - target[i]
+          total += error * error
+        }
+        return total / (target.length / 4)
+      }
+
+      function resizeCanvas() {
+        const rect = plot.getBoundingClientRect()
+        const dpr = window.devicePixelRatio || 1
+        plot.width = Math.max(1, Math.floor(rect.width * dpr))
+        plot.height = Math.max(1, Math.floor(rect.height * dpr))
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+        return rect
+      }
+
+      function toPlotX(index, rect) {
+        return 42 + (index / (target.length - 1)) * (rect.width - 84)
+      }
+
+      function toPlotY(value, rect) {
+        return rect.height * 0.52 - value * rect.height * 0.34
+      }
+
+      function drawCurve(rect, values, color, width) {
+        ctx.beginPath()
+        for (let i = 0; i < values.length; i++) {
+          const x = toPlotX(i, rect)
+          const y = toPlotY(values[i], rect)
+          if (i === 0) ctx.moveTo(x, y)
+          else ctx.lineTo(x, y)
+        }
+        ctx.strokeStyle = color
+        ctx.lineWidth = width
+        ctx.stroke()
+      }
+
+      function drawPlot() {
+        const rect = resizeCanvas()
+        ctx.clearRect(0, 0, rect.width, rect.height)
+        ctx.fillStyle = "#10130f"
+        ctx.fillRect(0, 0, rect.width, rect.height)
+        ctx.strokeStyle = "rgba(240, 234, 223, 0.08)"
+        ctx.lineWidth = 1
+        for (let i = 1; i < 6; i++) {
+          const y = (rect.height / 6) * i
+          ctx.beginPath()
+          ctx.moveTo(0, y)
+          ctx.lineTo(rect.width, y)
+          ctx.stroke()
+        }
+        ctx.strokeStyle = "rgba(240, 234, 223, 0.16)"
+        ctx.beginPath()
+        ctx.moveTo(0, toPlotY(0, rect))
+        ctx.lineTo(rect.width, toPlotY(0, rect))
+        ctx.stroke()
+        drawCurve(rect, target, "#e2b86f", 3)
+        drawCurve(
+          rect,
+          target.map((_, i) => forward(xForIndex(i)).y),
+          "#66d7c6",
+          3,
+        )
+        const sx = toPlotX(sampleIndex, rect)
+        const sy = toPlotY(target[sampleIndex], rect)
+        const py = toPlotY(forward(xForIndex(sampleIndex)).y, rect)
+        ctx.strokeStyle = "rgba(240, 234, 223, 0.45)"
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.moveTo(sx, 0)
+        ctx.lineTo(sx, rect.height)
+        ctx.stroke()
+        ctx.fillStyle = "#e2b86f"
+        ctx.beginPath()
+        ctx.arc(sx, sy, 6, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = "#66d7c6"
+        ctx.beginPath()
+        ctx.arc(sx, py, 6, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      function svgEl(name, attrs) {
+        const node = document.createElementNS("http://www.w3.org/2000/svg", name)
+        for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value)
+        return node
+      }
+
+      function colorForActivation(value) {
+        const t = Math.min(1, Math.abs(value))
+        return value >= 0
+          ? `rgba(102, 215, 198, ${0.14 + t * 0.74})`
+          : `rgba(226, 184, 111, ${0.14 + t * 0.74})`
+      }
+
+      function drawNetwork() {
+        const cache = forward(xForIndex(sampleIndex))
+        const horizontalSpan = 468
+        const verticalSpan = 316
+        const layers = cache.activations.map((values, layer) =>
+          values.map((value, i) => ({
+            x: 46 + layer * (horizontalSpan / (cache.activations.length - 1)),
+            y: 52 + i * (verticalSpan / Math.max(1, values.length - 1)),
+            label:
+              layer === 0
+                ? "x"
+                : layer === cache.activations.length - 1
+                  ? "ŷ"
+                  : `h${layer}.${i + 1}`,
+            value,
+          })),
+        )
+        network.replaceChildren()
+        for (let layer = 0; layer < model.weights.length; layer++) {
+          for (let i = 0; i < layers[layer + 1].length; i++) {
+            for (let j = 0; j < layers[layer].length; j++)
+              drawEdge(layers[layer][j], layers[layer + 1][i], model.weights[layer][i][j])
+          }
+        }
+        for (const layer of layers) for (const node of layer) drawNode(node)
+        const targetText = svgEl("text", {
+          x: 506,
+          y: 400,
+          fill: "#9da797",
+          "font-family": "IBM Plex Mono, monospace",
+          "font-size": 12,
+          "text-anchor": "end",
+        })
+        targetText.textContent = `target ${target[sampleIndex].toFixed(2)}`
+        network.append(targetText)
+      }
+
+      function drawEdge(a, b, weight) {
+        const mx = (a.x + b.x) / 2
+        network.append(
+          svgEl("path", {
+            d: `M${a.x} ${a.y} C${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`,
+            fill: "none",
+            stroke: weight >= 0 ? "#66d7c6" : "#e2b86f",
+            "stroke-linecap": "round",
+            "stroke-width": 0.45 + Math.min(Math.abs(weight), 2.4) * 1.45,
+            opacity: 0.1 + Math.min(Math.abs(weight), 2.4) * 0.1,
+          }),
+        )
+      }
+
+      function drawNode(node) {
+        network.append(
+          svgEl("circle", {
+            cx: node.x,
+            cy: node.y,
+            r: 12 + Math.min(1, Math.abs(node.value)) * 6,
+            fill: colorForActivation(node.value),
+            stroke: "rgba(240, 234, 223, 0.45)",
+            "stroke-width": 1.2,
+          }),
+        )
+        const label = svgEl("text", {
+          x: node.x,
+          y: node.y + 4,
+          fill: "#f0eadf",
+          "font-family": "IBM Plex Mono, monospace",
+          "font-size": 9,
+          "text-anchor": "middle",
+        })
+        label.textContent = node.label
+        network.append(label)
+      }
+
+      function setTargetAtEvent(event) {
+        const rect = plot.getBoundingClientRect()
+        const x = Math.max(0, Math.min(1, (event.clientX - rect.left - 42) / (rect.width - 84)))
+        const index = Math.round(x * (target.length - 1))
+        const value = Math.max(
+          -1.2,
+          Math.min(1.2, (rect.height * 0.52 - (event.clientY - rect.top)) / (rect.height * 0.34)),
+        )
+        for (let offset = -3; offset <= 3; offset++) {
+          const j = Math.max(0, Math.min(target.length - 1, index + offset))
+          const blend = 1 - Math.abs(offset) / 4
+          target[j] = target[j] * (1 - blend) + value * blend
+        }
+        sampleIndex = index
+        inspectInput.value = String(index)
+      }
+
+      function selectSample(event) {
+        const rect = plot.getBoundingClientRect()
+        const x = Math.max(0, Math.min(1, (event.clientX - rect.left - 42) / (rect.width - 84)))
+        sampleIndex = Math.round(x * (target.length - 1))
+        inspectInput.value = String(sampleIndex)
+      }
+
+      function updateText() {
+        const x = xForIndex(sampleIndex)
+        const prediction = forward(x).y
+        stepOut.value = String(step)
+        lossOut.value = averageLoss().toFixed(4)
+        sampleOut.value = `x=${x.toFixed(2).padStart(5)} → y=${target[sampleIndex].toFixed(2).padStart(5)} /\nŷ=${prediction.toFixed(2).padStart(5)}`
+        sampleLabel.textContent = `x=${x.toFixed(2)} · ${activationInput.value} · ${layerInput.value} layer${layerInput.value === "1" ? "" : "s"}`
+      }
+
+      function tick(now) {
+        const dt = Math.min(64, now - last)
+        last = now
+        if (!paused) {
+          const rounds = Number(speedInput.value)
+          for (let i = 0; i < rounds; i++) {
+            if (trainOnlyInspectInput.checked) {
+              trainSample(sampleIndex)
+            } else {
+              trainCursor = (trainCursor + 11) % target.length
+              trainSample(trainCursor)
+            }
+          }
+        }
+        drawPlot()
+        drawNetwork()
+        updateText()
+        requestAnimationFrame(tick)
+      }
+
+      plot.addEventListener("pointerdown", (event) => {
+        drawing = true
+        plot.setPointerCapture(event.pointerId)
+        setTargetAtEvent(event)
+      })
+      plot.addEventListener("pointermove", (event) => {
+        if (drawing) setTargetAtEvent(event)
+      })
+      plot.addEventListener("pointerup", () => {
+        drawing = false
+      })
+      plot.addEventListener("click", selectSample)
+      inspectInput.addEventListener("input", () => {
+        sampleIndex = Number(inspectInput.value)
+      })
+      hiddenInput.addEventListener("input", resetModel)
+      layerInput.addEventListener("input", resetModel)
+      activationInput.addEventListener("change", resetModel)
+      pauseButton.addEventListener("click", () => {
+        paused = !paused
+        pauseButton.textContent = paused ? "resume" : "pause"
+      })
+      resetButton.addEventListener("click", resetModel)
+      sineButton.addEventListener("click", () => {
+        for (let i = 0; i < target.length; i++) target[i] = Math.sin((i / 159) * Math.PI * 2) * 0.55
+      })
+      spikeButton.addEventListener("click", () => {
+        for (let i = 0; i < target.length; i++) {
+          const x = xForIndex(i)
+          target[i] = Math.exp(-36 * (x + 0.45) ** 2) * 0.9 - Math.exp(-52 * (x - 0.35) ** 2) * 0.75
+        }
+      })
+      resetModel()
+      requestAnimationFrame(tick)
+    </script>
+  </body>
+</html>

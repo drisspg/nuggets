@@ -159,6 +159,12 @@ article h2 {
   padding-top: 1rem;
 }
 
+article > h2:first-child {
+  border-top: 0;
+  margin-top: 1.35rem;
+  padding-top: 0;
+}
+
 article h3 {
   color: var(--secondary);
   font-family: var(--codeFont);
@@ -330,8 +336,9 @@ iframe.pdf,
 }
 
 .widget-frame {
-  aspect-ratio: 16 / 9;
-  min-height: 420px;
+  aspect-ratio: auto;
+  height: min(78vh, 760px);
+  min-height: 640px;
 }
 
 .interactive-widget {
@@ -448,7 +455,8 @@ footer {
   }
 
   .widget-frame {
-    min-height: 300px;
+    height: 720px;
+    min-height: 720px;
   }
 }
 
