@@ -9,13 +9,19 @@
     <title>All Notes</title>
     <link>https://drisspg.github.io/nuggets/All-Notes</link>
     <guid>https://drisspg.github.io/nuggets/All-Notes</guid>
-    <description>Browse everything published here 2025 FlexAttention Determinism — October 17, 2025 Why Rtol and Atol are set the way they are in pytorch assert_close? — October 13, 2025 2 attentions ...</description>
+    <description>Browse everything published here 2026 ptq Dispatching AI Agents to Fix PyTorch Bugs — March 12, 2026 2025 FlexAttention Determinism — October 17, 2025 Why Rtol and Atol are set the ...</description>
     <pubDate>Sat, 25 Apr 2026 20:21:19 GMT</pubDate>
+  </item><item>
+    <title>ptq: Dispatching AI Agents to Fix PyTorch Bugs</title>
+    <link>https://drisspg.github.io/nuggets/ptq-Dispatching-AI-Agents-to-Fix-PyTorch-Bugs</link>
+    <guid>https://drisspg.github.io/nuggets/ptq-Dispatching-AI-Agents-to-Fix-PyTorch-Bugs</guid>
+    <description>Written: March 12, 2026 Future Driss on April 25, 2026 I gave an internal talk about this and ill probably write a note on this subject. But I categorize AI code work as DFS vs BFS style workflows.</description>
+    <pubDate>Thu, 12 Mar 2026 00:00:00 GMT</pubDate>
   </item><item>
     <title>Welcome</title>
     <link>https://drisspg.github.io/nuggets/</link>
     <guid>https://drisspg.github.io/nuggets/</guid>
-    <description>Recent Notes 2 attentions is all you need Microbenchmarks from Macrobenchmarks A Small PyTorch Benchmarking Trap FlexAttention Determinism Why Rtol and Atol are set the way they ...</description>
+    <description>Recent Notes ptq Dispatching AI Agents to Fix PyTorch Bugs QLoRA in Pure PyTorch 2 attentions is all you need Microbenchmarks from Macrobenchmarks A Small PyTorch Benchmarking Trap ...</description>
     <pubDate>Sun, 26 Oct 2025 17:35:08 GMT</pubDate>
   </item><item>
     <title>FlexAttention Determinism</title>
@@ -46,6 +52,12 @@
     <link>https://drisspg.github.io/nuggets/Microbenchmarks-from-Macrobenchmarks</link>
     <guid>https://drisspg.github.io/nuggets/Microbenchmarks-from-Macrobenchmarks</guid>
     <description>Written: August 11, 2024 TLDR: Efficiently find real world operator inputs using a __torch_dispatch__ mode to log inputs found in torchbench for arbritrary ops Motivation torch.nn.functional.scaled_dot_product_attention ...</description>
+    <pubDate>Sun, 11 Aug 2024 00:00:00 GMT</pubDate>
+  </item><item>
+    <title>QLoRA in Pure PyTorch</title>
+    <link>https://drisspg.github.io/nuggets/QLoRA-in-Pure-PyTorch</link>
+    <guid>https://drisspg.github.io/nuggets/QLoRA-in-Pure-PyTorch</guid>
+    <description>Written: August 11, 2024 TLDR: I implemented the main memory savings component of the QLoRA paper in pure PyTorch and by using torch.compile I was able to see ~2x performance increase ...</description>
     <pubDate>Sun, 11 Aug 2024 00:00:00 GMT</pubDate>
   </item>
     </channel>

@@ -5,16 +5,14 @@ date: 2025-10-01
 
 #### Written: October 1, 2025
 
-
 #### Update from April 25, 2026
 
-
-Its funny how seemingly stale this doc is so quickly after writing. We have landed FA3 and FA4 support to sdpa (although you kinda need to know where to look), we host official FA3 wheels that are ABI stable. Landed the varlen API and it is now the default in torchtitan for all things where flex isn't needed. We fully landed a new FA4 backend for Flex on blackwell and hopper. AND YET, this feels arcane. Linear Attention is all the rage. DSv4 Dropped this past week and it has its own sparse impls that need alot of helpers (lightning indexers) that arent shipped as part of pytorch. I want flex-linear attention more than anyone else. Although life has gotten away from me and I havent found the time to really figure out how feasible this is. That beings said, I am reading papers :). Pytorch is big and beautiful and that means it can move slower than we like at times. It is the age of infra work, where it can be hard to find ways to empower your users and not compete against them. Suffice it so say striking a balance between innovation and stability is hard but we toil on regardless. 
-
+Its funny how seemingly stale this doc is so quickly after writing. We have landed FA3 and FA4 support to sdpa (although you kinda need to know where to look), we host official FA3 wheels that are ABI stable. Landed the varlen API and it is now the default in torchtitan for all things where flex isn't needed. We fully landed a new FA4 backend for Flex on blackwell and hopper. AND YET, this feels arcane. Linear Attention is all the rage. DSv4 Dropped this past week and it has its own sparse impls that need alot of helpers (lightning indexers) that arent shipped as part of pytorch. I want flex-linear attention more than anyone else. Although life has gotten away from me and I havent found the time to really figure out how feasible this is. That beings said, I am reading papers :). Pytorch is big and beautiful and that means it can move slower than we like at times. It is the age of infra work, where it can be hard to find ways to empower your users and not compete against them. Suffice it so say striking a balance between innovation and stability is hard but we toil on regardless.
 
 ### OG Note
 
 I will assume you know what FlashAttention is and why you should want your GPU implementation to utilize this optimization. With that said, you have your PyTorch modeling code setup and ready to go and now you want to figure out how to actually call this op. You have a few choices. I will start w/ the PyTorch "Native" solutions. This means that you won't need to run any other pip install commands besides what's listed https://pytorch.org/get-started/locally/.
+
 ### Choices
 
 1. [F.scaled_dot_product_attention](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html#torch.nn.functional.scaled_dot_product_attention)

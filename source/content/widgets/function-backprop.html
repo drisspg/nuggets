@@ -100,8 +100,8 @@
       .windows {
         display: grid;
         gap: 1rem;
-        grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
-        min-height: 360px;
+        grid-template-rows: minmax(320px, 1.1fr) minmax(220px, 0.9fr);
+        min-height: 0;
       }
 
       .window {
@@ -109,7 +109,7 @@
         border: 1px solid var(--rule);
         display: grid;
         grid-template-rows: auto minmax(0, 1fr);
-        min-height: 340px;
+        min-height: 0;
         overflow: hidden;
       }
 
@@ -300,8 +300,7 @@
       }
 
       @media (max-width: 980px) {
-        main,
-        .windows {
+        main {
           grid-template-columns: 1fr;
         }
 
@@ -368,7 +367,7 @@
             activation
             <select id="activation">
               <option value="tanh">tanh</option>
-              <option value="relu">relu</option>
+              <option value="relu" selected>relu</option>
               <option value="sigmoid">sigmoid</option>
             </select>
           </label>
@@ -381,14 +380,22 @@
             <input id="hiddenCount" type="range" min="4" max="64" value="24" />
           </label>
           <label>
-            learning rate
-            <input id="lr" type="range" min="1" max="70" value="16" />
+            learning rate <output id="lrOut">0.0010</output>
+            <input id="lr" type="range" min="-5" max="-1" step="0.05" value="-3" />
           </label>
           <label>
             optimizer
             <select id="optimizer">
               <option value="sgd">sgd</option>
               <option value="adam">adam</option>
+            </select>
+          </label>
+          <label>
+            loss
+            <select id="loss">
+              <option value="mse">mse</option>
+              <option value="l1">l1</option>
+              <option value="huber">huber</option>
             </select>
           </label>
           <div class="button-grid">
@@ -424,7 +431,9 @@
       const layerInput = document.querySelector("#layerCount")
       const hiddenInput = document.querySelector("#hiddenCount")
       const lrInput = document.querySelector("#lr")
+      const lrOut = document.querySelector("#lrOut")
       const optimizerInput = document.querySelector("#optimizer")
+      const lossInput = document.querySelector("#loss")
       const pauseButton = document.querySelector("#pause")
       const resetButton = document.querySelector("#reset")
       const smileButton = document.querySelector("#smile")
@@ -443,6 +452,15 @@
       let paused = false
       let drawing = false
       let initSeed = 0
+      let lastLossText = "0.0000"
+      let lastLossUpdate = 0
+      let lastNetworkDraw = 0
+      let gpuPredictionBackend = null
+      let gpuPredictionUnavailable = false
+      let gpuPredictionPending = false
+      let gpuPredictionReady = false
+      let gpuPredictionLastDispatch = 0
+      const gpuPredictionValues = new Float32Array(target.length)
 
       function nextRandom() {
         initSeed = (1664525 * initSeed + 1013904223) >>> 0
@@ -486,6 +504,31 @@
           model.biasM2.push(Array.from({ length: dims[layer] }, () => 0))
         }
         step = 0
+        trainCursor = 0
+        lastLossText = "0.0000"
+        lastLossUpdate = 0
+        lastNetworkDraw = 0
+        gpuPredictionReady = false
+      }
+
+      function resetTrainingState() {
+        step = 0
+        trainCursor = 0
+        lastLossText = "0.0000"
+        lastLossUpdate = 0
+        lastNetworkDraw = 0
+        gpuPredictionReady = false
+        if (!model) return
+        for (let layer = 0; layer < model.weights.length; layer++) {
+          for (let i = 0; i < model.weights[layer].length; i++) {
+            model.biasM1[layer][i] = 0
+            model.biasM2[layer][i] = 0
+            for (let j = 0; j < model.weights[layer][i].length; j++) {
+              model.weightM1[layer][i][j] = 0
+              model.weightM2[layer][i][j] = 0
+            }
+          }
+        }
       }
 
       function indexForCell(x, y) {
@@ -506,8 +549,8 @@
         target[indexForCell(x, y)] = Math.max(-1, Math.min(1, value))
       }
 
-      function activate(value) {
-        switch (activationInput.value) {
+      function activate(value, activationName) {
+        switch (activationName) {
           case "relu":
             return Math.max(0, value)
           case "sigmoid":
@@ -517,8 +560,8 @@
         }
       }
 
-      function activationDerivative(value, activated) {
-        switch (activationInput.value) {
+      function activationDerivative(value, activated, activationName) {
+        switch (activationName) {
           case "relu":
             return value > 0 ? 1 : 0
           case "sigmoid":
@@ -528,74 +571,112 @@
         }
       }
 
-      function forward(x, y) {
+      function forward(x, y, activationName = activationInput.value) {
         const activations = [[x, y]]
         const preactivations = []
         let current = [x, y]
         for (let layer = 0; layer < model.weights.length; layer++) {
-          const z = model.weights[layer].map((row, i) =>
-            row.reduce((sum, weight, j) => sum + weight * current[j], model.biases[layer][i]),
-          )
+          const weights = model.weights[layer]
+          const biases = model.biases[layer]
+          const z = new Array(weights.length)
+          for (let i = 0; i < weights.length; i++) {
+            let value = biases[i]
+            for (let j = 0; j < weights[i].length; j++) value += weights[i][j] * current[j]
+            z[i] = value
+          }
           const isOutput = layer === model.weights.length - 1
-          current = isOutput ? z : z.map(activate)
+          if (isOutput) {
+            current = z
+          } else {
+            current = new Array(z.length)
+            for (let i = 0; i < z.length; i++) current[i] = activate(z[i], activationName)
+          }
           preactivations.push(z)
           activations.push(current)
         }
         return { x, y, preactivations, activations, value: Math.tanh(current[0]) }
       }
 
-      function gradients(x, y, yTarget, cache) {
-        const weightGrads = model.weights.map((layer) => layer.map((row) => row.map(() => 0)))
-        const biasGrads = model.biases.map((layer) => layer.map(() => 0))
-        let delta = [(cache.value - yTarget) * (1 - cache.value * cache.value)]
-        for (let layer = model.weights.length - 1; layer >= 0; layer--) {
-          const prev = cache.activations[layer]
-          for (let i = 0; i < delta.length; i++) {
-            biasGrads[layer][i] = delta[i]
-            for (let j = 0; j < prev.length; j++) weightGrads[layer][i][j] = delta[i] * prev[j]
-          }
-          if (layer > 0) {
-            const nextDelta = Array.from({ length: model.weights[layer][0].length }, (_, j) => {
-              let upstream = 0
-              for (let i = 0; i < delta.length; i++)
-                upstream += model.weights[layer][i][j] * delta[i]
-              return (
-                upstream *
-                activationDerivative(
-                  cache.preactivations[layer - 1][j],
-                  cache.activations[layer][j],
-                )
-              )
-            })
-            delta = nextDelta
-          }
+      function lossDerivative(prediction, yTarget, lossName) {
+        const error = prediction - yTarget
+        switch (lossName) {
+          case "l1":
+            return Math.sign(error)
+          case "huber":
+            return Math.abs(error) <= 0.25 ? error : 0.25 * Math.sign(error)
+          default:
+            return error
         }
-        return { weightGrads, biasGrads }
       }
 
-      function trainSample(index) {
+      function lossValue(prediction, yTarget, lossName = lossInput.value) {
+        const error = prediction - yTarget
+        switch (lossName) {
+          case "l1":
+            return Math.abs(error)
+          case "huber":
+            return Math.abs(error) <= 0.25 ? 0.5 * error * error : 0.25 * (Math.abs(error) - 0.125)
+          default:
+            return 0.5 * error * error
+        }
+      }
+
+      function zeroGradients() {
+        return {
+          weights: model.weights.map((layer) => layer.map((row) => row.map(() => 0))),
+          biases: model.biases.map((layer) => layer.map(() => 0)),
+        }
+      }
+
+      function addSampleGradients(index, settings, grads) {
         const [x, y] = coordsForIndex(index)
-        const cache = forward(x, y)
-        const grad = gradients(x, y, target[index], cache)
-        if (optimizerInput.value === "adam") updateAdam(grad)
-        else updateSgd(grad)
+        const cache = forward(x, y, settings.activationName)
+        let delta = [lossDerivative(cache.value, target[index], settings.lossName) * (1 - cache.value * cache.value)]
+        for (let layer = model.weights.length - 1; layer >= 0; layer--) {
+          const weights = model.weights[layer]
+          const nextDelta = layer > 0 ? new Array(weights[0].length) : null
+          if (nextDelta) {
+            for (let j = 0; j < nextDelta.length; j++) {
+              let upstream = 0
+              for (let i = 0; i < delta.length; i++) upstream += weights[i][j] * delta[i]
+              nextDelta[j] =
+                upstream *
+                activationDerivative(cache.preactivations[layer - 1][j], cache.activations[layer][j], settings.activationName)
+            }
+          }
+          const prev = cache.activations[layer]
+          for (let i = 0; i < delta.length; i++) {
+            grads.biases[layer][i] += delta[i]
+            for (let j = 0; j < prev.length; j++) grads.weights[layer][i][j] += delta[i] * prev[j]
+          }
+          delta = nextDelta
+        }
+      }
+
+      function trainBatch(settings) {
+        const grads = zeroGradients()
+        const batchSize = trainOnlyInspectInput.checked ? 1 : 32
+        for (let i = 0; i < batchSize; i++) {
+          if (trainOnlyInspectInput.checked) {
+            addSampleGradients(indexForCell(sampleX, sampleY), settings, grads)
+          } else {
+            trainCursor = (trainCursor + 37) % target.length
+            addSampleGradients(trainCursor, settings, grads)
+          }
+        }
+        updateBatch(grads, batchSize, settings)
         step++
       }
 
-      function updateSgd(grad) {
-        const lr = Number(lrInput.value) / 1000
-        for (let layer = 0; layer < model.weights.length; layer++) {
-          for (let i = 0; i < model.weights[layer].length; i++) {
-            model.biases[layer][i] -= lr * grad.biasGrads[layer][i]
-            for (let j = 0; j < model.weights[layer][i].length; j++) {
-              model.weights[layer][i][j] -= lr * grad.weightGrads[layer][i][j]
-            }
-          }
-        }
+      function learningRate() {
+        return 10 ** Number(lrInput.value)
       }
 
-      function updateAdam(grad) {
-        const lr = Number(lrInput.value) / 1000
+      function updateLearningRateText() {
+        lrOut.value = learningRate().toExponential(1)
+      }
+
+      function updateBatch(grads, batchSize, settings) {
         const beta1 = 0.9
         const beta2 = 0.999
         const t = step + 1
@@ -603,34 +684,226 @@
         const correction2 = 1 - beta2 ** t
         for (let layer = 0; layer < model.weights.length; layer++) {
           for (let i = 0; i < model.weights[layer].length; i++) {
-            const biasGrad = grad.biasGrads[layer][i]
-            model.biasM1[layer][i] = beta1 * model.biasM1[layer][i] + (1 - beta1) * biasGrad
-            model.biasM2[layer][i] = beta2 * model.biasM2[layer][i] + (1 - beta2) * biasGrad * biasGrad
-            model.biases[layer][i] -=
-              (lr * model.biasM1[layer][i]) / correction1 / (Math.sqrt(model.biasM2[layer][i] / correction2) + 1e-8)
-            for (let j = 0; j < model.weights[layer][i].length; j++) {
-              const weightGrad = grad.weightGrads[layer][i][j]
-              model.weightM1[layer][i][j] = beta1 * model.weightM1[layer][i][j] + (1 - beta1) * weightGrad
-              model.weightM2[layer][i][j] = beta2 * model.weightM2[layer][i][j] + (1 - beta2) * weightGrad * weightGrad
-              model.weights[layer][i][j] -=
-                (lr * model.weightM1[layer][i][j]) /
+            const biasGrad = grads.biases[layer][i] / batchSize
+            if (settings.optimizerName === "adam") {
+              model.biasM1[layer][i] = beta1 * model.biasM1[layer][i] + (1 - beta1) * biasGrad
+              model.biasM2[layer][i] = beta2 * model.biasM2[layer][i] + (1 - beta2) * biasGrad * biasGrad
+              model.biases[layer][i] -=
+                (settings.lr * model.biasM1[layer][i]) /
                 correction1 /
-                (Math.sqrt(model.weightM2[layer][i][j] / correction2) + 1e-8)
+                (Math.sqrt(model.biasM2[layer][i] / correction2) + 1e-8)
+            } else {
+              model.biases[layer][i] -= settings.lr * biasGrad
+            }
+            for (let j = 0; j < model.weights[layer][i].length; j++) {
+              const weightGrad = grads.weights[layer][i][j] / batchSize
+              if (settings.optimizerName === "adam") {
+                model.weightM1[layer][i][j] = beta1 * model.weightM1[layer][i][j] + (1 - beta1) * weightGrad
+                model.weightM2[layer][i][j] = beta2 * model.weightM2[layer][i][j] + (1 - beta2) * weightGrad * weightGrad
+                model.weights[layer][i][j] -=
+                  (settings.lr * model.weightM1[layer][i][j]) /
+                  correction1 /
+                  (Math.sqrt(model.weightM2[layer][i][j] / correction2) + 1e-8)
+              } else {
+                model.weights[layer][i][j] -= settings.lr * weightGrad
+              }
             }
           }
         }
       }
 
-      function averageLoss() {
+      function averageLoss(activationName = activationInput.value, lossName = lossInput.value) {
         let total = 0
         let count = 0
         for (let i = 0; i < target.length; i += 5) {
           const [x, y] = coordsForIndex(i)
-          const error = forward(x, y).value - target[i]
-          total += error * error
+          total += lossValue(forward(x, y, activationName).value, target[i], lossName)
           count++
         }
         return total / count
+      }
+
+      function activationCode(activationName) {
+        switch (activationName) {
+          case "relu":
+            return 1
+          case "sigmoid":
+            return 2
+          default:
+            return 0
+        }
+      }
+
+      async function ensureGpuPredictionBackend() {
+        if (gpuPredictionBackend || gpuPredictionUnavailable) return gpuPredictionBackend
+        if (!("gpu" in navigator)) {
+          gpuPredictionUnavailable = true
+          return null
+        }
+        try {
+          const adapter = await navigator.gpu.requestAdapter()
+          if (!adapter) {
+            gpuPredictionUnavailable = true
+            return null
+          }
+          const device = await adapter.requestDevice()
+          const shader = device.createShaderModule({
+            code: `
+              struct Params {
+                layerCount: u32,
+                hiddenCount: u32,
+                activation: u32,
+                pad: u32,
+              }
+
+              @group(0) @binding(0) var<storage, read> weights: array<f32>;
+              @group(0) @binding(1) var<storage, read> biases: array<f32>;
+              @group(0) @binding(2) var<storage, read_write> predictions: array<f32>;
+              @group(0) @binding(3) var<uniform> params: Params;
+
+              fn applyActivation(value: f32) -> f32 {
+                if (params.activation == 1u) {
+                  return max(0.0, value);
+                }
+                if (params.activation == 2u) {
+                  return 1.0 / (1.0 + exp(-value));
+                }
+                return tanh(value);
+              }
+
+              @compute @workgroup_size(64)
+              fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+                let index = id.x;
+                if (index >= 2304u) {
+                  return;
+                }
+                let px = index % 48u;
+                let py = index / 48u;
+                var current: array<f32, 64>;
+                var next: array<f32, 64>;
+                current[0] = (f32(px) / 47.0) * 2.0 - 1.0;
+                current[1] = (f32(py) / 47.0) * 2.0 - 1.0;
+                var inputSize = 2u;
+                var weightOffset = 0u;
+                var biasOffset = 0u;
+                for (var layer = 0u; layer < params.layerCount; layer = layer + 1u) {
+                  let isOutput = layer == params.layerCount - 1u;
+                  let outputSize = select(params.hiddenCount, 1u, isOutput);
+                  for (var i = 0u; i < outputSize; i = i + 1u) {
+                    var value = biases[biasOffset + i];
+                    for (var j = 0u; j < inputSize; j = j + 1u) {
+                      value = value + weights[weightOffset + i * inputSize + j] * current[j];
+                    }
+                    next[i] = select(applyActivation(value), value, isOutput);
+                  }
+                  weightOffset = weightOffset + inputSize * outputSize;
+                  biasOffset = biasOffset + outputSize;
+                  inputSize = outputSize;
+                  for (var i = 0u; i < outputSize; i = i + 1u) {
+                    current[i] = next[i];
+                  }
+                }
+                predictions[index] = tanh(current[0]);
+              }
+            `,
+          })
+          gpuPredictionBackend = {
+            device,
+            pipeline: await device.createComputePipelineAsync({
+              layout: "auto",
+              compute: { module: shader, entryPoint: "main" },
+            }),
+          }
+          return gpuPredictionBackend
+        } catch {
+          gpuPredictionUnavailable = true
+          return null
+        }
+      }
+
+      function packedModelBuffers() {
+        const weights = []
+        const biases = []
+        for (let layer = 0; layer < model.weights.length; layer++) {
+          for (let i = 0; i < model.weights[layer].length; i++) {
+            biases.push(model.biases[layer][i])
+            for (let j = 0; j < model.weights[layer][i].length; j++) weights.push(model.weights[layer][i][j])
+          }
+        }
+        return {
+          weights: new Float32Array(weights),
+          biases: new Float32Array(biases),
+        }
+      }
+
+      function gpuBufferFromData(device, data, usage) {
+        const buffer = device.createBuffer({
+          size: Math.max(4, data.byteLength),
+          usage: usage | GPUBufferUsage.COPY_DST,
+        })
+        device.queue.writeBuffer(buffer, 0, data)
+        return buffer
+      }
+
+      function updateGpuPredictions(activationName, now) {
+        if (gpuPredictionUnavailable || gpuPredictionPending || now - gpuPredictionLastDispatch < 100) return
+        gpuPredictionPending = true
+        gpuPredictionLastDispatch = now
+        dispatchGpuPredictions(activationName)
+          .catch(() => {
+            gpuPredictionUnavailable = true
+          })
+          .finally(() => {
+            gpuPredictionPending = false
+          })
+      }
+
+      async function dispatchGpuPredictions(activationName) {
+        const backend = await ensureGpuPredictionBackend()
+        if (!backend) return
+        const { device, pipeline } = backend
+        const packed = packedModelBuffers()
+        const weightsBuffer = gpuBufferFromData(device, packed.weights, GPUBufferUsage.STORAGE)
+        const biasesBuffer = gpuBufferFromData(device, packed.biases, GPUBufferUsage.STORAGE)
+        const outputBuffer = device.createBuffer({
+          size: gpuPredictionValues.byteLength,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+        })
+        const readbackBuffer = device.createBuffer({
+          size: gpuPredictionValues.byteLength,
+          usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        })
+        const paramsBuffer = gpuBufferFromData(
+          device,
+          new Uint32Array([model.weights.length, Number(hiddenInput.value), activationCode(activationName), 0]),
+          GPUBufferUsage.UNIFORM,
+        )
+        const bindGroup = device.createBindGroup({
+          layout: pipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: weightsBuffer } },
+            { binding: 1, resource: { buffer: biasesBuffer } },
+            { binding: 2, resource: { buffer: outputBuffer } },
+            { binding: 3, resource: { buffer: paramsBuffer } },
+          ],
+        })
+        const encoder = device.createCommandEncoder()
+        const pass = encoder.beginComputePass()
+        pass.setPipeline(pipeline)
+        pass.setBindGroup(0, bindGroup)
+        pass.dispatchWorkgroups(Math.ceil(target.length / 64))
+        pass.end()
+        encoder.copyBufferToBuffer(outputBuffer, 0, readbackBuffer, 0, gpuPredictionValues.byteLength)
+        device.queue.submit([encoder.finish()])
+        await readbackBuffer.mapAsync(GPUMapMode.READ)
+        gpuPredictionValues.set(new Float32Array(readbackBuffer.getMappedRange()).subarray(0, target.length))
+        gpuPredictionReady = true
+        readbackBuffer.unmap()
+        weightsBuffer.destroy()
+        biasesBuffer.destroy()
+        outputBuffer.destroy()
+        readbackBuffer.destroy()
+        paramsBuffer.destroy()
       }
 
       function resizeCanvas() {
@@ -695,14 +968,18 @@
         ctx.stroke()
       }
 
-      function drawPlot() {
+      function drawPlot(now) {
         const rect = resizeCanvas()
         const [targetPanel, predictionPanel] = panels(rect)
+        const activationName = activationInput.value
+        updateGpuPredictions(activationName, now)
         ctx.clearRect(0, 0, rect.width, rect.height)
         ctx.fillStyle = "#10130f"
         ctx.fillRect(0, 0, rect.width, rect.height)
         drawImagePanel(targetPanel, (x, y) => target[indexForCell(x, y)])
-        drawImagePanel(predictionPanel, (x, y) => forward(coordForCell(x), coordForCell(y)).value)
+        drawImagePanel(predictionPanel, (x, y) =>
+          gpuPredictionReady ? gpuPredictionValues[indexForCell(x, y)] : forward(coordForCell(x), coordForCell(y), activationName).value,
+        )
         drawCursor(targetPanel)
         drawCursor(predictionPanel)
       }
@@ -721,7 +998,7 @@
       }
 
       function drawNetwork() {
-        const cache = forward(coordForCell(sampleX), coordForCell(sampleY))
+        const cache = forward(coordForCell(sampleX), coordForCell(sampleY), activationInput.value)
         const horizontalSpan = 468
         const verticalSpan = 316
         const layers = cache.activations.map((values, layer) =>
@@ -811,12 +1088,17 @@
         return {
           x: Math.max(0, Math.min(gridSize - 1, Math.floor(((eventX - panel.x) / panel.size) * gridSize))),
           y: Math.max(0, Math.min(gridSize - 1, Math.floor(((eventY - panel.y) / panel.size) * gridSize))),
+          panel: panel.title,
         }
       }
 
       function setTargetAtEvent(event) {
         const cell = eventCell(event)
-        if (!cell) return
+        if (!cell) return false
+        if (cell.panel !== "target") {
+          setSample(cell.x, cell.y)
+          return false
+        }
         for (let dy = -3; dy <= 3; dy++) {
           for (let dx = -3; dx <= 3; dx++) {
             const x = Math.max(0, Math.min(gridSize - 1, cell.x + dx))
@@ -828,6 +1110,7 @@
           }
         }
         setSample(cell.x, cell.y)
+        return true
       }
 
       function selectSample(event) {
@@ -842,38 +1125,48 @@
         inspectYInput.value = String(y)
       }
 
-      function updateText() {
+      function updateText(now) {
         const x = coordForCell(sampleX)
         const y = coordForCell(sampleY)
-        const prediction = forward(x, y).value
+        const activationName = activationInput.value
+        const prediction = forward(x, y, activationName).value
         const targetValue = target[indexForCell(sampleX, sampleY)]
+        if (now - lastLossUpdate > 250) {
+          lastLossText = averageLoss(activationName, lossInput.value).toFixed(4)
+          lastLossUpdate = now
+        }
         stepOut.value = String(step)
-        lossOut.value = averageLoss().toFixed(4)
+        lossOut.value = lastLossText
         sampleOut.value = `x=${x.toFixed(2).padStart(5)} y=${y.toFixed(2).padStart(5)}\nt=${targetValue.toFixed(2).padStart(5)} / px=${prediction.toFixed(2).padStart(5)}`
-        sampleLabel.textContent = `(${x.toFixed(2)}, ${y.toFixed(2)}) · ${activationInput.value} · ${layerInput.value} layer${layerInput.value === "1" ? "" : "s"}`
+        sampleLabel.textContent = `(${x.toFixed(2)}, ${y.toFixed(2)}) · ${activationName} · ${layerInput.value} layer${layerInput.value === "1" ? "" : "s"}`
+        updateLearningRateText()
       }
 
-      function trainNextSample() {
-        if (trainOnlyInspectInput.checked) {
-          trainSample(indexForCell(sampleX, sampleY))
-        } else {
-          trainCursor = (trainCursor + 37) % target.length
-          trainSample(trainCursor)
+      function trainingSettings() {
+        return {
+          activationName: activationInput.value,
+          lossName: lossInput.value,
+          lr: learningRate(),
+          optimizerName: optimizerInput.value,
         }
       }
 
       function trainUntilNextFrame(now) {
         const deadline = now + 10
+        const settings = trainingSettings()
         do {
-          for (let i = 0; i < 16; i++) trainNextSample()
+          for (let i = 0; i < 4; i++) trainBatch(settings)
         } while (performance.now() < deadline)
       }
 
       function tick(now) {
         if (!paused) trainUntilNextFrame(now)
-        drawPlot()
-        drawNetwork()
-        updateText()
+        drawPlot(now)
+        if (now - lastNetworkDraw > 100) {
+          drawNetwork()
+          lastNetworkDraw = now
+        }
+        updateText(now)
         requestAnimationFrame(tick)
       }
 
@@ -929,16 +1222,15 @@
               setTargetCell(x, y, (luminance * alpha) * 2 - 1)
             }
           }
-          step = 0
+          resetTrainingState()
           URL.revokeObjectURL(url)
         })
         image.src = url
       }
 
       plot.addEventListener("pointerdown", (event) => {
-        drawing = true
-        plot.setPointerCapture(event.pointerId)
-        setTargetAtEvent(event)
+        drawing = setTargetAtEvent(event)
+        if (drawing) plot.setPointerCapture(event.pointerId)
       })
       plot.addEventListener("pointermove", (event) => {
         if (drawing) setTargetAtEvent(event)
@@ -964,14 +1256,24 @@
       layerInput.addEventListener("input", resetModel)
       activationInput.addEventListener("change", resetModel)
       optimizerInput.addEventListener("change", resetModel)
+      lossInput.addEventListener("change", resetTrainingState)
       pauseButton.addEventListener("click", () => {
         paused = !paused
         pauseButton.textContent = paused ? "resume" : "pause"
       })
       resetButton.addEventListener("click", resetModel)
-      smileButton.addEventListener("click", smileTarget)
-      ringsButton.addEventListener("click", ringsTarget)
-      swirlButton.addEventListener("click", swirlTarget)
+      smileButton.addEventListener("click", () => {
+        smileTarget()
+        resetTrainingState()
+      })
+      ringsButton.addEventListener("click", () => {
+        ringsTarget()
+        resetTrainingState()
+      })
+      swirlButton.addEventListener("click", () => {
+        swirlTarget()
+        resetTrainingState()
+      })
       imageButton.addEventListener("click", () => {
         imageFileInput.click()
       })

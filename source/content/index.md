@@ -6,6 +6,8 @@ layout: landing
 
 ## Recent Notes
 
+- [[ptq Dispatching AI Agents to Fix PyTorch Bugs]]
+- [[QLoRA in Pure PyTorch]]
 - [[2 attentions is all you need]]
 - [[Microbenchmarks from Macrobenchmarks]]
 - [[A Small PyTorch Benchmarking Trap]]

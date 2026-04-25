@@ -1,4 +1,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml"><url>
+    <loc>https://drisspg.github.io/nuggets/2-attentions-is-all-you-need</loc>
+    <lastmod>2025-10-01T00:00:00.000Z</lastmod>
+  </url><url>
     <loc>https://drisspg.github.io/nuggets/A-Small-PyTorch-Benchmarking-Trap</loc>
     <lastmod>2024-08-11T00:00:00.000Z</lastmod>
   </url><url>
@@ -8,15 +11,18 @@
     <loc>https://drisspg.github.io/nuggets/FlexAttention-Determinism</loc>
     <lastmod>2025-10-17T00:00:00.000Z</lastmod>
   </url><url>
+    <loc>https://drisspg.github.io/nuggets/Microbenchmarks-from-Macrobenchmarks</loc>
+    <lastmod>2024-08-11T00:00:00.000Z</lastmod>
+  </url><url>
+    <loc>https://drisspg.github.io/nuggets/QLoRA-in-Pure-PyTorch</loc>
+    <lastmod>2024-08-11T00:00:00.000Z</lastmod>
+  </url><url>
     <loc>https://drisspg.github.io/nuggets/Why-Rtol-and-Atol-are-set-the-way-they-are-in-pytorch-assert_close</loc>
     <lastmod>2025-10-13T00:00:00.000Z</lastmod>
   </url><url>
     <loc>https://drisspg.github.io/nuggets/</loc>
     <lastmod>2025-10-26T17:35:08.684Z</lastmod>
   </url><url>
-    <loc>https://drisspg.github.io/nuggets/2-attentions-is-all-you-need</loc>
-    <lastmod>2025-10-01T00:00:00.000Z</lastmod>
-  </url><url>
-    <loc>https://drisspg.github.io/nuggets/Microbenchmarks-from-Macrobenchmarks</loc>
-    <lastmod>2024-08-11T00:00:00.000Z</lastmod>
+    <loc>https://drisspg.github.io/nuggets/ptq-Dispatching-AI-Agents-to-Fix-PyTorch-Bugs</loc>
+    <lastmod>2026-03-12T00:00:00.000Z</lastmod>
   </url></urlset>

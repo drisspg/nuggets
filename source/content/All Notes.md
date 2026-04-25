@@ -4,6 +4,10 @@ title: All Notes
 
 #### Browse everything published here
 
+## 2026
+
+- [[ptq Dispatching AI Agents to Fix PyTorch Bugs]] — March 12, 2026
+
 ## 2025
 
 - [[FlexAttention Determinism]] — October 17, 2025
@@ -12,5 +16,6 @@ title: All Notes
 
 ## 2024
 
+- [[QLoRA in Pure PyTorch]] — August 11, 2024
 - [[Microbenchmarks from Macrobenchmarks]] — August 11, 2024
 - [[A Small PyTorch Benchmarking Trap]] — August 11, 2024

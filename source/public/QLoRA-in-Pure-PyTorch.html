@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en"><head><title>QLoRA in Pure PyTorch</title><meta charset="utf-8"/><link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com"/><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM Plex Mono&amp;family=Newsreader:wght@400;700&amp;family=IBM Plex Sans:ital,wght@0,400;0,600;1,400;1,600&amp;display=swap"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta property="og:title" content="QLoRA in Pure PyTorch"/><meta property="og:description" content="Written: August 11, 2024 TLDR: I implemented the main memory savings component of the QLoRA paper in pure PyTorch and by using torch.compile I was able to see ~2x performance increase ..."/><meta property="og:image" content="https://drisspg.github.io/nuggets/static/og-image.png"/><meta property="og:width" content="1200"/><meta property="og:height" content="675"/><link rel="icon" href="./static/icon.png"/><meta name="description" content="Written: August 11, 2024 TLDR: I implemented the main memory savings component of the QLoRA paper in pure PyTorch and by using torch.compile I was able to see ~2x performance increase ..."/><link href="./index.css" rel="stylesheet" type="text/css" spa-preserve/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" rel="stylesheet" type="text/css" spa-preserve/><script src="./prescript.js" type="application/javascript" spa-preserve></script><script type="application/javascript" spa-preserve>const fetchData = fetch("./static/contentIndex.json").then(data => data.json())</script></head><body data-slug="QLoRA-in-Pure-PyTorch"><div id="quartz-root" class="page"><div id="quartz-body"><div class="left sidebar"></div><div class="center"><div class="page-header"><header><nav class="publication-nav" aria-label="Publication"><a class="publication-mark" href="."><span>Nuggets</span><img src="./static/icon.png" alt aria-hidden="true"/></a><div class="publication-links"><a class="publication-link-pill" href=".">Home</a><a class="publication-link-pill publication-link-featured" href="./All-Notes">All Notes</a><a href="https://github.com/drisspg/nuggets">Source</a><a href="https://github.com/drisspg">GitHub</a><a href="https://x.com/drisspg">Twitter</a></div></nav><div class="search"><button class="search-button" id="search-button"><p>Search</p><svg role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 19.9 19.7"><title>Search</title><g class="search-path" fill="none"><path stroke-linecap="square" d="M18.5 18.3l-5.4-5.4"></path><circle cx="8" cy="8" r="7"></circle></g></svg></button><div id="search-container"><div id="search-space"><input autocomplete="off" id="search-bar" name="search" type="text" aria-label="Search for something" placeholder="Search for something"/><div id="search-layout" data-preview="true"></div></div></div></div><button class="darkmode" id="darkmode"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="dayIcon" x="0px" y="0px" viewBox="0 0 35 35" style="enable-background:new 0 0 35 35" xml:space="preserve" aria-label="Dark mode"><title>Dark mode</title><path d="M6,17.5C6,16.672,5.328,16,4.5,16h-3C0.672,16,0,16.672,0,17.5    S0.672,19,1.5,19h3C5.328,19,6,18.328,6,17.5z M7.5,26c-0.414,0-0.789,0.168-1.061,0.439l-2,2C4.168,28.711,4,29.086,4,29.5    C4,30.328,4.671,31,5.5,31c0.414,0,0.789-0.168,1.06-0.44l2-2C8.832,28.289,9,27.914,9,27.5C9,26.672,8.329,26,7.5,26z M17.5,6    C18.329,6,19,5.328,19,4.5v-3C19,0.672,18.329,0,17.5,0S16,0.672,16,1.5v3C16,5.328,16.671,6,17.5,6z M27.5,9    c0.414,0,0.789-0.168,1.06-0.439l2-2C30.832,6.289,31,5.914,31,5.5C31,4.672,30.329,4,29.5,4c-0.414,0-0.789,0.168-1.061,0.44    l-2,2C26.168,6.711,26,7.086,26,7.5C26,8.328,26.671,9,27.5,9z M6.439,8.561C6.711,8.832,7.086,9,7.5,9C8.328,9,9,8.328,9,7.5    c0-0.414-0.168-0.789-0.439-1.061l-2-2C6.289,4.168,5.914,4,5.5,4C4.672,4,4,4.672,4,5.5c0,0.414,0.168,0.789,0.439,1.06    L6.439,8.561z M33.5,16h-3c-0.828,0-1.5,0.672-1.5,1.5s0.672,1.5,1.5,1.5h3c0.828,0,1.5-0.672,1.5-1.5S34.328,16,33.5,16z     M28.561,26.439C28.289,26.168,27.914,26,27.5,26c-0.828,0-1.5,0.672-1.5,1.5c0,0.414,0.168,0.789,0.439,1.06l2,2    C28.711,30.832,29.086,31,29.5,31c0.828,0,1.5-0.672,1.5-1.5c0-0.414-0.168-0.789-0.439-1.061L28.561,26.439z M17.5,29    c-0.829,0-1.5,0.672-1.5,1.5v3c0,0.828,0.671,1.5,1.5,1.5s1.5-0.672,1.5-1.5v-3C19,29.672,18.329,29,17.5,29z M17.5,7    C11.71,7,7,11.71,7,17.5S11.71,28,17.5,28S28,23.29,28,17.5S23.29,7,17.5,7z M17.5,25c-4.136,0-7.5-3.364-7.5-7.5    c0-4.136,3.364-7.5,7.5-7.5c4.136,0,7.5,3.364,7.5,7.5C25,21.636,21.636,25,17.5,25z"></path></svg><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="nightIcon" x="0px" y="0px" viewBox="0 0 100 100" style="enable-background:new 0 0 100 100" xml:space="preserve" aria-label="Light mode"><title>Light mode</title><path d="M96.76,66.458c-0.853-0.852-2.15-1.064-3.23-0.534c-6.063,2.991-12.858,4.571-19.655,4.571  C62.022,70.495,50.88,65.88,42.5,57.5C29.043,44.043,25.658,23.536,34.076,6.47c0.532-1.08,0.318-2.379-0.534-3.23  c-0.851-0.852-2.15-1.064-3.23-0.534c-4.918,2.427-9.375,5.619-13.246,9.491c-9.447,9.447-14.65,22.008-14.65,35.369  c0,13.36,5.203,25.921,14.65,35.368s22.008,14.65,35.368,14.65c13.361,0,25.921-5.203,35.369-14.65  c3.872-3.871,7.064-8.328,9.491-13.246C97.826,68.608,97.611,67.309,96.76,66.458z"></path></svg></button></header><div class="popover-hint"><header class="article-hero"><h1>QLoRA in Pure PyTorch</h1></header></div></div><article class="popover-hint"><h4 id="written-august-11-2024">Written: August 11, 2024<a role="anchor" aria-hidden="true" tabindex="-1" data-no-popover="true" href="#written-august-11-2024" class="internal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a></h4>
+<h3 id="tldr">TLDR:<a role="anchor" aria-hidden="true" tabindex="-1" data-no-popover="true" href="#tldr" class="internal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a></h3>
+<p>I implemented the main memory savings component of the QLoRA paper in pure PyTorch and by using torch.compile I was able to see ~2x performance increase.</p>
+<p>LLMs are everywhere. From [] to []. More and more individuals are wanting to take large foundational models and finetune on their own datasets. The paper <a href="https://arxiv.org/abs/2106.09685" class="external">LoRA<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a>which came out in October of 2021 proposed a mechanism for doing this. Instead of finetuning every weight of the base model, “freeze the pre-trained model weights and injects trainable rank decomposition matrices into each layer of the Transformer architecture”. This technique is starting to gain more widespread adoption through the <a href="https://github.com/huggingface/peft" class="external">PEFT<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a>library from hugging face.</p>
+<p><img src="./star-history-2023612.png" width="auto" height="auto" alt/></p>
+<p><a href="https://arxiv.org/abs/2305.14314" class="external">QLoRA<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a>was a paper released in May 2023 that builds upon this technique by adding quantization into the mix. The main idea being to statically quantize the pre-trained model weights to 4bit, capitalizing on the fact that model weights tend to be distributed normally. They then use LoRA finetuning to recover any performance degradation by quantizing the pre-trained weights.</p>
+<p>The paper makes proposed two techniques for memory savings 4-bit NormalFloat Quantization and Double Quantization. In this note I implement both these techniques in pure PyTorch.</p>
+<h3 id="nf4tensor">NF4Tensor<a role="anchor" aria-hidden="true" tabindex="-1" data-no-popover="true" href="#nf4tensor" class="internal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a></h3>
+<p><a href="https://github.com/TimDettmers/bitsandbytes" class="external">BitsandBytes<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a> has implemented the quantization techniques that are used in the <a href="https://github.com/artidoro/qlora" class="external">QloRA code<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a> and <a href="https://github.com/huggingface/peft" class="external">PEFT<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a>. We can find the custom CUDA code written to support the <a href="https://github.com/TimDettmers/bitsandbytes/blob/ac5550a0238286377ee3f58a85aeba1c40493e17/csrc/kernels.cu#L223" class="external">NormalFloat4<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a> quantization type. I use this code as a comparison point for the pure PyTorch implementation. The implementation is 170 (uncommented) lines of python code. The code can be found here: <a href="https://github.com/drisspg/transformer_nuggets/blob/c1c932d0399a87c47442aa7c404d73d47776643e/transformer_nuggets/quant/qlora.py#L42" class="external">Here<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a></p>
+<p>The pseudo-code for converted the NF4 representation can be found below:</p>
+<pre><code>1.) Read full-precision pre-trained weight in blocks of 64
+2.) Quantize each element in the block using a pre-computed set of int4 types.
+3.) Store the the weight in int4. And dequantize on the fly to original dtype when doing computation.
+</code></pre>
+<p>The actual code for 2) and 3) can be found below:</p>
+<figure data-rehype-pretty-code-figure><pre tabindex="0" data-language="Python" data-theme="github-light github-dark"><code data-language="Python" data-theme="github-light github-dark" style="display:grid;"><span data-line><span>@staticmethod</span></span>
+<span data-line><span>def convert_to_norm_float_weight(</span></span>
+<span data-line> </span>
+<span data-line><span>inpt_tensor: torch.Tensor, n_blocks: int, block_size: int, nf4: torch.tensor</span></span>
+<span data-line> </span>
+<span data-line><span>) -> torch.Tensor:</span></span>
+<span data-line> </span>
+<span data-line><span>&quot;&quot;&quot;Convert a tensor to the normalized float weight format&quot;&quot;&quot;</span></span>
+<span data-line> </span>
+<span data-line><span>flattened_tensor = inpt_tensor.flatten()</span></span>
+<span data-line> </span>
+<span data-line><span># Since we are using uint8 we will encode 2 entries per byte</span></span>
+<span data-line> </span>
+<span data-line><span>numel = inpt_tensor.numel()</span></span>
+<span data-line> </span>
+<span data-line><span>assert (</span></span>
+<span data-line> </span>
+<span data-line><span>numel % 2 == 0</span></span>
+<span data-line> </span>
+<span data-line><span>), &quot;Number of elements must be even just to not have to think about the end&quot;</span></span>
+<span data-line> </span>
+<span data-line><span># Reshape the flattened tensor into blocks of size self.block_size</span></span>
+<span data-line> </span>
+<span data-line><span>blocks = flattened_tensor.view(n_blocks, block_size)</span></span>
+<span data-line> </span>
+<span data-line><span># Scale the blocks</span></span>
+<span data-line> </span>
+<span data-line><span>scalers = get_block_absmax(inpt_tensor.flatten(), block_size)</span></span>
+<span data-line> </span>
+<span data-line><span>scales = scalers.unsqueeze(-1).expand(n_blocks, block_size)</span></span>
+<span data-line> </span>
+<span data-line><span>scaled_blocks = blocks / scales</span></span>
+<span data-line> </span>
+<span data-line><span>quantized_blocks = NF4Tensor.quantize_tensor_nearest(scaled_blocks.flatten(), nf4)</span></span>
+<span data-line> </span>
+<span data-line><span># Combine the quantized elements into uint8 values</span></span>
+<span data-line> </span>
+<span data-line><span>combined_blocks = quantized_blocks[::2] &lt;&lt; 4 | quantized_blocks[1::2]</span></span>
+<span data-line> </span>
+<span data-line><span>return combined_blocks.to(torch.uint8)</span></span></code></pre></figure>
+<figure data-rehype-pretty-code-figure><pre tabindex="0" data-language="Python" data-theme="github-light github-dark"><code data-language="Python" data-theme="github-light github-dark" style="display:grid;"><span data-line><span>def get_original_weight(self) -> torch.Tensor:</span></span>
+<span data-line> </span>
+<span data-line><span>&quot;&quot;&quot;Get the original weight from the normalized float weight format&quot;&quot;&quot;</span></span>
+<span data-line> </span>
+<span data-line><span># since we are using uint8 we will decode 2 entries per byte</span></span>
+<span data-line> </span>
+<span data-line><span># Shift elements down 4 and select out the bottom 4 bits</span></span>
+<span data-line> </span>
+<span data-line><span>first_elements = (self.quantized_data >> 4).to(torch.long)</span></span>
+<span data-line> </span>
+<span data-line><span>second_elements = (self.quantized_data &amp; 0b1111).to(torch.long)</span></span>
+<span data-line> </span>
+<span data-line> </span>
+<span data-line><span># Dequantize every element</span></span>
+<span data-line> </span>
+<span data-line><span>dequantized_first = self.dequantize(first_elements, self.nf4)</span></span>
+<span data-line> </span>
+<span data-line><span>dequantized_second = self.dequantize(second_elements, self.nf4)</span></span>
+<span data-line> </span>
+<span data-line> </span>
+<span data-line><span># Build up matrix of scalers repeated for each element in the block</span></span>
+<span data-line> </span>
+<span data-line><span># Since first and second elements make up a full block, so</span></span>
+<span data-line> </span>
+<span data-line><span># we expand out to half the size of the full block</span></span>
+<span data-line> </span>
+<span data-line><span>scalers = self.dequantize_scalers(</span></span>
+<span data-line> </span>
+<span data-line><span>self.quantized_scalers, self.quantization_factor, self.scaler_block_size</span></span>
+<span data-line> </span>
+<span data-line><span>)</span></span>
+<span data-line> </span>
+<span data-line><span>repeated = scalers.unsqueeze(-1).expand(scalers.size(0), self.block_size // 2)</span></span>
+<span data-line> </span>
+<span data-line> </span>
+<span data-line> </span>
+<span data-line><span>scaled_first = dequantized_first * repeated.flatten()</span></span>
+<span data-line> </span>
+<span data-line><span>scaled_second = dequantized_second * repeated.flatten()</span></span>
+<span data-line> </span>
+<span data-line> </span>
+<span data-line><span># Flip them to be vertical and them stack them together horizontally</span></span>
+<span data-line> </span>
+<span data-line><span># Upon flattening this will interleave the elements</span></span>
+<span data-line> </span>
+<span data-line><span>scaled_first = scaled_first.unsqueeze(-1).transpose(0, 1)</span></span>
+<span data-line> </span>
+<span data-line><span>scaled_second = scaled_second.unsqueeze(-1).transpose(0, 1)</span></span>
+<span data-line> </span>
+<span data-line><span>return torch.stack([scaled_first, scaled_second], dim=-1).reshape(self.original_shape)</span></span></code></pre></figure>
+<h3 id="doublequantization">DoubleQuantization<a role="anchor" aria-hidden="true" tabindex="-1" data-no-popover="true" href="#doublequantization" class="internal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a></h3>
+<p>Since the block_size is relatively small for large tensors, for instance one weight in the llama 7b MLP will have n_blocks = 704,512. Storing the abs max scaling factors can quickly start add significant memory pressure. The trick was to quantize these scalers again and store the reduced precision format of these. I have also implemented that if interested feel free to take a look at the <code>double_quantize_scalers</code> method of NF4Tensor.</p>
+<h3 id="numerical-differences">Numerical Differences<a role="anchor" aria-hidden="true" tabindex="-1" data-no-popover="true" href="#numerical-differences" class="internal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a></h3>
+<p>I did my best to replicate what was implemented in the paper but my implementation is not bitwise identical to BitsandBytes(BnB) implementation.</p>
+<ol>
+<li>During quantization of the initial pre-trained tensor it is possible for an entry to be equi-distant to quantized representations. My implementation breaks ties by choosing the lower index while I found that BnB picks the higher index.</li>
+<li>For some entries I found that my implementation picks a quantized representation, that after de-quantization, is actually closer to the original value. I did not dig deeper into BnBs CUDA code to determine why that is.</li>
+</ol>
+<p>That being said I wrote a few tests that measure the reconstruction accuracy between my implementation and BnB and both reconstruct the original tensor. The worst case de-quantization is approximately equal between the two implementations. The beauty of LoRA is that it can/should learn to account for the degradation of performance caused by quantization, so I was satisfied to stop going down this rabbit hole.</p>
+<h3 id="time-for-the-numbers">Time for the Numbers<a role="anchor" aria-hidden="true" tabindex="-1" data-no-popover="true" href="#time-for-the-numbers" class="internal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a></h3>
+<p>I did lots and lots of measuring. I measured individual de-quant performance, the de-quant performance on for a MLP(essentially 3 NF4Tensors) and on lit-llama that I modified to have every MLP use my NF4Tensor to back its weights.</p>
+<p>I compared between, the “original” (no quantization), BnB’s <code>bnb.nn.LinearNF4</code> class and my <code>NF4MLP</code>.</p>
+<p>For Instance my NF4MLP class looks like</p>
+<pre><code>class NF4MLP(nn.Module):
+
+def __init__(self, config: LLaMAConfig) -> None:
+
+super().__init__()
+
+weight1, weight2, weight3 = qlora.get_mlp_weights(config.n_embd)
+
+self.w1 = qlora.NF4Tensor.from_tensor(weight1)
+
+self.w2 = qlora.NF4Tensor.from_tensor(weight2)
+
+self.w3 = qlora.NF4Tensor.from_tensor(weight3)
+
+
+def forward(self, x: torch.Tensor) -> torch.Tensor:
+
+x = F.silu(F.linear(x, self.w1.get_original_weight())) * F.linear(
+
+x, self.w2.get_original_weight()
+
+)
+
+x = F.linear(x, self.w3.get_original_weight())
+
+return x
+</code></pre>
+<p>Below is the plot of timings for the MLP in isolation. I swept over the embed dimensions found in the <a href="https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md" class="external">Model Card<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a></p>
+<pre><code># https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md
+
+# LLama 7b, 13b, 33b, 65b
+
+embed_dims = [4096, 5120, 6656, 8192]
+
+bszs = [8, 16, 32]
+
+seqlens = [128, 256, 512]
+</code></pre>
+<p><img src="./qlora_mlp_embed_dim_4096.png" width="auto" height="auto" alt/></p>
+<p>I have a full sweep of plots but they all essentially look like this. As you can see the MLP in full precision is fastest, there is no de-quantization that needs to be done. The eager NFTensor implementation in eager is much slower that bitsandbytes, especially in smaller batch_size * seqlen sizes. This quickly becomes a big bottle neck when having to store the activations on device.</p>
+<p><strong>But with torch.compile the pure PyTorch implementation is faster on every config!</strong> The bitsandbytes implementation does not work with torch.compile due to it being a custom CUDA implementation so applying that this nn.Module does not provide any performance benefits.</p>
+<h3 id="testing-on-lit-llama">Testing on Lit-LLama<a role="anchor" aria-hidden="true" tabindex="-1" data-no-popover="true" href="#testing-on-lit-llama" class="internal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a></h3>
+<p>I was looking for a model to test end-to-end performance savings on and settled on <a href="https://github.com/Lightning-AI/lit-llama/blob/main/lit_llama/model.py" class="external">Lit-llama<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a>It is a fairly straightforward implementation, and it uses SDPA so I was biased 😏. I update the config to choose between one of 3 MLP implementations - Full Precision(Unchanged), BitsandBytes, and my NF4Mlp.</p>
+<p>Again I have a slew of data for this one but I will attach the profiles below. The following timings can be found by inspecting the profile functions. This were generated on the llama 7B config with an input of batchsize=4 and seqlen =256</p>
+<p>Original - 69.724 ms
+BitsandBytes - 164.450 ms
+NFTensor - 81.686 ms</p>
+<p>_Note: These MLP do not actually have the adapater weights added. Since I was more curious about measuring the impact of the quantization and the adapters would be identical between models. This is a good follow up _</p>
+<h3 id="memory-profiling">Memory Profiling<a role="anchor" aria-hidden="true" tabindex="-1" data-no-popover="true" href="#memory-profiling" class="internal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a></h3>
+<p>You might be thinking, like I was, this is amazing, torch compile makes expressing QloRA both more readable, and more performant! I wanted to confirm that indeed we were seeing identical memory savings. Zachary Devito has some amazing write ups and tools on inspecting the memory usage of a PyTorch program. Below are images of the memory timelines for the three runs:</p>
+<p>Original:
+<img src="./llama_original_compile_no_grad_compile_false.png" width="auto" height="auto" alt/></p>
+<p>BitsandBytes:
+<img src="./llama_bnb_no_grad_compile_false.png" width="auto" height="auto" alt/></p>
+<p>NF4Mlp:
+<img src="./llama_nf4_compile_True.png" width="auto" height="auto" alt/></p>
+<p>Thats weird!! Both BnB and the original appear to have consistent memory usage with some little spikes. I was scratching my head on this one, thinking that maybe the GC was not kicking in, after much head scratching and a extremely helpful VC with Joel we were able to figure out that autograd was saving the full precision de-quantized tensor for backward! Crucially we can see that baseline for both BNB and NF4Mlp is around 7GB but the NF4MLP grows, at a rate of 86MiB per allocation - the size of each MLP weight 11008 _ 4096 _ 2 Bytes, to reach a maximum around 18Gb. In fact we overshoot the original model since we are storing the additional scalers + 5/4 the MLP weight size.</p>
+<p>To test this theory I ran the model again under <code>torch.no_grad()</code> and low and behold:
+<img src="./llama_nf4_no_grad_compile_True.png" width="auto" height="auto" alt/></p>
+<p>We see the correct total memory usage of this!</p>
+<p>So what is the real solution, we should wrap the NF4Linears in their own autograd Fucntions:</p>
+<figure data-rehype-pretty-code-figure><pre tabindex="0" data-language="Python" data-theme="github-light github-dark"><code data-language="Python" data-theme="github-light github-dark" style="display:grid;"><span data-line><span>class LinearNF4(torch.autograd.Function):</span></span>
+<span data-line> </span>
+<span data-line><span>@staticmethod</span></span>
+<span data-line> </span>
+<span data-line><span>def forward(ctx, input: torch.Tensor, weight: NF4Tensor):</span></span>
+<span data-line> </span>
+<span data-line><span>ctx.nf4_weight = weight</span></span>
+<span data-line> </span>
+<span data-line><span>return F.linear(input, weight.get_original_weight())</span></span>
+<span data-line> </span>
+<span data-line> </span>
+<span data-line> </span>
+<span data-line><span>@staticmethod</span></span>
+<span data-line> </span>
+<span data-line><span>def backward(ctx, grad_output):</span></span>
+<span data-line> </span>
+<span data-line><span>weight: NF4Tensor = ctx.nf4_weight</span></span>
+<span data-line> </span>
+<span data-line><span>return grad_output @ weight.get_original_weight(), None</span></span>
+<span data-line> </span>
+<span data-line> </span>
+<span data-line> </span>
+<span data-line> </span>
+<span data-line><span>def linear_nf4(input: torch.Tensor, weight: NF4Tensor) -> torch.Tensor:</span></span>
+<span data-line> </span>
+<span data-line><span>return LinearNF4.apply(input, weight)</span></span></code></pre></figure>
+<h3 id="some-rough-edges">Some Rough Edges:<a role="anchor" aria-hidden="true" tabindex="-1" data-no-popover="true" href="#some-rough-edges" class="internal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a></h3>
+<p>While attempting to torch.compile this update version using torch.autograd.Function the following dynamo error is raise:
+<code>torch._dynamo.exc.Unsupported: HigherOrderOperator with body that accepts non-Tensors as input</code>. I spoke with Richard Zou and says that supported types can be expanded. (Point to issue if exists or create one.I In theory this type can be fully passed from forward to backward using only torch.Tensors, ints, and torch.Size.</p>
+<p>As is common in PEFT existing pre-trained models are updated using <a href="https://github.com/huggingface/peft/blob/189a6b8e357ecda05ccde13999e4c35759596a67/src/peft/tuners/lora.py#L225" class="external">module swapping<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a>. I would argue that this is likely not the ideal user experience. And instead, subclassing torch.Tensor and replacing the weight parameter on torch.nn.Linear with this type would be a more seamless experience. That being said I think simply getting the autograd function working would be enough since users will need to add the adapter layers to run QLoRA.</p>
+<h3 id="future-work">Future Work<a role="anchor" aria-hidden="true" tabindex="-1" data-no-popover="true" href="#future-work" class="internal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a></h3>
+<p>I had no intentions of producing actually usable code. I was reading the QLoRA paper, taking notes and thought that it me beneficial to try and implement this as a learning experience. The debug class was my first attempt and as you can see very inefficient. With some more rounds of polish I was able to convert this class to something outperfoming the handrolled SOTA implementation.</p>
+<p>That is the power of torch.compile. I had never written a quantization routine and in a matter of a few days I was able to match and exceed code from experts. (LITTLE HEAVY HANDED BUT KIND OF TRUE). That is saying nothing of its extensibility. If I wanted to change the NF4 to be pre-determined on my dataset, or quantize in 2 bits. I could do it in hours and best of all never look at a .cu file.</p>
+<p>Concrete Items:</p>
+<ul>
+<li>Get torch.autograd.Function working with this type.</li>
+<li>Apply technique ore components (in-projection, out-projection of CausalAttention block.)</li>
+<li>Apply to more models - Project Blueberries.</li>
+<li>Work through a full end-to-end LoraFinetuning now that Ed has added this to torchbench. <a href="https://github.com/pytorch/benchmark/pull/1730" class="external">PR<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a></li>
+<li>Submit upstream PRs to BitsandBytes? Lit-Llama?</li>
+</ul>
+<h4 id="thanks">Thanks<a role="anchor" aria-hidden="true" tabindex="-1" data-no-popover="true" href="#thanks" class="internal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a></h4>
+<p>I want to say a quick thanks to Christina for pushing to make this component as performant as possible and identifying places to speedup. and Joel for being the best rubber duck ever!</p></article><hr/><div class="page-footer"></div></div><div class="right sidebar"><div class="toc desktop-only"><button type="button" id="toc" class aria-controls="toc-content" aria-expanded="true"><h3>Table of Contents</h3><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="fold"><polyline points="6 9 12 15 18 9"></polyline></svg></button><div id="toc-content" class><ul class="overflow"><li class="depth-0"><a href="#tldr" data-for="tldr">TLDR:</a></li><li class="depth-0"><a href="#nf4tensor" data-for="nf4tensor">NF4Tensor</a></li><li class="depth-0"><a href="#doublequantization" data-for="doublequantization">DoubleQuantization</a></li><li class="depth-0"><a href="#numerical-differences" data-for="numerical-differences">Numerical Differences</a></li><li class="depth-0"><a href="#time-for-the-numbers" data-for="time-for-the-numbers">Time for the Numbers</a></li><li class="depth-0"><a href="#testing-on-lit-llama" data-for="testing-on-lit-llama">Testing on Lit-LLama</a></li><li class="depth-0"><a href="#memory-profiling" data-for="memory-profiling">Memory Profiling</a></li><li class="depth-0"><a href="#some-rough-edges" data-for="some-rough-edges">Some Rough Edges:</a></li><li class="depth-0"><a href="#future-work" data-for="future-work">Future Work</a></li></ul></div></div></div><footer class><p>Nuggets © 2026</p><ul><li><a href="https://github.com/drisspg/nuggets">Source</a></li><li><a href="https://github.com/drisspg">GitHub</a></li></ul></footer></div></div></body><script type="application/javascript">function c(){let t=this.parentElement;t.classList.toggle("is-collapsed");let l=t.classList.contains("is-collapsed")?this.scrollHeight:t.scrollHeight;t.style.maxHeight=l+"px";let o=t,e=t.parentElement;for(;e;){if(!e.classList.contains("callout"))return;let n=e.classList.contains("is-collapsed")?e.scrollHeight:e.scrollHeight+o.scrollHeight;e.style.maxHeight=n+"px",o=e,e=e.parentElement}}function i(){let t=document.getElementsByClassName("callout is-collapsible");for(let s of t){let l=s.firstElementChild;if(l){l.addEventListener("click",c),window.addCleanup(()=>l.removeEventListener("click",c));let e=s.classList.contains("is-collapsed")?l.scrollHeight:s.scrollHeight;s.style.maxHeight=e+"px"}}}document.addEventListener("nav",i);window.addEventListener("resize",i);
+</script><script type="module">
+          let mermaidImport = undefined
+          document.addEventListener('nav', async () => {
+            if (document.querySelector("code.mermaid")) {
+              mermaidImport ||= await import('https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.7.0/mermaid.esm.min.mjs')
+              const mermaid = mermaidImport.default
+              const darkMode = document.documentElement.getAttribute('saved-theme') === 'dark'
+              mermaid.initialize({
+                startOnLoad: false,
+                securityLevel: 'loose',
+                theme: darkMode ? 'dark' : 'default'
+              })
+
+              await mermaid.run({
+                querySelector: '.mermaid'
+              })
+            }
+          });
+          </script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/copy-tex.min.js" type="application/javascript"></script><script type="application/javascript">
+        const socket = new WebSocket('ws://localhost:3001')
+        // reload(true) ensures resources like images and scripts are fetched again in firefox
+        socket.addEventListener('message', () => document.location.reload(true))
+      </script><script src="./postscript.js" type="module"></script></html>
