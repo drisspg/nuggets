@@ -9,13 +9,13 @@
     <title>All Notes</title>
     <link>https://drisspg.github.io/nuggets/All-Notes</link>
     <guid>https://drisspg.github.io/nuggets/All-Notes</guid>
-    <description>Browse everything published here 2025 FlexAttention Determinism — October 17, 2025 Why Rtol and Atol are set the way they are in pytorch assert_close? — October 13, 2025 2024 A Small ...</description>
+    <description>Browse everything published here 2025 FlexAttention Determinism — October 17, 2025 Why Rtol and Atol are set the way they are in pytorch assert_close? — October 13, 2025 2 attentions ...</description>
     <pubDate>Sat, 25 Apr 2026 20:21:19 GMT</pubDate>
   </item><item>
     <title>Welcome</title>
     <link>https://drisspg.github.io/nuggets/</link>
     <guid>https://drisspg.github.io/nuggets/</guid>
-    <description>Recent Notes A Small PyTorch Benchmarking Trap FlexAttention Determinism Why Rtol and Atol are set the way they are in pytorch assert_close? .</description>
+    <description>Recent Notes 2 attentions is all you need Microbenchmarks from Macrobenchmarks A Small PyTorch Benchmarking Trap FlexAttention Determinism Why Rtol and Atol are set the way they ...</description>
     <pubDate>Sun, 26 Oct 2025 17:35:08 GMT</pubDate>
   </item><item>
     <title>FlexAttention Determinism</title>
@@ -30,10 +30,22 @@
     <description>Written: October 13, 2025 There is a great helper in PyTorch torch.testing.assert_close I use it all the time. And sometimes it fails. If you are like me you might have looked at its definition when this is happens and seen this table: github.com/pytorch/pytorch/blob/5cedc5a0ff236529f76ac514805b825bc73e1a74/torch/testing/_comparison.py#L1418 +---------------------------+------------+----------+ | ``dtype`` | ``rtol`` | ``atol`` | +===========================+============+==========+ | :attr:`~torch.float16` | ``1e-3`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.bfloat16` | ``1.6e-2`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.float32` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.float64` | ``1e-7`` | ``1e-7`` | +---------------------------+------------+----------+ | :attr:`~torch.complex32` | ``1e-3`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.complex64` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.complex128` | ``1e-7`` | ``1e-7`` | +---------------------------+------------+----------+ | :attr:`~torch.quint8` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.quint2x4` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.quint4x2` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.qint8` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.qint32` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | other | ``0.0`` | ``0.0`` | +---------------------------+------------+----------+ Its very pretty right? but how did we get these numbers.</description>
     <pubDate>Mon, 13 Oct 2025 00:00:00 GMT</pubDate>
   </item><item>
+    <title>2 attentions is all you need</title>
+    <link>https://drisspg.github.io/nuggets/2-attentions-is-all-you-need</link>
+    <guid>https://drisspg.github.io/nuggets/2-attentions-is-all-you-need</guid>
+    <description>Written: October 1, 2025 Update from April 25, 2026 Its funny how seemingly stale this doc is so quickly after writing. We have landed FA3 and FA4 support to sdpa (although you kinda need to know where to look), we host official FA3 wheels that are ABI stable.</description>
+    <pubDate>Wed, 01 Oct 2025 00:00:00 GMT</pubDate>
+  </item><item>
     <title>A Small PyTorch Benchmarking Trap</title>
     <link>https://drisspg.github.io/nuggets/A-Small-PyTorch-Benchmarking-Trap</link>
     <guid>https://drisspg.github.io/nuggets/A-Small-PyTorch-Benchmarking-Trap</guid>
     <description>Written: August 11, 2024 TLDR: A quick highlight of some of gotchas you might encounter when trying to benchmark pt2 code Intro During my day-to-day development of PyTorch I very often ...</description>
+    <pubDate>Sun, 11 Aug 2024 00:00:00 GMT</pubDate>
+  </item><item>
+    <title>Microbenchmarks from Macrobenchmarks</title>
+    <link>https://drisspg.github.io/nuggets/Microbenchmarks-from-Macrobenchmarks</link>
+    <guid>https://drisspg.github.io/nuggets/Microbenchmarks-from-Macrobenchmarks</guid>
+    <description>Written: August 11, 2024 TLDR: Efficiently find real world operator inputs using a __torch_dispatch__ mode to log inputs found in torchbench for arbritrary ops Motivation torch.nn.functional.scaled_dot_product_attention ...</description>
     <pubDate>Sun, 11 Aug 2024 00:00:00 GMT</pubDate>
   </item>
     </channel>
