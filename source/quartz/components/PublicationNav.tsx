@@ -13,7 +13,15 @@ const PublicationNav: QuartzComponent = ({ cfg, fileData, displayClass }: Quartz
         <img src={iconPath} alt="" aria-hidden="true" />
       </a>
       <div class="publication-links">
-        <a href={baseDir}>Index</a>
+        <a class="publication-link-pill" href={baseDir}>
+          Home
+        </a>
+        <a
+          class="publication-link-pill publication-link-featured"
+          href={joinSegments(baseDir, "All-Notes")}
+        >
+          All Notes
+        </a>
         <a href="https://github.com/drisspg/nuggets">Source</a>
         <a href="https://github.com/drisspg">GitHub</a>
         <a href="https://x.com/drisspg">Twitter</a>
@@ -75,6 +83,21 @@ PublicationNav.css = `
 
 .publication-links a:hover {
   color: var(--dark) !important;
+}
+
+.publication-links a.publication-link-pill {
+  border: 1px solid var(--editorial-rule, var(--lightgray));
+  border-radius: 999px;
+  padding: 0.28rem 0.58rem;
+}
+
+.publication-links a.publication-link-pill:hover {
+  border-color: var(--secondary);
+}
+
+.publication-links a.publication-link-featured {
+  background: var(--highlight);
+  border-color: color-mix(in srgb, var(--secondary) 45%, var(--editorial-rule, var(--lightgray)));
 }
 
 @media all and (max-width: 800px) {

@@ -35,9 +35,9 @@
   --background-modifier-message: rgba(0, 0, 0, 0.9) !important;
   --background-modifier-success: #fbf0d2 !important;
   --background-modifier-success-rgb: 8, 185, 78 !important;
-  --background-primary: #dddbc7 !important;
-  --background-primary-alt: #fbf0d221 !important;
-  --background-secondary: #dddbc7 !important;
+  --background-primary: #faeadc !important;
+  --background-primary-alt: #faeadc21 !important;
+  --background-secondary: #faeadc !important;
   --background-secondary-alt: rgba(0, 0, 0, 0.1) !important;
   --bases-cards-background: #dddbc7 !important;
   --bases-cards-border-width: 1px !important;
@@ -144,23 +144,23 @@
   --checklist-done-color: #4c5064 !important;
   --checklist-done-decoration: line-through !important;
   --clickable-icon-radius: 4px !important;
-  --code-background: #fbf0d221 !important;
+  --code-background: #f0dfd2 !important;
   --code-border-color: rgba(0, 0, 0, 0.1) !important;
   --code-border-width: 0px !important;
   --code-bracket-background: rgba(0, 0, 0, 0.067) !important;
-  --code-comment: #4c5064 !important;
-  --code-function: #e0ac00 !important;
-  --code-important: #ec7500 !important;
-  --code-keyword: #d53984 !important;
+  --code-comment: #5c5868 !important;
+  --code-function: #9b6500 !important;
+  --code-important: #b65300 !important;
+  --code-keyword: #b82f73 !important;
   --code-normal: #000000 !important;
-  --code-operator: #e93147 !important;
-  --code-property: #00bfbc !important;
-  --code-punctuation: #4c5064 !important;
+  --code-operator: #c51f35 !important;
+  --code-property: #007a78 !important;
+  --code-punctuation: #5c5868 !important;
   --code-radius: 4px !important;
   --code-size: 0.875em !important;
-  --code-string: #08b94e !important;
-  --code-tag: #e93147 !important;
-  --code-value: #7852ee !important;
+  --code-string: #247a3d !important;
+  --code-tag: #c51f35 !important;
+  --code-value: #5f3dc4 !important;
   --code-white-space: pre-wrap !important;
   --collapse-icon-color: #4c5064 !important;
   --collapse-icon-color-collapsed: #4c5064 !important;
@@ -1919,7 +1919,7 @@ body {
   }
 
   div#quartz-root {
-    background-color: light-dark(rgb(221, 219, 199), rgb(53, 50, 49));
+    background-color: light-dark(rgb(250, 234, 220), rgb(53, 50, 49));
     color: light-dark(rgb(0, 0, 0), rgb(162, 156, 144));
   }
 
@@ -1927,12 +1927,12 @@ body {
   &[data-slug] .page > div#quartz-body,
   .page > div#quartz-body div.center,
   .page > div#quartz-body footer {
-    background-color: light-dark(rgb(221, 219, 199), rgb(53, 50, 49));
+    background-color: light-dark(rgb(250, 234, 220), rgb(53, 50, 49));
     color: light-dark(rgb(0, 0, 0), rgb(162, 156, 144));
   }
 
   .page > div#quartz-body div.sidebar {
-    background-color: light-dark(rgb(221, 219, 199), rgb(56, 52, 51));
+    background-color: light-dark(rgb(244, 228, 215), rgb(56, 52, 51));
     color: light-dark(rgb(0, 0, 0), rgb(162, 156, 144));
   }
 
@@ -1940,12 +1940,12 @@ body {
   .page > div#quartz-body div.sidebar.left,
   .page > div#quartz-body div.sidebar.left:has(.explorer),
   .page > div#quartz-body div.sidebar.left .explorer .explorer-content {
-    background-color: light-dark(rgb(221, 219, 199), rgb(56, 52, 51));
+    background-color: light-dark(rgb(244, 228, 215), rgb(56, 52, 51));
     color: light-dark(rgb(0, 0, 0), rgb(162, 156, 144));
   }
 
   .page > div#quartz-body div.sidebar.right {
-    background-color: light-dark(rgb(221, 219, 199), rgb(56, 52, 51));
+    background-color: light-dark(rgb(244, 228, 215), rgb(56, 52, 51));
     color: light-dark(rgb(0, 0, 0), rgb(162, 156, 144));
     border-left: 1px solid rgba(0, 0, 0, 0.1);
   }

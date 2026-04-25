@@ -1,6 +1,9 @@
 ---
 title: FlexAttention Determinism
+date: 2025-10-17
 ---
+
+#### Written: October 17, 2025
 
 Run-to-run determinism is increasingly a priority in the age of Mixture of Experts (MoEs) and long Reinforcement Learning (RL) rollouts. This guide describes how to ensure that FlexAttention is bitwise equivalent between runs.
 

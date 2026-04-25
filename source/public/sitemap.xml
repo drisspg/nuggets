@@ -1,9 +1,15 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml"><url>
+    <loc>https://drisspg.github.io/nuggets/A-Small-PyTorch-Benchmarking-Trap</loc>
+    <lastmod>2024-08-11T00:00:00.000Z</lastmod>
+  </url><url>
+    <loc>https://drisspg.github.io/nuggets/All-Notes</loc>
+    <lastmod>2026-04-25T20:21:19.987Z</lastmod>
+  </url><url>
     <loc>https://drisspg.github.io/nuggets/FlexAttention-Determinism</loc>
-    <lastmod>2025-11-15T18:12:37.382Z</lastmod>
+    <lastmod>2025-10-17T00:00:00.000Z</lastmod>
   </url><url>
     <loc>https://drisspg.github.io/nuggets/Why-Rtol-and-Atol-are-set-the-way-they-are-in-pytorch-assert_close</loc>
-    <lastmod>2025-10-26T17:35:08.683Z</lastmod>
+    <lastmod>2025-10-13T00:00:00.000Z</lastmod>
   </url><url>
     <loc>https://drisspg.github.io/nuggets/</loc>
     <lastmod>2025-10-26T17:35:08.684Z</lastmod>
