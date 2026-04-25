@@ -458,14 +458,6 @@
             </select>
           </label>
           <label>
-            training backend
-            <select id="trainingBackend">
-              <option value="cpu">cpu</option>
-              <option value="webgpu">webgpu</option>
-              <option value="webgpuTorch">webgpu-torch</option>
-            </select>
-          </label>
-          <label>
             loss
             <select id="loss">
               <option value="mse">mse</option>
@@ -521,7 +513,6 @@
       const lrInput = document.querySelector("#lr")
       const lrOut = document.querySelector("#lrOut")
       const optimizerInput = document.querySelector("#optimizer")
-      const trainingBackendInput = document.querySelector("#trainingBackend")
       const lossInput = document.querySelector("#loss")
       const pauseButton = document.querySelector("#pause")
       const resetButton = document.querySelector("#reset")
@@ -558,11 +549,6 @@
       let gpuTrainingPending = false
       let gpuTrainingLastDispatch = 0
       let gpuTrainingError = ""
-      let torchTrainingUnavailable = false
-      let torchTrainingPending = false
-      let torchTrainingLastDispatch = 0
-      let torchTrainingError = ""
-      let torchLibraryPromise = null
       const gpuPredictionValues = new Float32Array(target.length)
 
       function nextRandom() {
@@ -1059,6 +1045,7 @@
                 sampleIndex: u32,
                 step: u32,
                 batchSize: u32,
+                updateCount: u32,
                 lr: f32,
               }
 
@@ -1166,84 +1153,86 @@
                 var biasGrads: array<f32, 385>;
                 let totalWeightCount = weightOffsetForLayer(params.layerCount);
                 let totalBiasCount = biasOffsetForLayer(params.layerCount);
-                for (var i = 0u; i < totalWeightCount; i = i + 1u) {
-                  weightGrads[i] = 0.0;
-                }
-                for (var i = 0u; i < totalBiasCount; i = i + 1u) {
-                  biasGrads[i] = 0.0;
-                }
-
-                for (var sample = 0u; sample < params.batchSize; sample = sample + 1u) {
-                  let sampleIndex = select((params.sampleIndex + sample * 37u) % 4096u, params.sampleIndex, params.batchSize == 1u);
-                  let px = sampleIndex % 64u;
-                  let py = sampleIndex / 64u;
-                  activations[0] = (f32(px) / 63.0) * 2.0 - 1.0;
-                  activations[1] = (f32(py) / 63.0) * 2.0 - 1.0;
-
-                  for (var layer = 0u; layer < params.layerCount; layer = layer + 1u) {
-                    let inputSize = layerInputSize(layer);
-                    let outputSize = layerOutputSize(layer);
-                    let weightOffset = weightOffsetForLayer(layer);
-                    let biasOffset = biasOffsetForLayer(layer);
-                    let inputOffset = select(2u + (layer - 1u) * params.hiddenCount, 0u, layer == 0u);
-                    let outputOffset = 2u + layer * params.hiddenCount;
-                    let preOffset = layer * params.hiddenCount;
-                    for (var i = 0u; i < outputSize; i = i + 1u) {
-                      var value = biases[biasOffset + i];
-                      for (var j = 0u; j < inputSize; j = j + 1u) {
-                        value = value + weights[weightOffset + i * inputSize + j] * activations[inputOffset + j];
-                      }
-                      preactivations[preOffset + i] = value;
-                      activations[outputOffset + i] = select(applyActivation(value), value, layer == params.layerCount - 1u);
-                    }
+                for (var update = 0u; update < params.updateCount; update = update + 1u) {
+                  for (var i = 0u; i < totalWeightCount; i = i + 1u) {
+                    weightGrads[i] = 0.0;
+                  }
+                  for (var i = 0u; i < totalBiasCount; i = i + 1u) {
+                    biasGrads[i] = 0.0;
                   }
 
-                  let outputOffset = 2u + (params.layerCount - 1u) * params.hiddenCount;
-                  let prediction = tanh(activations[outputOffset]);
-                  delta[0] = lossGrad(prediction, targets[sampleIndex]) * (1.0 - prediction * prediction);
+                  for (var sample = 0u; sample < params.batchSize; sample = sample + 1u) {
+                    let sampleIndex = select((params.sampleIndex + (update * params.batchSize + sample) * 37u) % 4096u, params.sampleIndex, params.batchSize == 1u);
+                    let px = sampleIndex % 64u;
+                    let py = sampleIndex / 64u;
+                    activations[0] = (f32(px) / 63.0) * 2.0 - 1.0;
+                    activations[1] = (f32(py) / 63.0) * 2.0 - 1.0;
 
-                  for (var reverse = 0u; reverse < params.layerCount; reverse = reverse + 1u) {
-                    let layer = params.layerCount - 1u - reverse;
-                    let inputSize = layerInputSize(layer);
-                    let outputSize = layerOutputSize(layer);
-                    let weightOffset = weightOffsetForLayer(layer);
-                    let biasOffset = biasOffsetForLayer(layer);
-                    let inputOffset = select(2u + (layer - 1u) * params.hiddenCount, 0u, layer == 0u);
-
-                    if (layer > 0u) {
-                      let prevPreOffset = (layer - 1u) * params.hiddenCount;
-                      let prevActOffset = 2u + (layer - 1u) * params.hiddenCount;
-                      for (var j = 0u; j < inputSize; j = j + 1u) {
-                        var upstream = 0.0;
-                        for (var i = 0u; i < outputSize; i = i + 1u) {
-                          upstream = upstream + weights[weightOffset + i * inputSize + j] * delta[i];
+                    for (var layer = 0u; layer < params.layerCount; layer = layer + 1u) {
+                      let inputSize = layerInputSize(layer);
+                      let outputSize = layerOutputSize(layer);
+                      let weightOffset = weightOffsetForLayer(layer);
+                      let biasOffset = biasOffsetForLayer(layer);
+                      let inputOffset = select(2u + (layer - 1u) * params.hiddenCount, 0u, layer == 0u);
+                      let outputOffset = 2u + layer * params.hiddenCount;
+                      let preOffset = layer * params.hiddenCount;
+                      for (var i = 0u; i < outputSize; i = i + 1u) {
+                        var value = biases[biasOffset + i];
+                        for (var j = 0u; j < inputSize; j = j + 1u) {
+                          value = value + weights[weightOffset + i * inputSize + j] * activations[inputOffset + j];
                         }
-                        nextDelta[j] = upstream * activationGrad(preactivations[prevPreOffset + j], activations[prevActOffset + j]);
+                        preactivations[preOffset + i] = value;
+                        activations[outputOffset + i] = select(applyActivation(value), value, layer == params.layerCount - 1u);
                       }
                     }
 
-                    for (var i = 0u; i < outputSize; i = i + 1u) {
-                      biasGrads[biasOffset + i] = biasGrads[biasOffset + i] + delta[i];
+                    let outputOffset = 2u + (params.layerCount - 1u) * params.hiddenCount;
+                    let prediction = tanh(activations[outputOffset]);
+                    delta[0] = lossGrad(prediction, targets[sampleIndex]) * (1.0 - prediction * prediction);
+
+                    for (var reverse = 0u; reverse < params.layerCount; reverse = reverse + 1u) {
+                      let layer = params.layerCount - 1u - reverse;
+                      let inputSize = layerInputSize(layer);
+                      let outputSize = layerOutputSize(layer);
+                      let weightOffset = weightOffsetForLayer(layer);
+                      let biasOffset = biasOffsetForLayer(layer);
+                      let inputOffset = select(2u + (layer - 1u) * params.hiddenCount, 0u, layer == 0u);
+
+                      if (layer > 0u) {
+                        let prevPreOffset = (layer - 1u) * params.hiddenCount;
+                        let prevActOffset = 2u + (layer - 1u) * params.hiddenCount;
+                        for (var j = 0u; j < inputSize; j = j + 1u) {
+                          var upstream = 0.0;
+                          for (var i = 0u; i < outputSize; i = i + 1u) {
+                            upstream = upstream + weights[weightOffset + i * inputSize + j] * delta[i];
+                          }
+                          nextDelta[j] = upstream * activationGrad(preactivations[prevPreOffset + j], activations[prevActOffset + j]);
+                        }
+                      }
+
+                      for (var i = 0u; i < outputSize; i = i + 1u) {
+                        biasGrads[biasOffset + i] = biasGrads[biasOffset + i] + delta[i];
+                        for (var j = 0u; j < inputSize; j = j + 1u) {
+                          let index = weightOffset + i * inputSize + j;
+                          weightGrads[index] = weightGrads[index] + delta[i] * activations[inputOffset + j];
+                        }
+                      }
+
                       for (var j = 0u; j < inputSize; j = j + 1u) {
-                        let index = weightOffset + i * inputSize + j;
-                        weightGrads[index] = weightGrads[index] + delta[i] * activations[inputOffset + j];
+                        delta[j] = nextDelta[j];
                       }
-                    }
-
-                    for (var j = 0u; j < inputSize; j = j + 1u) {
-                      delta[j] = nextDelta[j];
                     }
                   }
-                }
 
-                let correction1 = 1.0 - pow(0.9, f32(params.step + 1u));
-                let correction2 = 1.0 - pow(0.999, f32(params.step + 1u));
-                let invBatch = 1.0 / f32(params.batchSize);
-                for (var i = 0u; i < totalBiasCount; i = i + 1u) {
-                  updateBias(i, biasGrads[i] * invBatch, correction1, correction2);
-                }
-                for (var i = 0u; i < totalWeightCount; i = i + 1u) {
-                  updateWeight(i, weightGrads[i] * invBatch, correction1, correction2);
+                  let correction1 = 1.0 - pow(0.9, f32(params.step + update + 1u));
+                  let correction2 = 1.0 - pow(0.999, f32(params.step + update + 1u));
+                  let invBatch = 1.0 / f32(params.batchSize);
+                  for (var i = 0u; i < totalBiasCount; i = i + 1u) {
+                    updateBias(i, biasGrads[i] * invBatch, correction1, correction2);
+                  }
+                  for (var i = 0u; i < totalWeightCount; i = i + 1u) {
+                    updateWeight(i, weightGrads[i] * invBatch, correction1, correction2);
+                  }
                 }
               }
             `,
@@ -1288,17 +1277,10 @@
       }
 
       function tryGpuTrain(settings, now) {
-        if (trainingBackendInput.value !== "webgpu") return false
         if (gpuTrainingPending) return true
-        if (gpuTrainingUnavailable) {
-          recordTrainingPerf(`webgpu unavailable: ${gpuTrainingError}`, 0, 0)
-          return true
-        }
+        if (gpuTrainingUnavailable) return false
         const unsupportedReason = gpuTrainingUnsupportedReason(settings)
-        if (unsupportedReason) {
-          recordTrainingPerf(`webgpu unsupported: ${unsupportedReason}`, 0, 0)
-          return true
-        }
+        if (unsupportedReason) return false
         if (now - gpuTrainingLastDispatch < 16) return true
         gpuTrainingPending = true
         gpuTrainingLastDispatch = now
@@ -1315,7 +1297,7 @@
         return true
       }
 
-      async function dispatchGpuTraining(settings, version) {
+      async function dispatchGpuTraining(settings, version, updateCount = 12) {
         const started = performance.now()
         const backend = await ensureGpuTrainingBackend()
         if (!backend) {
@@ -1347,6 +1329,7 @@
             sampleIndex,
             step,
             batchSize,
+            updateCount,
             new Uint32Array(new Float32Array([settings.lr]).buffer)[0],
           ]),
           GPUBufferUsage.UNIFORM,
@@ -1418,180 +1401,16 @@
             ),
           })
           if (!trainOnlyInspectInput.checked)
-            trainCursor = (trainCursor + 37 * batchSize) % target.length
-          step++
+            trainCursor = (trainCursor + 37 * batchSize * updateCount) % target.length
+          step += updateCount
           gpuPredictionReady = false
-          recordTrainingPerf("webgpu", batchSize, performance.now() - started)
+          recordTrainingPerf("webgpu", batchSize * updateCount, performance.now() - started)
         }
         for (const { readback } of readbacks) {
           readback.unmap()
           readback.destroy()
         }
         for (const buffer of [...buffers, targetBuffer, paramsBuffer]) buffer.destroy()
-      }
-
-      function torchUnsupportedReason(settings) {
-        if (settings.lossName !== "mse") return "requires mse loss"
-        if (settings.optimizerName !== "sgd") return "requires sgd optimizer"
-        if (trainOnlyInspectInput.checked) return "disable inspected-pixel-only training"
-        return ""
-      }
-
-      function torchTrainingSupported(settings) {
-        return torchUnsupportedReason(settings) === ""
-      }
-
-      function loadScript(url) {
-        return new Promise((resolve, reject) => {
-          const existing = document.querySelector(`script[src="${url}"]`)
-          if (existing) {
-            if (window.torch) resolve()
-            existing.addEventListener("load", resolve, { once: true })
-            existing.addEventListener("error", reject, { once: true })
-            return
-          }
-          const script = document.createElement("script")
-          script.src = url
-          script.async = true
-          script.addEventListener("load", resolve, { once: true })
-          script.addEventListener("error", reject, { once: true })
-          document.head.append(script)
-        })
-      }
-
-      async function ensureTorchLibrary() {
-        if (torchTrainingUnavailable) return null
-        if (!torchLibraryPromise) {
-          torchLibraryPromise = (async () => {
-            await loadScript("https://cdn.jsdelivr.net/npm/webgpu-torch@0.3.5/torch.js")
-            if (!window.torch) throw new Error("webgpu-torch did not create window.torch")
-            if (!(await window.torch.initWebGPUAsync()))
-              throw new Error("webgpu-torch WebGPU init failed")
-            return window.torch
-          })()
-        }
-        try {
-          return await torchLibraryPromise
-        } catch (error) {
-          torchTrainingError = error?.message || String(error)
-          console.error("webgpu-torch init failed", error)
-          torchTrainingUnavailable = true
-          return null
-        }
-      }
-
-      function activationTensor(value, activationName) {
-        switch (activationName) {
-          case "relu":
-            return value.relu()
-          case "sigmoid":
-            return value.sigmoid()
-          default:
-            return value.tanh()
-        }
-      }
-
-      function gridCoordinateArray() {
-        const coords = []
-        for (let i = 0; i < target.length; i++) {
-          const [x, y] = coordsForIndex(i)
-          coords.push([x, y])
-        }
-        return coords
-      }
-
-      function targetColumnArray() {
-        return Array.from(target, (value) => [value])
-      }
-
-      function torchMlpForward(input, weights, biases, activationName) {
-        let current = input
-        for (let layer = 0; layer < weights.length; layer++) {
-          current = current.mm(weights[layer].t()).add(biases[layer])
-          if (layer < weights.length - 1) current = activationTensor(current, activationName)
-        }
-        return current.tanh()
-      }
-
-      function makeTorchParams(torch) {
-        return {
-          weights: model.weights.map((value) => torch.tensor({ data: value, requiresGrad: true })),
-          biases: model.biases.map((value) => torch.tensor({ data: value, requiresGrad: true })),
-        }
-      }
-
-      function torchSgdParam(param, lr) {
-        if (!param.grad) return param
-        const next = param.sub(param.grad, lr).detach()
-        next.requiresGrad = true
-        return next
-      }
-
-      function torchErrorMessage(error) {
-        const message = error?.message || String(error)
-        return message.includes("mm gradient not supported")
-          ? "webgpu-torch blocked: matmul backward is not implemented"
-          : `webgpu-torch error: ${message}`
-      }
-
-      function tryTorchTrain(settings, now) {
-        if (trainingBackendInput.value !== "webgpuTorch") return false
-        if (torchTrainingPending) return true
-        if (torchTrainingUnavailable) {
-          recordTrainingPerf(`webgpu-torch unavailable: ${torchTrainingError}`, 0, 0)
-          return true
-        }
-        const unsupportedReason = torchUnsupportedReason(settings)
-        if (unsupportedReason) {
-          recordTrainingPerf(`webgpu-torch unsupported: ${unsupportedReason}`, 0, 0)
-          return true
-        }
-        if (now - torchTrainingLastDispatch < 16) return true
-        torchTrainingPending = true
-        torchTrainingLastDispatch = now
-        dispatchTorchTraining(settings, modelVersion)
-          .catch((error) => {
-            torchTrainingError = torchErrorMessage(error)
-            console.error("webgpu-torch training failed", error)
-            recordTrainingPerf(torchTrainingError, 0, 0)
-          })
-          .finally(() => {
-            torchTrainingPending = false
-          })
-        return true
-      }
-
-      async function dispatchTorchTraining(settings, version) {
-        const started = performance.now()
-        const torch = await ensureTorchLibrary()
-        if (!torch) {
-          recordTrainingPerf(`webgpu-torch unavailable: ${torchTrainingError}`, 0, 0)
-          return
-        }
-        const params = makeTorchParams(torch)
-        const input = torch.tensor(gridCoordinateArray())
-        const yTarget = torch.tensor(targetColumnArray())
-        const prediction = torchMlpForward(
-          input,
-          params.weights,
-          params.biases,
-          settings.activationName,
-        )
-        const loss = prediction.sub(yTarget).square().mean()
-        loss.backward()
-        const nextWeights = params.weights.map((param) => torchSgdParam(param, settings.lr))
-        const nextBiases = params.biases.map((param) => torchSgdParam(param, settings.lr))
-        const weights = await Promise.all(nextWeights.map((param) => param.toArrayAsync()))
-        const biases = await Promise.all(nextBiases.map((param) => param.toArrayAsync()))
-        if (version === modelVersion) {
-          for (let layer = 0; layer < model.weights.length; layer++) {
-            model.weights[layer] = weights[layer]
-            model.biases[layer] = biases[layer]
-          }
-          gpuPredictionReady = false
-          step++
-          recordTrainingPerf("webgpu-torch", target.length, performance.now() - started)
-        }
       }
 
       function updateGpuPredictions(activationName, now) {
@@ -1945,7 +1764,6 @@
         const deadline = now + 10
         const settings = trainingSettings()
         if (tryGpuTrain(settings, now)) return
-        if (tryTorchTrain(settings, now)) return
         const started = performance.now()
         let samples = 0
         do {
@@ -2134,7 +1952,7 @@
           model = structuredClone(initialModel)
           step = 0
           trainCursor = 0
-          await dispatchGpuTraining(settings, modelVersion)
+          await dispatchGpuTraining(settings, modelVersion, 1)
           const diff = maxModelDiff(model, expected)
           if (!(diff <= 2e-5))
             throw new Error(`${testCase.inspectOnly ? "inspect" : "batch"}/${testCase.activationName}/${testCase.lossName}/${testCase.optimizerName} diff ${diff}`)
