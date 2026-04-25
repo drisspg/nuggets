@@ -23,10 +23,10 @@ The paper makes proposed two techniques for memory savings 4-bit NormalFloat Qua
 
 The pseudo-code for converted the NF4 representation can be found below:
 
-```
-1.) Read full-precision pre-trained weight in blocks of 64
-2.) Quantize each element in the block using a pre-computed set of int4 types.
-3.) Store the the weight in int4. And dequantize on the fly to original dtype when doing computation.
+```Python
+# 1.) Read full-precision pre-trained weight in blocks of 64
+# 2.) Quantize each element in the block using a pre-computed set of int4 types.
+# 3.) Store the the weight in int4. And dequantize on the fly to original dtype when doing computation.
 ```
 
 The actual code for 2) and 3) can be found below:
@@ -148,7 +148,7 @@ I compared between, the "original" (no quantization), BnB's `bnb.nn.LinearNF4` c
 
 For Instance my NF4MLP class looks like
 
-```
+```Python
 class NF4MLP(nn.Module):
 
 def __init__(self, config: LLaMAConfig) -> None:
@@ -179,7 +179,7 @@ return x
 
 Below is the plot of timings for the MLP in isolation. I swept over the embed dimensions found in the [Model Card](https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md)
 
-```
+```Python
 # https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md
 
 # LLama 7b, 13b, 33b, 65b

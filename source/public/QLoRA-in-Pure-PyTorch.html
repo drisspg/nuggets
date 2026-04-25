@@ -9,10 +9,9 @@
 <h3 id="nf4tensor">NF4Tensor<a role="anchor" aria-hidden="true" tabindex="-1" data-no-popover="true" href="#nf4tensor" class="internal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a></h3>
 <p><a href="https://github.com/TimDettmers/bitsandbytes" class="external">BitsandBytes<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a> has implemented the quantization techniques that are used in the <a href="https://github.com/artidoro/qlora" class="external">QloRA code<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a> and <a href="https://github.com/huggingface/peft" class="external">PEFT<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a>. We can find the custom CUDA code written to support the <a href="https://github.com/TimDettmers/bitsandbytes/blob/ac5550a0238286377ee3f58a85aeba1c40493e17/csrc/kernels.cu#L223" class="external">NormalFloat4<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a> quantization type. I use this code as a comparison point for the pure PyTorch implementation. The implementation is 170 (uncommented) lines of python code. The code can be found here: <a href="https://github.com/drisspg/transformer_nuggets/blob/c1c932d0399a87c47442aa7c404d73d47776643e/transformer_nuggets/quant/qlora.py#L42" class="external">Here<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a></p>
 <p>The pseudo-code for converted the NF4 representation can be found below:</p>
-<pre><code>1.) Read full-precision pre-trained weight in blocks of 64
-2.) Quantize each element in the block using a pre-computed set of int4 types.
-3.) Store the the weight in int4. And dequantize on the fly to original dtype when doing computation.
-</code></pre>
+<figure data-rehype-pretty-code-figure><pre tabindex="0" data-language="Python" data-theme="github-light github-dark"><code data-language="Python" data-theme="github-light github-dark" style="display:grid;"><span data-line><span># 1.) Read full-precision pre-trained weight in blocks of 64</span></span>
+<span data-line><span># 2.) Quantize each element in the block using a pre-computed set of int4 types.</span></span>
+<span data-line><span># 3.) Store the the weight in int4. And dequantize on the fly to original dtype when doing computation.</span></span></code></pre></figure>
 <p>The actual code for 2) and 3) can be found below:</p>
 <figure data-rehype-pretty-code-figure><pre tabindex="0" data-language="Python" data-theme="github-light github-dark"><code data-language="Python" data-theme="github-light github-dark" style="display:grid;"><span data-line><span>@staticmethod</span></span>
 <span data-line><span>def convert_to_norm_float_weight(</span></span>
@@ -117,44 +116,42 @@
 <p>I did lots and lots of measuring. I measured individual de-quant performance, the de-quant performance on for a MLP(essentially 3 NF4Tensors) and on lit-llama that I modified to have every MLP use my NF4Tensor to back its weights.</p>
 <p>I compared between, the “original” (no quantization), BnB’s <code>bnb.nn.LinearNF4</code> class and my <code>NF4MLP</code>.</p>
 <p>For Instance my NF4MLP class looks like</p>
-<pre><code>class NF4MLP(nn.Module):
-
-def __init__(self, config: LLaMAConfig) -> None:
-
-super().__init__()
-
-weight1, weight2, weight3 = qlora.get_mlp_weights(config.n_embd)
-
-self.w1 = qlora.NF4Tensor.from_tensor(weight1)
-
-self.w2 = qlora.NF4Tensor.from_tensor(weight2)
-
-self.w3 = qlora.NF4Tensor.from_tensor(weight3)
-
-
-def forward(self, x: torch.Tensor) -> torch.Tensor:
-
-x = F.silu(F.linear(x, self.w1.get_original_weight())) * F.linear(
-
-x, self.w2.get_original_weight()
-
-)
-
-x = F.linear(x, self.w3.get_original_weight())
-
-return x
-</code></pre>
+<figure data-rehype-pretty-code-figure><pre tabindex="0" data-language="Python" data-theme="github-light github-dark"><code data-language="Python" data-theme="github-light github-dark" style="display:grid;"><span data-line><span>class NF4MLP(nn.Module):</span></span>
+<span data-line> </span>
+<span data-line><span>def __init__(self, config: LLaMAConfig) -> None:</span></span>
+<span data-line> </span>
+<span data-line><span>super().__init__()</span></span>
+<span data-line> </span>
+<span data-line><span>weight1, weight2, weight3 = qlora.get_mlp_weights(config.n_embd)</span></span>
+<span data-line> </span>
+<span data-line><span>self.w1 = qlora.NF4Tensor.from_tensor(weight1)</span></span>
+<span data-line> </span>
+<span data-line><span>self.w2 = qlora.NF4Tensor.from_tensor(weight2)</span></span>
+<span data-line> </span>
+<span data-line><span>self.w3 = qlora.NF4Tensor.from_tensor(weight3)</span></span>
+<span data-line> </span>
+<span data-line> </span>
+<span data-line><span>def forward(self, x: torch.Tensor) -> torch.Tensor:</span></span>
+<span data-line> </span>
+<span data-line><span>x = F.silu(F.linear(x, self.w1.get_original_weight())) * F.linear(</span></span>
+<span data-line> </span>
+<span data-line><span>x, self.w2.get_original_weight()</span></span>
+<span data-line> </span>
+<span data-line><span>)</span></span>
+<span data-line> </span>
+<span data-line><span>x = F.linear(x, self.w3.get_original_weight())</span></span>
+<span data-line> </span>
+<span data-line><span>return x</span></span></code></pre></figure>
 <p>Below is the plot of timings for the MLP in isolation. I swept over the embed dimensions found in the <a href="https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md" class="external">Model Card<svg aria-hidden="true" class="external-icon" style="max-width:0.8em;max-height:0.8em;" viewBox="0 0 512 512"><path d="M320 0H288V64h32 82.7L201.4 265.4 178.7 288 224 333.3l22.6-22.6L448 109.3V192v32h64V192 32 0H480 320zM32 32H0V64 480v32H32 456h32V480 352 320H424v32 96H64V96h96 32V32H160 32z"></path></svg></a></p>
-<pre><code># https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md
-
-# LLama 7b, 13b, 33b, 65b
-
-embed_dims = [4096, 5120, 6656, 8192]
-
-bszs = [8, 16, 32]
-
-seqlens = [128, 256, 512]
-</code></pre>
+<figure data-rehype-pretty-code-figure><pre tabindex="0" data-language="Python" data-theme="github-light github-dark"><code data-language="Python" data-theme="github-light github-dark" style="display:grid;"><span data-line><span># https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md</span></span>
+<span data-line> </span>
+<span data-line><span># LLama 7b, 13b, 33b, 65b</span></span>
+<span data-line> </span>
+<span data-line><span>embed_dims = [4096, 5120, 6656, 8192]</span></span>
+<span data-line> </span>
+<span data-line><span>bszs = [8, 16, 32]</span></span>
+<span data-line> </span>
+<span data-line><span>seqlens = [128, 256, 512]</span></span></code></pre></figure>
 <p><img src="./qlora_mlp_embed_dim_4096.png" width="auto" height="auto" alt/></p>
 <p>I have a full sweep of plots but they all essentially look like this. As you can see the MLP in full precision is fastest, there is no de-quantization that needs to be done. The eager NFTensor implementation in eager is much slower that bitsandbytes, especially in smaller batch_size * seqlen sizes. This quickly becomes a big bottle neck when having to store the activations on device.</p>
 <p><strong>But with torch.compile the pure PyTorch implementation is faster on every config!</strong> The bitsandbytes implementation does not work with torch.compile due to it being a custom CUDA implementation so applying that this nn.Module does not provide any performance benefits.</p>
