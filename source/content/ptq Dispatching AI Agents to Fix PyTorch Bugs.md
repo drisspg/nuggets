@@ -9,7 +9,6 @@ date: 2026-03-12
 
 I gave an internal talk about this and ill probably write a note on this subject. But I categorize AI code work as DFS vs BFS style workflows. This was my first real experiment in BFS style work on pytorch a notoriously hard to work with repo. I did have AI write many parts of this blog and it is much less in my voice (snake eating its tail and all / corpo life). That being said in the Month since I wrote this. I have basically 180. BFS style work gives me much less Joy and I find it soul sucking. It definitely has alot of practical value though. Go install Pi and read Marios's blogs. I resonate with them highly. I am fearful that BFS will be the only way to get paid in the future. But for now, while I have agency and economic power I will do my best to lean in on DFS and use BFS where applicable. Happy clauding :)
 
-
 ## TL;DR
 
 I (agents) built `ptq` (PyTorch Job Queue) - a CLI + web tool that dispatches AI coding agents (Claude, Codex, Cursor) to remote GPU machines to autonomously investigate and fix PyTorch issues. You give it a GitHub issue number, it SSHes into a machine, sets up an isolated PyTorch dev environment in ~30 seconds, and turns an agent loose. You come back later, review the report and diff, and ship a PR.
