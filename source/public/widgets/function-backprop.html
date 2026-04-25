@@ -371,8 +371,7 @@
           </section>
           <section class="window">
             <div class="window-label">
-              <span id="modelViewLabel">mlp activation view</span
-              ><span id="sampleLabel">(0.00, 0.00)</span>
+              <span>mlp activation view</span><span id="sampleLabel">(0.00, 0.00)</span>
             </div>
             <div class="network-wrap"><svg id="network" viewBox="0 0 560 420"></svg></div>
           </section>
@@ -419,21 +418,14 @@
             train only inspected pixel
           </label>
           <label>
-            model
-            <select id="modelType">
-              <option value="mlp">mlp</option>
-              <option value="attention">tiny transformer</option>
-            </select>
-          </label>
-          <label>
-            <span id="activationLabel">activation</span>
+            activation
             <select id="activation">
               <option value="tanh">tanh</option>
               <option value="relu" selected>relu</option>
               <option value="sigmoid">sigmoid</option>
             </select>
           </label>
-          <label id="layerCountLabel">
+          <label>
             <span class="control-heading"
               >hidden layers <output id="layerCountOut" class="slider-value">3</output></span
             >
@@ -443,7 +435,7 @@
           </label>
           <label>
             <span class="control-heading"
-              ><span id="hiddenCountLabel">neurons / layer</span>
+              >neurons / layer
               <output id="hiddenCountOut" class="slider-value">24</output></span
             >
             <span class="slider-row">
@@ -469,6 +461,7 @@
             training backend
             <select id="trainingBackend">
               <option value="cpu">cpu</option>
+              <option value="webgpu">webgpu</option>
               <option value="webgpuTorch">webgpu-torch</option>
             </select>
           </label>
@@ -497,10 +490,10 @@
         </div>
         <div class="legend">
           <p><span class="chip target-chip"></span>target image</p>
-          <p><span class="chip pred-chip"></span>model prediction</p>
+          <p><span class="chip pred-chip"></span>MLP prediction</p>
           <p><span class="chip activation-chip"></span>activation heat</p>
           <p>
-            Click either image to choose the pixel shown in the model window. Drag the target to
+            Click either image to choose the pixel shown in the MLP window. Drag the target to
             paint, or drop in an image.
           </p>
         </div>
@@ -515,16 +508,11 @@
       const sampleOut = document.querySelector("#sampleOut")
       const perfOut = document.querySelector("#perfOut")
       const sampleLabel = document.querySelector("#sampleLabel")
-      const modelViewLabel = document.querySelector("#modelViewLabel")
-      const activationLabel = document.querySelector("#activationLabel")
-      const layerCountLabel = document.querySelector("#layerCountLabel")
-      const hiddenCountLabel = document.querySelector("#hiddenCountLabel")
       const inspectXInput = document.querySelector("#inspectX")
       const inspectYInput = document.querySelector("#inspectY")
       const inspectXOut = document.querySelector("#inspectXOut")
       const inspectYOut = document.querySelector("#inspectYOut")
       const trainOnlyInspectInput = document.querySelector("#trainOnlyInspect")
-      const modelTypeInput = document.querySelector("#modelType")
       const activationInput = document.querySelector("#activation")
       const layerInput = document.querySelector("#layerCount")
       const hiddenInput = document.querySelector("#hiddenCount")
@@ -565,6 +553,11 @@
       let perfBackend = "warming up"
       let perfMs = 0
       let perfSamplesPerSecond = 0
+      let gpuTrainingBackend = null
+      let gpuTrainingUnavailable = false
+      let gpuTrainingPending = false
+      let gpuTrainingLastDispatch = 0
+      let gpuTrainingError = ""
       let torchTrainingUnavailable = false
       let torchTrainingPending = false
       let torchTrainingLastDispatch = 0
@@ -605,17 +598,9 @@
         return Array.from({ length }, () => rand(scale))
       }
 
-      function makeParam(value) {
-        return { value, m1: likeZeros(value), m2: likeZeros(value) }
-      }
-
-      function likeZeros(value) {
-        return Array.isArray(value[0]) ? value.map((row) => row.map(() => 0)) : value.map(() => 0)
-      }
-
       function resetModel() {
         initSeed = 0xdecafbad
-        model = modelTypeInput.value === "attention" ? resetTransformerModel() : resetMlpModel()
+        model = resetMlpModel()
         modelVersion++
         step = 0
         trainCursor = 0
@@ -648,30 +633,6 @@
         return nextModel
       }
 
-      function resetTransformerModel() {
-        const dim = Math.min(32, Number(hiddenInput.value))
-        const memory = 4
-        return {
-          kind: "attention",
-          dim,
-          memory,
-          embedW: makeParam(randomMatrix(dim, 2, Math.sqrt(2 / 2))),
-          embedB: makeParam(randomVector(dim, 0.1)),
-          mlp1W: makeParam(randomMatrix(dim, dim, Math.sqrt(2 / dim))),
-          mlp1B: makeParam(randomVector(dim, 0.1)),
-          mlp2W: makeParam(randomMatrix(dim, dim, Math.sqrt(2 / dim))),
-          mlp2B: makeParam(randomVector(dim, 0.1)),
-          queryW: makeParam(randomMatrix(dim, dim, Math.sqrt(2 / dim))),
-          queryB: makeParam(randomVector(dim, 0.1)),
-          keys: makeParam(randomMatrix(memory, dim, Math.sqrt(2 / dim))),
-          values: makeParam(randomMatrix(memory, dim, Math.sqrt(2 / dim))),
-          outW: makeParam(randomMatrix(dim, dim, Math.sqrt(2 / dim))),
-          outB: makeParam(randomVector(dim, 0.1)),
-          predW: makeParam(randomMatrix(1, dim, Math.sqrt(2 / dim))),
-          predB: makeParam(randomVector(1, 0.1)),
-        }
-      }
-
       function resetTrainingState() {
         step = 0
         trainCursor = 0
@@ -680,13 +641,6 @@
         lastNetworkDraw = 0
         gpuPredictionReady = false
         if (!model) return
-        if (model.kind === "attention") {
-          for (const param of attentionParams()) {
-            zeroInPlace(param.m1)
-            zeroInPlace(param.m2)
-          }
-          return
-        }
         for (let layer = 0; layer < model.weights.length; layer++) {
           for (let i = 0; i < model.weights[layer].length; i++) {
             model.biasM1[layer][i] = 0
@@ -740,7 +694,6 @@
       }
 
       function forward(x, y, activationName = activationInput.value) {
-        if (model.kind === "attention") return forwardAttention(x, y, activationName)
         const activations = [[x, y]]
         const preactivations = []
         let current = [x, y]
@@ -764,69 +717,6 @@
           activations.push(current)
         }
         return { x, y, preactivations, activations, value: Math.tanh(current[0]) }
-      }
-
-      function affineVector(matrix, bias, input) {
-        const output = new Array(matrix.length)
-        for (let i = 0; i < matrix.length; i++) {
-          let value = bias[i]
-          for (let j = 0; j < input.length; j++) value += matrix[i][j] * input[j]
-          output[i] = value
-        }
-        return output
-      }
-
-      function softmax(values) {
-        const maxValue = Math.max(...values)
-        const expValues = values.map((value) => Math.exp(value - maxValue))
-        const total = expValues.reduce((sum, value) => sum + value, 0)
-        return expValues.map((value) => value / total)
-      }
-
-      function forwardAttention(x, y, activationName = activationInput.value) {
-        const input = [x, y]
-        const embedZ = affineVector(model.embedW.value, model.embedB.value, input)
-        const embed = embedZ.map((value) => activate(value, activationName))
-        const mlp1Z = affineVector(model.mlp1W.value, model.mlp1B.value, embed)
-        const mlp1 = mlp1Z.map((value) => activate(value, activationName))
-        const mlp2 = affineVector(model.mlp2W.value, model.mlp2B.value, mlp1)
-        const hidden = embed.map((value, i) => value + mlp2[i])
-        const query = affineVector(model.queryW.value, model.queryB.value, hidden)
-        const scale = 1 / Math.sqrt(model.dim)
-        const logits = model.keys.value.map(
-          (key) => key.reduce((sum, value, i) => sum + value * query[i], 0) * scale,
-        )
-        const attn = softmax(logits)
-        const context = zeroVector(model.dim)
-        for (let token = 0; token < model.memory; token++) {
-          for (let i = 0; i < model.dim; i++)
-            context[i] += attn[token] * model.values.value[token][i]
-        }
-        const out = affineVector(model.outW.value, model.outB.value, context)
-        const mixed = hidden.map((value, i) => value + out[i])
-        let raw = model.predB.value[0]
-        for (let i = 0; i < model.dim; i++) raw += model.predW.value[0][i] * mixed[i]
-        return {
-          x,
-          y,
-          input,
-          embedZ,
-          embed,
-          mlp1Z,
-          mlp1,
-          mlp2,
-          hidden,
-          query,
-          logits,
-          attn,
-          context,
-          out,
-          mixed,
-          raw,
-          activations: [input, embed, mlp1, context, mixed, [Math.tanh(raw)]],
-          preactivations: [embedZ, mlp1Z],
-          value: Math.tanh(raw),
-        }
       }
 
       function lossDerivative(prediction, yTarget, lossName) {
@@ -854,7 +744,6 @@
       }
 
       function zeroGradients() {
-        if (model.kind === "attention") return zeroAttentionGradients()
         return {
           weights: model.weights.map((layer) => layer.map((row) => row.map(() => 0))),
           biases: model.biases.map((layer) => layer.map(() => 0)),
@@ -862,10 +751,6 @@
       }
 
       function addSampleGradients(index, settings, grads) {
-        if (model.kind === "attention") {
-          addAttentionGradients(index, settings, grads)
-          return
-        }
         const [x, y] = coordsForIndex(index)
         const cache = forward(x, y, settings.activationName)
         let delta = [
@@ -921,18 +806,11 @@
         inspectXOut.value = inspectXInput.value
         inspectYOut.value = inspectYInput.value
         layerCountOut.value = layerInput.value
-        hiddenCountOut.value =
-          model.kind === "attention"
-            ? String(Math.min(32, Number(hiddenInput.value)))
-            : hiddenInput.value
+        hiddenCountOut.value = hiddenInput.value
         lrOut.value = learningRate().toExponential(1)
       }
 
       function updateBatch(grads, batchSize, settings) {
-        if (model.kind === "attention") {
-          updateAttentionBatch(grads, batchSize, settings)
-          return
-        }
         const beta1 = 0.9
         const beta2 = 0.999
         const t = step + 1
@@ -969,345 +847,6 @@
             }
           }
         }
-      }
-
-      function attentionParams() {
-        return [
-          model.embedW,
-          model.embedB,
-          model.mlp1W,
-          model.mlp1B,
-          model.mlp2W,
-          model.mlp2B,
-          model.queryW,
-          model.queryB,
-          model.keys,
-          model.values,
-          model.outW,
-          model.outB,
-          model.predW,
-          model.predB,
-        ]
-      }
-
-      function zeroInPlace(value) {
-        if (Array.isArray(value[0])) {
-          for (const row of value) for (let i = 0; i < row.length; i++) row[i] = 0
-        } else {
-          for (let i = 0; i < value.length; i++) value[i] = 0
-        }
-      }
-
-      function zeroAttentionGradients() {
-        return {
-          embedW: zeroMatrix(model.dim, 2),
-          embedB: zeroVector(model.dim),
-          mlp1W: zeroMatrix(model.dim, model.dim),
-          mlp1B: zeroVector(model.dim),
-          mlp2W: zeroMatrix(model.dim, model.dim),
-          mlp2B: zeroVector(model.dim),
-          queryW: zeroMatrix(model.dim, model.dim),
-          queryB: zeroVector(model.dim),
-          keys: zeroMatrix(model.memory, model.dim),
-          values: zeroMatrix(model.memory, model.dim),
-          outW: zeroMatrix(model.dim, model.dim),
-          outB: zeroVector(model.dim),
-          predW: zeroMatrix(1, model.dim),
-          predB: zeroVector(1),
-        }
-      }
-
-      function addOuterGrad(matrixGrad, vectorGrad, delta, input) {
-        for (let i = 0; i < delta.length; i++) {
-          vectorGrad[i] += delta[i]
-          for (let j = 0; j < input.length; j++) matrixGrad[i][j] += delta[i] * input[j]
-        }
-      }
-
-      function addAttentionGradients(index, settings, grads) {
-        const [x, y] = coordsForIndex(index)
-        const cache = forwardAttention(x, y, settings.activationName)
-        const dRaw =
-          lossDerivative(cache.value, target[index], settings.lossName) *
-          (1 - cache.value * cache.value)
-        grads.predB[0] += dRaw
-        const dMixed = zeroVector(model.dim)
-        for (let i = 0; i < model.dim; i++) {
-          grads.predW[0][i] += dRaw * cache.mixed[i]
-          dMixed[i] += model.predW.value[0][i] * dRaw
-        }
-        const dHidden = dMixed.slice()
-        const dOut = dMixed.slice()
-        const dContext = zeroVector(model.dim)
-        addOuterGrad(grads.outW, grads.outB, dOut, cache.context)
-        for (let j = 0; j < model.dim; j++) {
-          for (let i = 0; i < model.dim; i++) dContext[j] += model.outW.value[i][j] * dOut[i]
-        }
-        const dAttn = zeroVector(model.memory)
-        for (let token = 0; token < model.memory; token++) {
-          for (let i = 0; i < model.dim; i++) {
-            grads.values[token][i] += cache.attn[token] * dContext[i]
-            dAttn[token] += dContext[i] * model.values.value[token][i]
-          }
-        }
-        let attnDot = 0
-        for (let token = 0; token < model.memory; token++)
-          attnDot += cache.attn[token] * dAttn[token]
-        const dQuery = zeroVector(model.dim)
-        const scale = 1 / Math.sqrt(model.dim)
-        for (let token = 0; token < model.memory; token++) {
-          const dLogit = cache.attn[token] * (dAttn[token] - attnDot)
-          for (let i = 0; i < model.dim; i++) {
-            grads.keys[token][i] += dLogit * cache.query[i] * scale
-            dQuery[i] += dLogit * model.keys.value[token][i] * scale
-          }
-        }
-        addOuterGrad(grads.queryW, grads.queryB, dQuery, cache.hidden)
-        for (let j = 0; j < model.dim; j++) {
-          for (let i = 0; i < model.dim; i++) dHidden[j] += model.queryW.value[i][j] * dQuery[i]
-        }
-        const dEmbed = dHidden.slice()
-        const dMlp2 = dHidden.slice()
-        addOuterGrad(grads.mlp2W, grads.mlp2B, dMlp2, cache.mlp1)
-        const dMlp1 = zeroVector(model.dim)
-        for (let j = 0; j < model.dim; j++) {
-          for (let i = 0; i < model.dim; i++) dMlp1[j] += model.mlp2W.value[i][j] * dMlp2[i]
-        }
-        const dMlp1Z = dMlp1.map(
-          (value, i) =>
-            value * activationDerivative(cache.mlp1Z[i], cache.mlp1[i], settings.activationName),
-        )
-        addOuterGrad(grads.mlp1W, grads.mlp1B, dMlp1Z, cache.embed)
-        for (let j = 0; j < model.dim; j++) {
-          for (let i = 0; i < model.dim; i++) dEmbed[j] += model.mlp1W.value[i][j] * dMlp1Z[i]
-        }
-        const dEmbedZ = dEmbed.map(
-          (value, i) =>
-            value * activationDerivative(cache.embedZ[i], cache.embed[i], settings.activationName),
-        )
-        addOuterGrad(grads.embedW, grads.embedB, dEmbedZ, cache.input)
-      }
-
-      function updateParam(
-        param,
-        grad,
-        batchSize,
-        settings,
-        beta1,
-        beta2,
-        correction1,
-        correction2,
-      ) {
-        if (Array.isArray(param.value[0])) {
-          for (let i = 0; i < param.value.length; i++) {
-            for (let j = 0; j < param.value[i].length; j++)
-              updateParamScalar(
-                param,
-                grad[i][j] / batchSize,
-                settings,
-                beta1,
-                beta2,
-                correction1,
-                correction2,
-                i,
-                j,
-              )
-          }
-        } else {
-          for (let i = 0; i < param.value.length; i++)
-            updateParamScalar(
-              param,
-              grad[i] / batchSize,
-              settings,
-              beta1,
-              beta2,
-              correction1,
-              correction2,
-              i,
-            )
-        }
-      }
-
-      function updateParamScalar(
-        param,
-        grad,
-        settings,
-        beta1,
-        beta2,
-        correction1,
-        correction2,
-        i,
-        j = null,
-      ) {
-        if (j === null) {
-          if (settings.optimizerName === "adam") {
-            param.m1[i] = beta1 * param.m1[i] + (1 - beta1) * grad
-            param.m2[i] = beta2 * param.m2[i] + (1 - beta2) * grad * grad
-            param.value[i] -=
-              (settings.lr * param.m1[i]) /
-              correction1 /
-              (Math.sqrt(param.m2[i] / correction2) + 1e-8)
-          } else {
-            param.value[i] -= settings.lr * grad
-          }
-        } else if (settings.optimizerName === "adam") {
-          param.m1[i][j] = beta1 * param.m1[i][j] + (1 - beta1) * grad
-          param.m2[i][j] = beta2 * param.m2[i][j] + (1 - beta2) * grad * grad
-          param.value[i][j] -=
-            (settings.lr * param.m1[i][j]) /
-            correction1 /
-            (Math.sqrt(param.m2[i][j] / correction2) + 1e-8)
-        } else {
-          param.value[i][j] -= settings.lr * grad
-        }
-      }
-
-      function updateAttentionBatch(grads, batchSize, settings) {
-        const beta1 = 0.9
-        const beta2 = 0.999
-        const t = step + 1
-        const correction1 = 1 - beta1 ** t
-        const correction2 = 1 - beta2 ** t
-        updateParam(
-          model.embedW,
-          grads.embedW,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
-        updateParam(
-          model.embedB,
-          grads.embedB,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
-        updateParam(
-          model.mlp1W,
-          grads.mlp1W,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
-        updateParam(
-          model.mlp1B,
-          grads.mlp1B,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
-        updateParam(
-          model.mlp2W,
-          grads.mlp2W,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
-        updateParam(
-          model.mlp2B,
-          grads.mlp2B,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
-        updateParam(
-          model.queryW,
-          grads.queryW,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
-        updateParam(
-          model.queryB,
-          grads.queryB,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
-        updateParam(
-          model.keys,
-          grads.keys,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
-        updateParam(
-          model.values,
-          grads.values,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
-        updateParam(
-          model.outW,
-          grads.outW,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
-        updateParam(
-          model.outB,
-          grads.outB,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
-        updateParam(
-          model.predW,
-          grads.predW,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
-        updateParam(
-          model.predB,
-          grads.predB,
-          batchSize,
-          settings,
-          beta1,
-          beta2,
-          correction1,
-          correction2,
-        )
       }
 
       function averageLoss(activationName = activationInput.value, lossName = lossInput.value) {
@@ -1444,8 +983,454 @@
         return buffer
       }
 
+      function packedMlpTrainingBuffers() {
+        const weights = []
+        const biases = []
+        const weightM1 = []
+        const weightM2 = []
+        const biasM1 = []
+        const biasM2 = []
+        for (let layer = 0; layer < model.weights.length; layer++) {
+          for (let i = 0; i < model.weights[layer].length; i++) {
+            biases.push(model.biases[layer][i])
+            biasM1.push(model.biasM1[layer][i])
+            biasM2.push(model.biasM2[layer][i])
+            for (let j = 0; j < model.weights[layer][i].length; j++) {
+              weights.push(model.weights[layer][i][j])
+              weightM1.push(model.weightM1[layer][i][j])
+              weightM2.push(model.weightM2[layer][i][j])
+            }
+          }
+        }
+        return {
+          weights: new Float32Array(weights),
+          biases: new Float32Array(biases),
+          weightM1: new Float32Array(weightM1),
+          weightM2: new Float32Array(weightM2),
+          biasM1: new Float32Array(biasM1),
+          biasM2: new Float32Array(biasM2),
+        }
+      }
+
+      function unpackMlpTrainingBuffers(packed) {
+        let weightOffset = 0
+        let biasOffset = 0
+        for (let layer = 0; layer < model.weights.length; layer++) {
+          for (let i = 0; i < model.weights[layer].length; i++) {
+            model.biases[layer][i] = packed.biases[biasOffset]
+            model.biasM1[layer][i] = packed.biasM1[biasOffset]
+            model.biasM2[layer][i] = packed.biasM2[biasOffset]
+            biasOffset++
+            for (let j = 0; j < model.weights[layer][i].length; j++) {
+              model.weights[layer][i][j] = packed.weights[weightOffset]
+              model.weightM1[layer][i][j] = packed.weightM1[weightOffset]
+              model.weightM2[layer][i][j] = packed.weightM2[weightOffset]
+              weightOffset++
+            }
+          }
+        }
+      }
+
+      function gpuTrainingUnsupportedReason(settings) {
+        if (model.weights.length > 5) return "too many layers"
+        if (Number(hiddenInput.value) > 64) return "too many hidden units"
+        return ""
+      }
+
+      async function ensureGpuTrainingBackend() {
+        if (gpuTrainingBackend || gpuTrainingUnavailable) return gpuTrainingBackend
+        if (!("gpu" in navigator)) {
+          gpuTrainingUnavailable = true
+          gpuTrainingError = "navigator.gpu is unavailable"
+          return null
+        }
+        try {
+          const adapter = await navigator.gpu.requestAdapter()
+          if (!adapter) throw new Error("no WebGPU adapter")
+          const device = await adapter.requestDevice()
+          const shader = device.createShaderModule({
+            code: `
+              struct TrainParams {
+                layerCount: u32,
+                hiddenCount: u32,
+                activation: u32,
+                optimizer: u32,
+                loss: u32,
+                sampleIndex: u32,
+                step: u32,
+                batchSize: u32,
+                lr: f32,
+              }
+
+              @group(0) @binding(0) var<storage, read_write> weights: array<f32>;
+              @group(0) @binding(1) var<storage, read_write> biases: array<f32>;
+              @group(0) @binding(2) var<storage, read_write> weightM1: array<f32>;
+              @group(0) @binding(3) var<storage, read_write> weightM2: array<f32>;
+              @group(0) @binding(4) var<storage, read_write> biasM1: array<f32>;
+              @group(0) @binding(5) var<storage, read_write> biasM2: array<f32>;
+              @group(0) @binding(6) var<storage, read> targets: array<f32>;
+              @group(0) @binding(7) var<uniform> params: TrainParams;
+
+              fn layerInputSize(layer: u32) -> u32 {
+                if (layer == 0u) {
+                  return 2u;
+                }
+                return params.hiddenCount;
+              }
+
+              fn layerOutputSize(layer: u32) -> u32 {
+                if (layer == params.layerCount - 1u) {
+                  return 1u;
+                }
+                return params.hiddenCount;
+              }
+
+              fn weightOffsetForLayer(layer: u32) -> u32 {
+                var offset = 0u;
+                for (var current = 0u; current < layer; current = current + 1u) {
+                  offset = offset + layerInputSize(current) * layerOutputSize(current);
+                }
+                return offset;
+              }
+
+              fn biasOffsetForLayer(layer: u32) -> u32 {
+                var offset = 0u;
+                for (var current = 0u; current < layer; current = current + 1u) {
+                  offset = offset + layerOutputSize(current);
+                }
+                return offset;
+              }
+
+              fn applyActivation(value: f32) -> f32 {
+                if (params.activation == 1u) {
+                  return max(0.0, value);
+                }
+                if (params.activation == 2u) {
+                  return 1.0 / (1.0 + exp(-value));
+                }
+                return tanh(value);
+              }
+
+              fn activationGrad(pre: f32, activated: f32) -> f32 {
+                if (params.activation == 1u) {
+                  return select(0.0, 1.0, pre > 0.0);
+                }
+                if (params.activation == 2u) {
+                  return activated * (1.0 - activated);
+                }
+                return 1.0 - activated * activated;
+              }
+
+              fn lossGrad(prediction: f32, expected: f32) -> f32 {
+                let error = prediction - expected;
+                if (params.loss == 1u) {
+                  return select(-1.0, select(1.0, 0.0, error == 0.0), error > 0.0);
+                }
+                if (params.loss == 2u) {
+                  return select(0.25 * sign(error), error, abs(error) <= 0.25);
+                }
+                return error;
+              }
+
+              fn updateWeight(index: u32, grad: f32, correction1: f32, correction2: f32) {
+                if (params.optimizer == 1u) {
+                  let m1 = 0.9 * weightM1[index] + 0.1 * grad;
+                  let m2 = 0.999 * weightM2[index] + 0.001 * grad * grad;
+                  weightM1[index] = m1;
+                  weightM2[index] = m2;
+                  weights[index] = weights[index] - params.lr * m1 / correction1 / (sqrt(m2 / correction2) + 0.00000001);
+                } else {
+                  weights[index] = weights[index] - params.lr * grad;
+                }
+              }
+
+              fn updateBias(index: u32, grad: f32, correction1: f32, correction2: f32) {
+                if (params.optimizer == 1u) {
+                  let m1 = 0.9 * biasM1[index] + 0.1 * grad;
+                  let m2 = 0.999 * biasM2[index] + 0.001 * grad * grad;
+                  biasM1[index] = m1;
+                  biasM2[index] = m2;
+                  biases[index] = biases[index] - params.lr * m1 / correction1 / (sqrt(m2 / correction2) + 0.00000001);
+                } else {
+                  biases[index] = biases[index] - params.lr * grad;
+                }
+              }
+
+              @compute @workgroup_size(1)
+              fn main() {
+                var activations: array<f32, 384>;
+                var preactivations: array<f32, 320>;
+                var delta: array<f32, 64>;
+                var nextDelta: array<f32, 64>;
+                var weightGrads: array<f32, 13000>;
+                var biasGrads: array<f32, 385>;
+                let totalWeightCount = weightOffsetForLayer(params.layerCount);
+                let totalBiasCount = biasOffsetForLayer(params.layerCount);
+                for (var i = 0u; i < totalWeightCount; i = i + 1u) {
+                  weightGrads[i] = 0.0;
+                }
+                for (var i = 0u; i < totalBiasCount; i = i + 1u) {
+                  biasGrads[i] = 0.0;
+                }
+
+                for (var sample = 0u; sample < params.batchSize; sample = sample + 1u) {
+                  let sampleIndex = select((params.sampleIndex + sample * 37u) % 4096u, params.sampleIndex, params.batchSize == 1u);
+                  let px = sampleIndex % 64u;
+                  let py = sampleIndex / 64u;
+                  activations[0] = (f32(px) / 63.0) * 2.0 - 1.0;
+                  activations[1] = (f32(py) / 63.0) * 2.0 - 1.0;
+
+                  for (var layer = 0u; layer < params.layerCount; layer = layer + 1u) {
+                    let inputSize = layerInputSize(layer);
+                    let outputSize = layerOutputSize(layer);
+                    let weightOffset = weightOffsetForLayer(layer);
+                    let biasOffset = biasOffsetForLayer(layer);
+                    let inputOffset = select(2u + (layer - 1u) * params.hiddenCount, 0u, layer == 0u);
+                    let outputOffset = 2u + layer * params.hiddenCount;
+                    let preOffset = layer * params.hiddenCount;
+                    for (var i = 0u; i < outputSize; i = i + 1u) {
+                      var value = biases[biasOffset + i];
+                      for (var j = 0u; j < inputSize; j = j + 1u) {
+                        value = value + weights[weightOffset + i * inputSize + j] * activations[inputOffset + j];
+                      }
+                      preactivations[preOffset + i] = value;
+                      activations[outputOffset + i] = select(applyActivation(value), value, layer == params.layerCount - 1u);
+                    }
+                  }
+
+                  let outputOffset = 2u + (params.layerCount - 1u) * params.hiddenCount;
+                  let prediction = tanh(activations[outputOffset]);
+                  delta[0] = lossGrad(prediction, targets[sampleIndex]) * (1.0 - prediction * prediction);
+
+                  for (var reverse = 0u; reverse < params.layerCount; reverse = reverse + 1u) {
+                    let layer = params.layerCount - 1u - reverse;
+                    let inputSize = layerInputSize(layer);
+                    let outputSize = layerOutputSize(layer);
+                    let weightOffset = weightOffsetForLayer(layer);
+                    let biasOffset = biasOffsetForLayer(layer);
+                    let inputOffset = select(2u + (layer - 1u) * params.hiddenCount, 0u, layer == 0u);
+
+                    if (layer > 0u) {
+                      let prevPreOffset = (layer - 1u) * params.hiddenCount;
+                      let prevActOffset = 2u + (layer - 1u) * params.hiddenCount;
+                      for (var j = 0u; j < inputSize; j = j + 1u) {
+                        var upstream = 0.0;
+                        for (var i = 0u; i < outputSize; i = i + 1u) {
+                          upstream = upstream + weights[weightOffset + i * inputSize + j] * delta[i];
+                        }
+                        nextDelta[j] = upstream * activationGrad(preactivations[prevPreOffset + j], activations[prevActOffset + j]);
+                      }
+                    }
+
+                    for (var i = 0u; i < outputSize; i = i + 1u) {
+                      biasGrads[biasOffset + i] = biasGrads[biasOffset + i] + delta[i];
+                      for (var j = 0u; j < inputSize; j = j + 1u) {
+                        let index = weightOffset + i * inputSize + j;
+                        weightGrads[index] = weightGrads[index] + delta[i] * activations[inputOffset + j];
+                      }
+                    }
+
+                    for (var j = 0u; j < inputSize; j = j + 1u) {
+                      delta[j] = nextDelta[j];
+                    }
+                  }
+                }
+
+                let correction1 = 1.0 - pow(0.9, f32(params.step + 1u));
+                let correction2 = 1.0 - pow(0.999, f32(params.step + 1u));
+                let invBatch = 1.0 / f32(params.batchSize);
+                for (var i = 0u; i < totalBiasCount; i = i + 1u) {
+                  updateBias(i, biasGrads[i] * invBatch, correction1, correction2);
+                }
+                for (var i = 0u; i < totalWeightCount; i = i + 1u) {
+                  updateWeight(i, weightGrads[i] * invBatch, correction1, correction2);
+                }
+              }
+            `,
+          })
+          gpuTrainingBackend = {
+            device,
+            pipeline: await device.createComputePipelineAsync({
+              layout: "auto",
+              compute: { module: shader, entryPoint: "main" },
+            }),
+          }
+          return gpuTrainingBackend
+        } catch (error) {
+          gpuTrainingError = error?.message || String(error)
+          gpuTrainingUnavailable = true
+          console.error("WebGPU training init failed", error)
+          return null
+        }
+      }
+
+      function readBuffer(device, source, byteLength) {
+        const readback = device.createBuffer({
+          size: Math.max(4, byteLength),
+          usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        })
+        return { readback, byteLength }
+      }
+
+      function optimizerCode(optimizerName) {
+        return optimizerName === "adam" ? 1 : 0
+      }
+
+      function lossCode(lossName) {
+        switch (lossName) {
+          case "l1":
+            return 1
+          case "huber":
+            return 2
+          default:
+            return 0
+        }
+      }
+
+      function tryGpuTrain(settings, now) {
+        if (trainingBackendInput.value !== "webgpu") return false
+        if (gpuTrainingPending) return true
+        if (gpuTrainingUnavailable) {
+          recordTrainingPerf(`webgpu unavailable: ${gpuTrainingError}`, 0, 0)
+          return true
+        }
+        const unsupportedReason = gpuTrainingUnsupportedReason(settings)
+        if (unsupportedReason) {
+          recordTrainingPerf(`webgpu unsupported: ${unsupportedReason}`, 0, 0)
+          return true
+        }
+        if (now - gpuTrainingLastDispatch < 16) return true
+        gpuTrainingPending = true
+        gpuTrainingLastDispatch = now
+        dispatchGpuTraining(settings, modelVersion)
+          .catch((error) => {
+            gpuTrainingError = error?.message || String(error)
+            gpuTrainingUnavailable = true
+            console.error("WebGPU training failed", error)
+            recordTrainingPerf(`webgpu error: ${gpuTrainingError}`, 0, 0)
+          })
+          .finally(() => {
+            gpuTrainingPending = false
+          })
+        return true
+      }
+
+      async function dispatchGpuTraining(settings, version) {
+        const started = performance.now()
+        const backend = await ensureGpuTrainingBackend()
+        if (!backend) {
+          recordTrainingPerf(`webgpu unavailable: ${gpuTrainingError}`, 0, 0)
+          return
+        }
+        const { device, pipeline } = backend
+        const packed = packedMlpTrainingBuffers()
+        const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+        const weightsBuffer = gpuBufferFromData(device, packed.weights, usage)
+        const biasesBuffer = gpuBufferFromData(device, packed.biases, usage)
+        const weightM1Buffer = gpuBufferFromData(device, packed.weightM1, usage)
+        const weightM2Buffer = gpuBufferFromData(device, packed.weightM2, usage)
+        const biasM1Buffer = gpuBufferFromData(device, packed.biasM1, usage)
+        const biasM2Buffer = gpuBufferFromData(device, packed.biasM2, usage)
+        const targetBuffer = gpuBufferFromData(device, target, GPUBufferUsage.STORAGE)
+        const batchSize = trainOnlyInspectInput.checked ? 1 : 32
+        const sampleIndex = trainOnlyInspectInput.checked
+          ? indexForCell(sampleX, sampleY)
+          : (trainCursor + 37) % target.length
+        const paramsBuffer = gpuBufferFromData(
+          device,
+          new Uint32Array([
+            model.weights.length,
+            Number(hiddenInput.value),
+            activationCode(settings.activationName),
+            optimizerCode(settings.optimizerName),
+            lossCode(settings.lossName),
+            sampleIndex,
+            step,
+            batchSize,
+            new Uint32Array(new Float32Array([settings.lr]).buffer)[0],
+          ]),
+          GPUBufferUsage.UNIFORM,
+        )
+        const readbacks = [
+          readBuffer(device, weightsBuffer, packed.weights.byteLength),
+          readBuffer(device, biasesBuffer, packed.biases.byteLength),
+          readBuffer(device, weightM1Buffer, packed.weightM1.byteLength),
+          readBuffer(device, weightM2Buffer, packed.weightM2.byteLength),
+          readBuffer(device, biasM1Buffer, packed.biasM1.byteLength),
+          readBuffer(device, biasM2Buffer, packed.biasM2.byteLength),
+        ]
+        const buffers = [
+          weightsBuffer,
+          biasesBuffer,
+          weightM1Buffer,
+          weightM2Buffer,
+          biasM1Buffer,
+          biasM2Buffer,
+        ]
+        const bindGroup = device.createBindGroup({
+          layout: pipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: weightsBuffer } },
+            { binding: 1, resource: { buffer: biasesBuffer } },
+            { binding: 2, resource: { buffer: weightM1Buffer } },
+            { binding: 3, resource: { buffer: weightM2Buffer } },
+            { binding: 4, resource: { buffer: biasM1Buffer } },
+            { binding: 5, resource: { buffer: biasM2Buffer } },
+            { binding: 6, resource: { buffer: targetBuffer } },
+            { binding: 7, resource: { buffer: paramsBuffer } },
+          ],
+        })
+        const encoder = device.createCommandEncoder()
+        const pass = encoder.beginComputePass()
+        pass.setPipeline(pipeline)
+        pass.setBindGroup(0, bindGroup)
+        pass.dispatchWorkgroups(1)
+        pass.end()
+        for (let i = 0; i < buffers.length; i++)
+          encoder.copyBufferToBuffer(buffers[i], 0, readbacks[i].readback, 0, readbacks[i].byteLength)
+        device.queue.submit([encoder.finish()])
+        await Promise.all(readbacks.map(({ readback }) => readback.mapAsync(GPUMapMode.READ)))
+        if (version === modelVersion) {
+          unpackMlpTrainingBuffers({
+            weights: new Float32Array(readbacks[0].readback.getMappedRange()).slice(
+              0,
+              packed.weights.length,
+            ),
+            biases: new Float32Array(readbacks[1].readback.getMappedRange()).slice(
+              0,
+              packed.biases.length,
+            ),
+            weightM1: new Float32Array(readbacks[2].readback.getMappedRange()).slice(
+              0,
+              packed.weightM1.length,
+            ),
+            weightM2: new Float32Array(readbacks[3].readback.getMappedRange()).slice(
+              0,
+              packed.weightM2.length,
+            ),
+            biasM1: new Float32Array(readbacks[4].readback.getMappedRange()).slice(
+              0,
+              packed.biasM1.length,
+            ),
+            biasM2: new Float32Array(readbacks[5].readback.getMappedRange()).slice(
+              0,
+              packed.biasM2.length,
+            ),
+          })
+          if (!trainOnlyInspectInput.checked)
+            trainCursor = (trainCursor + 37 * batchSize) % target.length
+          step++
+          gpuPredictionReady = false
+          recordTrainingPerf("webgpu", batchSize, performance.now() - started)
+        }
+        for (const { readback } of readbacks) {
+          readback.unmap()
+          readback.destroy()
+        }
+        for (const buffer of [...buffers, targetBuffer, paramsBuffer]) buffer.destroy()
+      }
+
       function torchUnsupportedReason(settings) {
-        if (model.kind !== "mlp") return "only mlp is wired"
         if (settings.lossName !== "mse") return "requires mse loss"
         if (settings.optimizerName !== "sgd") return "requires sgd optimizer"
         if (trainOnlyInspectInput.checked) return "disable inspected-pixel-only training"
@@ -1611,7 +1596,6 @@
 
       function updateGpuPredictions(activationName, now) {
         if (
-          model.kind !== "mlp" ||
           gpuPredictionUnavailable ||
           gpuPredictionPending ||
           now - gpuPredictionLastDispatch < 100
@@ -1761,7 +1745,7 @@
         ctx.fillRect(0, 0, rect.width, rect.height)
         drawImagePanel(targetPanel, (x, y) => target[indexForCell(x, y)])
         drawImagePanel(predictionPanel, (x, y) =>
-          model.kind === "mlp" && gpuPredictionReady
+          gpuPredictionReady
             ? gpuPredictionValues[indexForCell(x, y)]
             : forward(coordForCell(x), coordForCell(y), activationName).value,
         )
@@ -1783,10 +1767,6 @@
       }
 
       function drawNetwork() {
-        if (model.kind === "attention") {
-          drawTransformerNetwork()
-          return
-        }
         const cache = forward(coordForCell(sampleX), coordForCell(sampleY), activationInput.value)
         const horizontalSpan = 468
         const verticalSpan = 316
@@ -1814,175 +1794,6 @@
         }
         for (const layer of layers) for (const node of layer) drawNode(node)
         drawTargetText()
-      }
-
-      function drawTransformerNetwork() {
-        const cache = forwardAttention(
-          coordForCell(sampleX),
-          coordForCell(sampleY),
-          activationInput.value,
-        )
-        network.replaceChildren()
-        const blocks = [
-          { x: 42, y: 168, w: 82, h: 74, label: "x,y", sub: "input", value: cache.input[0] },
-          {
-            x: 162,
-            y: 146,
-            w: 92,
-            h: 118,
-            label: "embed",
-            sub: "2 → d",
-            value: meanAbs(cache.embed),
-          },
-          { x: 292, y: 146, w: 92, h: 118, label: "mlp", sub: "d → d", value: meanAbs(cache.mlp1) },
-          {
-            x: 422,
-            y: 104,
-            w: 96,
-            h: 202,
-            label: "attention",
-            sub: "softmax(QKᵀ)",
-            value: Math.max(...cache.attn),
-            topLabel: true,
-          },
-        ]
-        drawBlockEdge(blocks[0], blocks[1])
-        drawBlockEdge(blocks[1], blocks[2])
-        drawBlockEdge(blocks[2], blocks[3])
-        for (const block of blocks) drawTransformerBlock(block)
-        drawAttentionScores(blocks[3], cache.attn)
-        const output = {
-          x: 456,
-          y: 342,
-          w: 58,
-          h: 42,
-          label: "ŷ",
-          sub: cache.value.toFixed(2),
-          value: cache.value,
-        }
-        drawTransformerBlock(output)
-        drawVerticalBlockEdge(blocks[3], output)
-        drawTargetText()
-      }
-
-      function drawAttentionScores(block, scores) {
-        const x = block.x + 14
-        const y = block.y + 96
-        const barWidth = block.w - 28
-        for (let i = 0; i < scores.length; i++) {
-          const rowY = y + i * 24
-          const label = svgEl("text", {
-            x,
-            y: rowY + 8,
-            fill: "#9da797",
-            "font-family": "IBM Plex Mono, monospace",
-            "font-size": 8,
-          })
-          label.textContent = `m${i + 1}`
-          network.append(label)
-          network.append(
-            svgEl("rect", {
-              x: x + 22,
-              y: rowY,
-              width: barWidth - 22,
-              height: 9,
-              fill: "rgba(240, 234, 223, 0.08)",
-            }),
-          )
-          network.append(
-            svgEl("rect", {
-              x: x + 22,
-              y: rowY,
-              width: (barWidth - 22) * scores[i],
-              height: 9,
-              fill: "#66d7c6",
-              opacity: 0.7,
-            }),
-          )
-          const value = svgEl("text", {
-            x: x + barWidth,
-            y: rowY + 8,
-            fill: "#f0eadf",
-            "font-family": "IBM Plex Mono, monospace",
-            "font-size": 8,
-            "text-anchor": "end",
-          })
-          value.textContent = scores[i].toFixed(2)
-          network.append(value)
-        }
-      }
-
-      function meanAbs(values) {
-        return values.reduce((sum, value) => sum + Math.abs(value), 0) / values.length
-      }
-
-      function drawBlockEdge(a, b) {
-        const y1 = a.y + a.h / 2
-        const y2 = b.y + b.h / 2
-        const x1 = a.x + a.w
-        const x2 = b.x
-        const mx = (x1 + x2) / 2
-        network.append(
-          svgEl("path", {
-            d: `M${x1} ${y1} C${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`,
-            fill: "none",
-            stroke: "#66d7c6",
-            "stroke-width": 2,
-            opacity: 0.35,
-          }),
-        )
-      }
-
-      function drawVerticalBlockEdge(a, b) {
-        const x1 = a.x + a.w / 2
-        const y1 = a.y + a.h
-        const x2 = b.x + b.w / 2
-        const y2 = b.y
-        const my = (y1 + y2) / 2
-        network.append(
-          svgEl("path", {
-            d: `M${x1} ${y1} C${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`,
-            fill: "none",
-            stroke: "#66d7c6",
-            "stroke-width": 2,
-            opacity: 0.35,
-          }),
-        )
-      }
-
-      function drawTransformerBlock(block) {
-        network.append(
-          svgEl("rect", {
-            x: block.x,
-            y: block.y,
-            width: block.w,
-            height: block.h,
-            rx: 10,
-            fill: colorForActivation(block.value),
-            stroke: "rgba(240, 234, 223, 0.45)",
-            "stroke-width": 1.2,
-          }),
-        )
-        const label = svgEl("text", {
-          x: block.x + block.w / 2,
-          y: block.topLabel ? block.y + 28 : block.y + block.h / 2 - 3,
-          fill: "#f0eadf",
-          "font-family": "IBM Plex Mono, monospace",
-          "font-size": 11,
-          "text-anchor": "middle",
-        })
-        label.textContent = block.label
-        network.append(label)
-        const sub = svgEl("text", {
-          x: block.x + block.w / 2,
-          y: block.topLabel ? block.y + 45 : block.y + block.h / 2 + 14,
-          fill: "#9da797",
-          "font-family": "IBM Plex Mono, monospace",
-          "font-size": 9,
-          "text-anchor": "middle",
-        })
-        sub.textContent = block.sub
-        network.append(sub)
       }
 
       function drawTargetText() {
@@ -2103,16 +1914,7 @@
           : samplesPerSecond
       }
 
-      function updateControlLabels() {
-        const isTransformer = model.kind === "attention"
-        modelViewLabel.textContent = isTransformer ? "tiny transformer view" : "mlp activation view"
-        activationLabel.textContent = isTransformer ? "mlp activation" : "activation"
-        hiddenCountLabel.textContent = isTransformer ? "d_model" : "neurons / layer"
-        layerCountLabel.style.display = isTransformer ? "none" : ""
-      }
-
       function updateText(now) {
-        updateControlLabels()
         const x = coordForCell(sampleX)
         const y = coordForCell(sampleY)
         const activationName = activationInput.value
@@ -2126,12 +1928,8 @@
         lossOut.value = lastLossText
         sampleOut.value = `x=${x.toFixed(2).padStart(5)} y=${y.toFixed(2).padStart(5)}\nt=${targetValue.toFixed(2).padStart(5)} / px=${prediction.toFixed(2).padStart(5)}`
         perfOut.value = `${perfBackend}\n${perfMs.toFixed(2)} ms · ${Math.round(perfSamplesPerSecond).toLocaleString()} px/s`
-        sampleLabel.textContent = `(${x.toFixed(2)}, ${y.toFixed(2)}) · ${modelName()} · ${activationName}`
+        sampleLabel.textContent = `(${x.toFixed(2)}, ${y.toFixed(2)}) · ${activationName} · ${layerInput.value} layer${layerInput.value === "1" ? "" : "s"}`
         updateSliderText()
-      }
-
-      function modelName() {
-        return modelTypeInput.value === "attention" ? "tiny transformer" : "mlp"
       }
 
       function trainingSettings() {
@@ -2140,13 +1938,13 @@
           lossName: lossInput.value,
           lr: learningRate(),
           optimizerName: optimizerInput.value,
-          modelName: modelTypeInput.value,
         }
       }
 
       function trainUntilNextFrame(now) {
         const deadline = now + 10
         const settings = trainingSettings()
+        if (tryGpuTrain(settings, now)) return
         if (tryTorchTrain(settings, now)) return
         const started = performance.now()
         let samples = 0
@@ -2269,7 +2067,6 @@
       })
       hiddenInput.addEventListener("input", resetModel)
       layerInput.addEventListener("input", resetModel)
-      modelTypeInput.addEventListener("change", resetModel)
       activationInput.addEventListener("change", resetModel)
       optimizerInput.addEventListener("change", resetModel)
       lossInput.addEventListener("change", resetTrainingState)
@@ -2297,9 +2094,66 @@
         loadImageFile(imageFileInput.files[0])
         imageFileInput.value = ""
       })
+      function maxModelDiff(a, b) {
+        if (typeof a === "number") return Math.abs(a - b)
+        if (Array.isArray(a)) {
+          let diff = 0
+          for (let i = 0; i < a.length; i++) diff = Math.max(diff, maxModelDiff(a[i], b[i]))
+          return diff
+        }
+        if (a && typeof a === "object") {
+          let diff = 0
+          for (const key of Object.keys(a)) diff = Math.max(diff, maxModelDiff(a[key], b[key]))
+          return diff
+        }
+        return 0
+      }
+
+      async function runWebGpuSelfTest() {
+        paused = true
+        layerInput.value = "1"
+        hiddenInput.value = "4"
+        setSample(7, 11)
+        smileTarget()
+        const cases = []
+        for (const inspectOnly of [true, false])
+          for (const activationName of ["tanh", "relu", "sigmoid"])
+            for (const lossName of ["mse", "l1", "huber"])
+              for (const optimizerName of ["sgd", "adam"])
+                cases.push({ inspectOnly, activationName, lossName, optimizerName })
+        for (const testCase of cases) {
+          trainOnlyInspectInput.checked = testCase.inspectOnly
+          activationInput.value = testCase.activationName
+          lossInput.value = testCase.lossName
+          optimizerInput.value = testCase.optimizerName
+          resetModel()
+          const initialModel = structuredClone(model)
+          const settings = trainingSettings()
+          trainBatch(settings)
+          const expected = structuredClone(model)
+          model = structuredClone(initialModel)
+          step = 0
+          trainCursor = 0
+          await dispatchGpuTraining(settings, modelVersion)
+          const diff = maxModelDiff(model, expected)
+          if (!(diff <= 2e-5))
+            throw new Error(`${testCase.inspectOnly ? "inspect" : "batch"}/${testCase.activationName}/${testCase.lossName}/${testCase.optimizerName} diff ${diff}`)
+        }
+        document.body.dataset.selftest = "pass"
+        perfOut.value = "webgpu selftest pass"
+      }
+
       smileTarget()
       resetModel()
-      requestAnimationFrame(tick)
+      if (new URLSearchParams(location.search).get("selftest") === "webgpu") {
+        runWebGpuSelfTest().catch((error) => {
+          document.body.dataset.selftest = "fail"
+          perfOut.value = `webgpu selftest fail\n${error?.message || error}`
+          console.error(error)
+        })
+      } else {
+        requestAnimationFrame(tick)
+      }
     </script>
   </body>
 </html>
