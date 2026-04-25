@@ -3,6 +3,7 @@ import TagContent from "./pages/TagContent"
 import FolderContent from "./pages/FolderContent"
 import NotFound from "./pages/404"
 import ArticleTitle from "./ArticleTitle"
+import ArticleHeader from "./ArticleHeader"
 import Darkmode from "./Darkmode"
 import Head from "./Head"
 import PageTitle from "./PageTitle"
@@ -21,9 +22,11 @@ import RecentNotes from "./RecentNotes"
 import Breadcrumbs from "./Breadcrumbs"
 import Comments from "./Comments"
 import NuggetsLogo from "./NuggetsLogo"
+import PublicationNav from "./PublicationNav"
 
 export {
   ArticleTitle,
+  ArticleHeader,
   Content,
   TagContent,
   FolderContent,
@@ -46,4 +49,5 @@ export {
   Breadcrumbs,
   Comments,
   NuggetsLogo,
+  PublicationNav,
 }

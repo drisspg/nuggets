@@ -1,3 +1,6 @@
+---
+title: FlexAttention Determinism
+---
 
 Run-to-run determinism is increasingly a priority in the age of Mixture of Experts (MoEs) and long Reinforcement Learning (RL) rollouts. This guide describes how to ensure that FlexAttention is bitwise equivalent between runs.
 
@@ -10,11 +13,13 @@ This is true for the forward pass, but not for the backward pass.
 ## TL;DR: To enable deterministic results you need to set:
 
 ### For the forward pass:
+
 ```python
 torch.compile(flex_attention, dynamic=False, backend="inductor", mode="default")
 ```
 
 ### For the forward and backward passes:
+
 The above, plus `torch._inductor.config.deterministic = True`. See the [PyTorch documentation](https://github.com/pytorch/pytorch/blob/901bbcba122825c817cac9e0b88221096fcd74ae/torch/_inductor/config.py#L712) for more details.
 
 ## Initial Findings
@@ -26,7 +31,6 @@ I started with a few hypotheses about the sources of non-determinism in FlexAtte
 3.  **Atomics in `score_mod`:** The backward kernel does not use the non-deterministic algorithm from FlashAttention's backward pass. However, when backpropagating gradients to buffers captured in `score_mod`, atomics are used to flow gradients, which can introduce non-determinism. This is specific to users of that feature and is not the common case.
 
 **Dynamic Shapes:** During the lowering of FlexAttention, specific decisions are made about block sizes and divisibility based on whether sequence lengths are statically known. When shapes are static, the compiler can make precise divisibility choices that optimize for those exact dimensions. With dynamic shapes, it must make more conservative divisibility assumptions that work across various sequence lengths. These different divisibility choices directly impact the numerical computations within the kernel—different block sizes and reduction strategies lead to different floating-point rounding. This is why running with static shapes in one run and dynamic shapes in another (even with the same actual values) can produce different numerical results, particularly in the backward pass where these reduction differences compound.
-
 
 Initially, the script produced deterministic results, but it was unclear if all sources of autotuning non-determinism were being triggered. Fortunately, recent additions to PyTorch's test tooling provide a more direct way to investigate this:
 [`torch._inductor.config.test_configs.distort_benchmarking_result = "random"`](https://github.com/pytorch/pytorch/blob/901bbcba122825c817cac9e0b88221096fcd74ae/torch/_inductor/config.py#L2102).
@@ -46,6 +50,7 @@ This provides a solution, but it's important to understand why this flag is nece
 ### Debugging
 
 I performed a few sanity checks:
+
 1.  Verified that autotuning was selecting a single, consistent configuration for the FlexAttention backward pass.
 2.  Compared the generated `output_code` to ensure it was identical between runs.
 

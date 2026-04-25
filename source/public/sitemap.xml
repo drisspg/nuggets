@@ -1,10 +1,10 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml"><url>
-    <loc>https://quartz.jzhao.xyz/FlexAttention-Determinism</loc>
+    <loc>https://drisspg.github.io/nuggets/FlexAttention-Determinism</loc>
     <lastmod>2025-11-15T18:12:37.382Z</lastmod>
   </url><url>
-    <loc>https://quartz.jzhao.xyz/Why-Rtol-and-Atol-are-set-the-way-they-are-in-pytorch-assert_close</loc>
+    <loc>https://drisspg.github.io/nuggets/Why-Rtol-and-Atol-are-set-the-way-they-are-in-pytorch-assert_close</loc>
     <lastmod>2025-10-26T17:35:08.683Z</lastmod>
   </url><url>
-    <loc>https://quartz.jzhao.xyz/</loc>
+    <loc>https://drisspg.github.io/nuggets/</loc>
     <lastmod>2025-10-26T17:35:08.684Z</lastmod>
   </url></urlset>

@@ -1,5 +1,13 @@
 import { QuartzTransformerPlugin } from "../types"
-import { Root, Html, BlockContent, DefinitionContent, Paragraph, Code } from "mdast"
+import {
+  Root,
+  Html,
+  BlockContent,
+  DefinitionContent,
+  Paragraph,
+  Code,
+  PhrasingContent,
+} from "mdast"
 import { Element, Literal, Root as HtmlRoot } from "hast"
 import { ReplaceFunction, findAndReplace as mdastFindReplace } from "mdast-util-find-and-replace"
 import rehypeRaw from "rehype-raw"
@@ -11,11 +19,11 @@ import { JSResource } from "../../util/resources"
 import calloutScript from "../../components/scripts/callout.inline.ts"
 // @ts-ignore
 import checkboxScript from "../../components/scripts/checkbox.inline.ts"
-import { FilePath, pathToRoot, slugTag, slugifyFilePath } from "../../util/path"
+import { FilePath, joinSegments, pathToRoot, slugTag, slugifyFilePath } from "../../util/path"
 import { toHast } from "mdast-util-to-hast"
 import { toHtml } from "hast-util-to-html"
-import { PhrasingContent } from "mdast-util-find-and-replace/lib"
 import { capitalize } from "../../util/lang"
+import { escapeHTML } from "../../util/escape"
 import { PluggableList } from "unified"
 
 export interface Options {
@@ -147,22 +155,16 @@ export const ObsidianFlavoredMarkdown: QuartzTransformerPlugin<Partial<Options>>
   return {
     name: "ObsidianFlavoredMarkdown",
     textTransform(_ctx, src) {
+      let transformed = src.toString()
+
       // do comments at text level
       if (opts.comments) {
-        if (src instanceof Buffer) {
-          src = src.toString()
-        }
-
-        src = src.replace(commentRegex, "")
+        transformed = transformed.replace(commentRegex, "")
       }
 
       // pre-transform blockquotes
       if (opts.callouts) {
-        if (src instanceof Buffer) {
-          src = src.toString()
-        }
-
-        src = src.replace(calloutLineRegex, (value) => {
+        transformed = transformed.replace(calloutLineRegex, (value) => {
           // force newline after title of callout
           return value + "\n> "
         })
@@ -170,12 +172,8 @@ export const ObsidianFlavoredMarkdown: QuartzTransformerPlugin<Partial<Options>>
 
       // pre-transform wikilinks (fix anchors to things that may contain illegal syntax e.g. codeblocks, latex)
       if (opts.wikilinks) {
-        if (src instanceof Buffer) {
-          src = src.toString()
-        }
-
         // replace all wikilinks inside a table first
-        src = src.replace(tableRegex, (value) => {
+        transformed = transformed.replace(tableRegex, (value) => {
           // escape all aliases and headers in wikilinks inside a table
           return value.replace(tableWikilinkRegex, (_value, raw) => {
             // const [raw]: (string | undefined)[] = capture
@@ -189,7 +187,7 @@ export const ObsidianFlavoredMarkdown: QuartzTransformerPlugin<Partial<Options>>
         })
 
         // replace all other wikilinks
-        src = src.replace(wikilinkRegex, (value, ...capture) => {
+        transformed = transformed.replace(wikilinkRegex, (value, ...capture) => {
           const [rawFp, rawHeader, rawAlias]: (string | undefined)[] = capture
 
           const [fp, anchor] = splitAnchor(`${rawFp ?? ""}${rawHeader ?? ""}`)
@@ -206,7 +204,7 @@ export const ObsidianFlavoredMarkdown: QuartzTransformerPlugin<Partial<Options>>
         })
       }
 
-      return src
+      return transformed
     },
     markdownPlugins(_ctx) {
       const plugins: PluggableList = []
@@ -262,6 +260,16 @@ export const ObsidianFlavoredMarkdown: QuartzTransformerPlugin<Partial<Options>>
                     return {
                       type: "html",
                       value: `<iframe src="${url}" class="pdf"></iframe>`,
+                    }
+                  } else if ([".html", ".htm"].includes(ext)) {
+                    const widgetUrl = joinSegments(
+                      base,
+                      `${slugifyFilePath(fp as FilePath, true)}${ext}`,
+                    )
+                    const caption = alias ? `<figcaption>${escapeHTML(alias)}</figcaption>` : ""
+                    return {
+                      type: "html",
+                      value: `<figure class="interactive-widget"><div class="widget-header"><span class="widget-label">interactive artifact</span><span class="widget-actions"><a class="widget-open" href="${widgetUrl}">open full screen</a></span></div><iframe src="${widgetUrl}" class="widget-frame" loading="lazy"></iframe>${caption}</figure>`,
                     }
                   } else {
                     const block = anchor

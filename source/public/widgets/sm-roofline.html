@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #141611;
+        --panel: #1c2018;
+        --rule: #3a4338;
+        --text: #ece8df;
+        --muted: #a9b0a4;
+        --accent: #8da07d;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          IBM Plex Sans,
+          Inter,
+          system-ui,
+          sans-serif;
+        margin: 0;
+      }
+
+      main {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: minmax(0, 1fr) 230px;
+        min-height: 100vh;
+        padding: 1rem;
+      }
+
+      svg {
+        background: linear-gradient(180deg, #181b15, #11130f);
+        border: 1px solid var(--rule);
+        height: 100%;
+        min-height: 360px;
+        width: 100%;
+      }
+
+      aside {
+        border-left: 1px solid var(--rule);
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding-left: 1rem;
+      }
+
+      h1,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-family:
+          IBM Plex Mono,
+          ui-monospace,
+          monospace;
+        font-size: 0.78rem;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      p,
+      label,
+      output {
+        color: var(--muted);
+        font-size: 0.86rem;
+        line-height: 1.55;
+      }
+
+      label {
+        display: grid;
+        gap: 0.4rem;
+      }
+
+      input {
+        accent-color: var(--accent);
+      }
+
+      .metric {
+        border-top: 1px solid var(--rule);
+        padding-top: 0.75rem;
+      }
+
+      output {
+        color: var(--text);
+        display: block;
+        font-family:
+          IBM Plex Mono,
+          ui-monospace,
+          monospace;
+        font-size: 1.35rem;
+      }
+
+      @media (max-width: 700px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+
+        aside {
+          border-left: 0;
+          border-top: 1px solid var(--rule);
+          padding-left: 0;
+          padding-top: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg viewBox="0 0 760 420" role="img" aria-label="A small interactive roofline-style model">
+        <g stroke="#3a4338" stroke-width="1">
+          <path d="M80 340H710" />
+          <path d="M80 340V40" />
+          <path d="M80 280H710" opacity="0.45" />
+          <path d="M80 220H710" opacity="0.45" />
+          <path d="M80 160H710" opacity="0.45" />
+          <path d="M80 100H710" opacity="0.45" />
+        </g>
+        <g fill="#a9b0a4" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="12">
+          <text x="80" y="372">arithmetic intensity</text>
+          <text x="20" y="54" transform="rotate(-90 20 54)">throughput</text>
+        </g>
+        <path id="memory" d="M80 340L710 52" fill="none" stroke="#6f8f7b" stroke-width="3" />
+        <path id="compute" d="M80 92H710" fill="none" stroke="#ece8df" stroke-width="3" />
+        <circle id="point" cx="320" cy="180" r="7" fill="#8da07d" />
+        <g fill="#ece8df" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="12">
+          <text id="label" x="336" y="174">kernel</text>
+        </g>
+      </svg>
+      <aside>
+        <h1>Kernel toy model</h1>
+        <p>
+          Use this as a placeholder pattern for self-contained widgets authored inside the vault and
+          embedded with a wikilink.
+        </p>
+        <label>
+          arithmetic intensity
+          <input id="intensity" type="range" min="0" max="100" value="38" />
+        </label>
+        <label>
+          memory bandwidth
+          <input id="bandwidth" type="range" min="20" max="100" value="64" />
+        </label>
+        <section class="metric">
+          <p>estimated regime</p>
+          <output id="regime">memory bound</output>
+        </section>
+      </aside>
+    </main>
+    <script>
+      const intensity = document.querySelector("#intensity")
+      const bandwidth = document.querySelector("#bandwidth")
+      const point = document.querySelector("#point")
+      const memory = document.querySelector("#memory")
+      const label = document.querySelector("#label")
+      const regime = document.querySelector("#regime")
+
+      function render() {
+        const x = 80 + Number(intensity.value) * 6.3
+        const slope = Number(bandwidth.value) / 100
+        const memoryY = 340 - (x - 80) * 0.46 * slope
+        const y = Math.max(92, memoryY)
+        point.setAttribute("cx", x)
+        point.setAttribute("cy", y)
+        label.setAttribute("x", x + 16)
+        label.setAttribute("y", y - 8)
+        memory.setAttribute("d", `M80 340L710 ${340 - 630 * 0.46 * slope}`)
+        regime.value = y <= 96 ? "compute bound" : "memory bound"
+      }
+
+      intensity.addEventListener("input", render)
+      bandwidth.addEventListener("input", render)
+      render()
+    </script>
+  </body>
+</html>

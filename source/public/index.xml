@@ -2,26 +2,26 @@
 <rss version="2.0">
     <channel>
       <title>Nuggets</title>
-      <link>https://quartz.jzhao.xyz</link>
+      <link>https://drisspg.github.io/nuggets</link>
       <description>Last 10 notes on Nuggets</description>
       <generator>Quartz -- quartz.jzhao.xyz</generator>
       <item>
     <title>FlexAttention Determinism</title>
-    <link>https://quartz.jzhao.xyz/FlexAttention-Determinism</link>
-    <guid>https://quartz.jzhao.xyz/FlexAttention-Determinism</guid>
+    <link>https://drisspg.github.io/nuggets/FlexAttention-Determinism</link>
+    <guid>https://drisspg.github.io/nuggets/FlexAttention-Determinism</guid>
     <description>Run-to-run determinism is increasingly a priority in the age of Mixture of Experts (MoEs) and long Reinforcement Learning (RL) rollouts. This guide describes how to ensure that FlexAttention is bitwise equivalent between runs.</description>
     <pubDate>Sat, 15 Nov 2025 18:12:37 GMT</pubDate>
   </item><item>
-    <title>Nuggets Blog</title>
-    <link>https://quartz.jzhao.xyz/</link>
-    <guid>https://quartz.jzhao.xyz/</guid>
-    <description>Nuggets of ML engineering, testing, and tooling insights.</description>
+    <title>Welcome</title>
+    <link>https://drisspg.github.io/nuggets/</link>
+    <guid>https://drisspg.github.io/nuggets/</guid>
+    <description>Recent Notes FlexAttention Determinism Why Rtol and Atol are set the way they are in pytorch assert_close? .</description>
     <pubDate>Sun, 26 Oct 2025 17:35:08 GMT</pubDate>
   </item><item>
     <title>Why Rtol and Atol are set the way they are in pytorch assert_close?</title>
-    <link>https://quartz.jzhao.xyz/Why-Rtol-and-Atol-are-set-the-way-they-are-in-pytorch-assert_close</link>
-    <guid>https://quartz.jzhao.xyz/Why-Rtol-and-Atol-are-set-the-way-they-are-in-pytorch-assert_close</guid>
-    <description>There is a great helper in PyTorch torch.testing.assert_close` I use it all the time. And sometimes it fails. If you are like me you might have looked at its definition when this is happens and seen this table: github.com/pytorch/pytorch/blob/5cedc5a0ff236529f76ac514805b825bc73e1a74/torch/testing/_comparison.py#L1418 +---------------------------+------------+----------+ | ``dtype`` | ``rtol`` | ``atol`` | +===========================+============+==========+ | :attr:`~torch.float16` | ``1e-3`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.bfloat16` | ``1.6e-2`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.float32` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.float64` | ``1e-7`` | ``1e-7`` | +---------------------------+------------+----------+ | :attr:`~torch.complex32` | ``1e-3`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.complex64` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.complex128` | ``1e-7`` | ``1e-7`` | +---------------------------+------------+----------+ | :attr:`~torch.quint8` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.quint2x4` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.quint4x2` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.qint8` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.qint32` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | other | ``0.0`` | ``0.0`` | +---------------------------+------------+----------+ Its very pretty right? but how did we get these numbers.</description>
+    <link>https://drisspg.github.io/nuggets/Why-Rtol-and-Atol-are-set-the-way-they-are-in-pytorch-assert_close</link>
+    <guid>https://drisspg.github.io/nuggets/Why-Rtol-and-Atol-are-set-the-way-they-are-in-pytorch-assert_close</guid>
+    <description>There is a great helper in PyTorch torch.testing.assert_close I use it all the time. And sometimes it fails. If you are like me you might have looked at its definition when this is happens and seen this table: github.com/pytorch/pytorch/blob/5cedc5a0ff236529f76ac514805b825bc73e1a74/torch/testing/_comparison.py#L1418 +---------------------------+------------+----------+ | ``dtype`` | ``rtol`` | ``atol`` | +===========================+============+==========+ | :attr:`~torch.float16` | ``1e-3`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.bfloat16` | ``1.6e-2`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.float32` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.float64` | ``1e-7`` | ``1e-7`` | +---------------------------+------------+----------+ | :attr:`~torch.complex32` | ``1e-3`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.complex64` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.complex128` | ``1e-7`` | ``1e-7`` | +---------------------------+------------+----------+ | :attr:`~torch.quint8` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.quint2x4` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.quint4x2` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.qint8` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | :attr:`~torch.qint32` | ``1.3e-6`` | ``1e-5`` | +---------------------------+------------+----------+ | other | ``0.0`` | ``0.0`` | +---------------------------+------------+----------+ Its very pretty right? but how did we get these numbers.</description>
     <pubDate>Sun, 26 Oct 2025 17:35:08 GMT</pubDate>
   </item>
     </channel>

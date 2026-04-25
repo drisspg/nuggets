@@ -1,13 +1,8 @@
 ---
-title: Nuggets Blog
-description: Nuggets of ML engineering, testing, and tooling insights.
-tags: [home]
+title: Welcome
+dek: Enjoy the ramblings.
 layout: landing
 ---
-
-# Welcome
-
-Enjoy the rambilings
 
 ## Recent Notes
 

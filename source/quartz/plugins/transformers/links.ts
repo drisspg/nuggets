@@ -56,7 +56,16 @@ export const CrawlLinks: QuartzTransformerPlugin<Partial<Options>> = (userOpts) 
                 typeof node.properties.href === "string"
               ) {
                 let dest = node.properties.href as RelativeURL
-                const classes = (node.properties.className ?? []) as string[]
+                const rawClasses = node.properties.className
+                const classes = Array.isArray(rawClasses)
+                  ? rawClasses
+                  : typeof rawClasses === "string"
+                    ? rawClasses.split(/\s+/)
+                    : []
+                if (classes.includes("widget-open")) {
+                  return
+                }
+
                 const isExternal = isAbsoluteUrl(dest)
                 classes.push(isExternal ? "external" : "internal")
 
@@ -145,7 +154,14 @@ export const CrawlLinks: QuartzTransformerPlugin<Partial<Options>> = (userOpts) 
                   node.properties.loading = "lazy"
                 }
 
-                if (!isAbsoluteUrl(node.properties.src)) {
+                const classes = node.properties.className
+                const classList = Array.isArray(classes)
+                  ? classes
+                  : typeof classes === "string"
+                    ? classes.split(/\s+/)
+                    : []
+
+                if (!classList.includes("widget-frame") && !isAbsoluteUrl(node.properties.src)) {
                   let dest = node.properties.src as RelativeURL
                   dest = node.properties.src = transformLink(
                     file.data.slug!,
