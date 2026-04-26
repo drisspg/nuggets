@@ -22,7 +22,6 @@ const PublicationNav: QuartzComponent = ({ cfg, fileData, displayClass }: Quartz
         >
           All Notes
         </a>
-        <a href="https://github.com/drisspg/nuggets">Source</a>
         <a href="https://github.com/drisspg">GitHub</a>
         <a href="https://x.com/drisspg">Twitter</a>
       </div>
