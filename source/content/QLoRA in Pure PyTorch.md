@@ -153,7 +153,7 @@ Original - 69.724 ms
 BitsandBytes - 164.450 ms
 NFTensor - 81.686 ms
 
-_Note: These MLP do not actually have the adapater weights added. Since I was more curious about measuring the impact of the quantization and the adapters would be identical between models. This is a good follow up _
+_Note: These MLPs do not actually include the adapter weights. I was focused on measuring the impact of quantization, and the adapter layers would be identical across the compared models. Adding them would be good follow-up work._
 
 ### Memory Profiling
 

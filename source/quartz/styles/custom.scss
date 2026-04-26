@@ -325,6 +325,26 @@ figcaption,
   margin-top: 0.65rem;
 }
 
+.page article p > em,
+.page article em,
+.page article p > i,
+.page article i {
+  background-color: transparent !important;
+  color: inherit !important;
+  font-style: italic;
+  font-weight: inherit !important;
+}
+
+.page article p:has(> img) > em {
+  color: var(--gray) !important;
+  display: block;
+  font-family: var(--codeFont);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  margin-top: 0.65rem;
+}
+
 .external-embed.youtube,
 iframe.pdf,
 .widget-frame {
