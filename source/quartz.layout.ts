@@ -5,7 +5,7 @@ import * as Component from "./quartz/components"
 export const sharedPageComponents: SharedLayout = {
   head: Component.Head(),
   header: [Component.PublicationNav(), Component.Search(), Component.Darkmode()],
-  afterBody: [],
+  afterBody: [Component.TagList()],
   footer: Component.Footer({
     links: {
       Source: "https://github.com/drisspg/nuggets",

@@ -65,9 +65,20 @@ function renderMarkdown(entries) {
     groups.get(year).push(entry)
   }
 
-  const lines = ["---", "title: All Notes", "---", ""]
+  const lines = [
+    "---",
+    "title: All Notes",
+    "---",
+    "",
+    "## Tool Tips",
+    "",
+    "- [[tags/tool-tips|Tool Tips]] — short and sweet, the good stuff",
+    "",
+    "## By Date",
+    "",
+  ]
   for (const [year, items] of groups) {
-    lines.push(`## ${year}`, "")
+    lines.push(`### ${year}`, "")
     for (const item of items) {
       lines.push(`- [[${item.slug}]] — ${formatDate(item.iso)}`)
     }

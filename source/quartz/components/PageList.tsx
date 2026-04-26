@@ -6,6 +6,13 @@ import { GlobalConfiguration } from "../cfg"
 
 export type SortFn = (f1: QuartzPluginData, f2: QuartzPluginData) => number
 
+function displayTag(tag: string): string {
+  return tag
+    .split("-")
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
 export function byDateAndAlphabetical(cfg: GlobalConfiguration): SortFn {
   return (f1, f2) => {
     if (f1.dates && f2.dates) {
@@ -67,7 +74,7 @@ export const PageList: QuartzComponent = ({ cfg, fileData, allFiles, limit, sort
                       class="internal tag-link"
                       href={resolveRelative(fileData.slug!, `tags/${tag}` as FullSlug)}
                     >
-                      {tag}
+                      {displayTag(tag)}
                     </a>
                   </li>
                 ))}

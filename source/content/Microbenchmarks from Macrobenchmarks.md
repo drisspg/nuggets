@@ -1,6 +1,8 @@
 ---
 title: Microbenchmarks from Macrobenchmarks
 date: 2024-08-11
+tags:
+  - tool-tips
 ---
 
 #### Written: August 11, 2024
