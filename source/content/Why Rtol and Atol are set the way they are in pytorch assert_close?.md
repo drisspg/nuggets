@@ -64,8 +64,9 @@ You take the remainder = 0.00159.. and if you look at the last digit in your flo
 
 Using our above example again, our final floating point value was $3.14 \times 10^1$ and we lost 0.00159 units of precision. The term that you likely already know is ULP or (units in the last place). This term is purposely phrased since a little vaguely because its floating. The actual scale of that unit in the last place is dependent on the exponent for the particular number. So in this case since the scale is 10 the last digit's unit is 0.01. We can see that the number we have is off by $0.159 \times 0.01$ or 0.159 ULPs.
 
-A really great way to look at this can be found in this [blog](https://blog.demofox.org/2017/11/21/floating-point-precision/)
-![[media/Pasted image 20251001172822.png]]
+A really great way to look at this can be found in this [blog](https://blog.demofox.org/2017/11/21/floating-point-precision/). I had codex make a small interactive version of the same idea below, explore the binades!cool
+
+![[widgets/ulp-binades.html|Interactive ULP and binade visualization]]
 
 At any given exponent you get N digits to play with for base 2 floats this is always the $2^N$ distinct values of mantissa bits. The ranges here are called `binades` weird name, but essentially all the FP values with the same exponents, or the ones that are in the same bin. You can see as the exponent grows your step size increases. The formula is:
 
@@ -163,6 +164,6 @@ Output:
 
 ## Why PyTorch's rtol >> theoretical rtol?
 
-I dont really know. I was hoping to derive a better theoretical grounding for torch.testing.assert_close's rtol, and show that it was mainly built for round off error. And thatThe main source of error is typically not round off error though. The next post I want to write, mostly for myself, is going to be exploring a better statistical approaching to quantifying the max errors for 2 "correct" implementations of the same algorithm. The main one being vector dot product.
+I dont really know... I was hoping to derive a better theoretical grounding for torch.testing.assert_close's rtol, and show that it was mainly built for round off error. And that the main source of error is typically not round off error though. The next post I want to write, mostly for myself, is going to be exploring a better statistical approaching to quantifying the max errors for 2 "correct" implementations of the same algorithm. The main one being vector dot product.
 
 That being said it feels the ground I was planning to stand on appears to already be somewhat shaky. I did a couple deep researches but honestly couldn't find a good explanation for the exact quantities but "vibes". So if anyone has gone through this exercise already I would love to compare notes :)
