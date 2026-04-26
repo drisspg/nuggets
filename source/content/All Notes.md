@@ -2,8 +2,6 @@
 title: All Notes
 ---
 
-#### Browse everything published here
-
 ## 2026
 
 - [[ptq Dispatching AI Agents to Fix PyTorch Bugs]] — March 12, 2026
