@@ -399,18 +399,18 @@
         <div class="controls">
           <label>
             <span class="control-heading"
-              >inspect x <output id="inspectXOut" class="slider-value">32</output></span
+              >inspect x <output id="inspectXOut" class="slider-value">38</output></span
             >
             <span class="slider-row">
-              <input id="inspectX" type="range" min="0" max="63" value="32" />
+              <input id="inspectX" type="range" min="0" max="63" value="38" />
             </span>
           </label>
           <label>
             <span class="control-heading"
-              >inspect y <output id="inspectYOut" class="slider-value">32</output></span
+              >inspect y <output id="inspectYOut" class="slider-value">25</output></span
             >
             <span class="slider-row">
-              <input id="inspectY" type="range" min="0" max="63" value="32" />
+              <input id="inspectY" type="range" min="0" max="63" value="25" />
             </span>
           </label>
           <label class="checkbox-label">
@@ -436,25 +436,25 @@
           <label>
             <span class="control-heading"
               >neurons / layer
-              <output id="hiddenCountOut" class="slider-value">24</output></span
+              <output id="hiddenCountOut" class="slider-value">17</output></span
             >
             <span class="slider-row">
-              <input id="hiddenCount" type="range" min="4" max="64" value="24" />
+              <input id="hiddenCount" type="range" min="4" max="64" value="17" />
             </span>
           </label>
           <label>
             <span class="control-heading"
-              >learning rate <output id="lrOut" class="slider-value">0.0010</output></span
+              >learning rate <output id="lrOut" class="slider-value">3.2e-4</output></span
             >
             <span class="slider-row">
-              <input id="lr" type="range" min="-5" max="-1" step="0.05" value="-3" />
+              <input id="lr" type="range" min="-5" max="-1" step="0.05" value="-3.5" />
             </span>
           </label>
           <label>
             optimizer
             <select id="optimizer">
               <option value="sgd">sgd</option>
-              <option value="adam">adam</option>
+              <option value="adam" selected>adam</option>
             </select>
           </label>
           <label>
@@ -526,8 +526,8 @@
       const target = new Float32Array(gridSize * gridSize)
       let model
       let step = 0
-      let sampleX = Math.floor(gridSize / 2)
-      let sampleY = Math.floor(gridSize / 2)
+      let sampleX = 38
+      let sampleY = 25
       let trainCursor = 0
       let paused = false
       let drawing = false
