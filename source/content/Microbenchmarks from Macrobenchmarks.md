@@ -3,6 +3,7 @@ title: Microbenchmarks from Macrobenchmarks
 date: 2024-08-11
 tags:
   - tool-tips
+  - pytorch
 ---
 
 #### Written: August 11, 2024

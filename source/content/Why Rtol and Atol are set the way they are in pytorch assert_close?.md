@@ -1,6 +1,8 @@
 ---
 title: Why Rtol and Atol are set the way they are in pytorch assert_close?
 date: 2025-10-13
+tags:
+  - pytorch
 ---
 
 #### Written: October 13, 2025

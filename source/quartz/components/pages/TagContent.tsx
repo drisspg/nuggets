@@ -64,6 +64,7 @@ export default ((opts?: Partial<TagContentOptions>) => {
               }
 
               const contentPage = allFiles.filter((file) => file.slug === `tags/${tag}`).at(0)
+              const tagTitle = contentPage?.frontmatter?.title ?? tag
 
               const root = contentPage?.htmlAst
               const content =
@@ -75,7 +76,7 @@ export default ((opts?: Partial<TagContentOptions>) => {
                 <div>
                   <h2>
                     <a class="internal tag-link" href={`../tags/${tag}`}>
-                      {tag}
+                      {tagTitle}
                     </a>
                   </h2>
                   {content && <p>{content}</p>}

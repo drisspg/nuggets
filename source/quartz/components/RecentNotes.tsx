@@ -12,7 +12,9 @@ interface Options {
   title?: string
   limit: number
   linkToMore: SimpleSlug | false
+  linkText?: string
   showTags: boolean
+  showIf: (f: QuartzPluginData) => boolean
   filter: (f: QuartzPluginData) => boolean
   sort: (f1: QuartzPluginData, f2: QuartzPluginData) => number
 }
@@ -21,6 +23,7 @@ const defaultOptions = (cfg: GlobalConfiguration): Options => ({
   limit: 3,
   linkToMore: false,
   showTags: true,
+  showIf: () => true,
   filter: () => true,
   sort: byDateAndAlphabetical(cfg),
 })
@@ -33,6 +36,10 @@ export default ((userOpts?: Partial<Options>) => {
     cfg,
   }: QuartzComponentProps) => {
     const opts = { ...defaultOptions(cfg), ...userOpts }
+    if (!opts.showIf(fileData)) {
+      return null
+    }
+
     const pages = allFiles.filter(opts.filter).sort(opts.sort)
     const remaining = Math.max(0, pages.length - opts.limit)
     return (
@@ -78,9 +85,10 @@ export default ((userOpts?: Partial<Options>) => {
           })}
         </ul>
         {opts.linkToMore && remaining > 0 && (
-          <p>
-            <a href={resolveRelative(fileData.slug!, opts.linkToMore)}>
-              {i18n(cfg.locale).components.recentNotes.seeRemainingMore({ remaining })}
+          <p class="recent-more">
+            <a class="internal" href={resolveRelative(fileData.slug!, opts.linkToMore)}>
+              {opts.linkText ??
+                i18n(cfg.locale).components.recentNotes.seeRemainingMore({ remaining })}
             </a>
           </p>
         )}

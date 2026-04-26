@@ -1,10 +1,12 @@
 ---
 title: All Notes
+cssclasses:
+  - all-notes
 ---
 
-## Tool Tips
-
 - [[tags/tool-tips|Tool Tips]] — short and sweet, the good stuff
+- [[tags/ai|AI]] — Fighting the Slopageddon
+- [[tags/pytorch|PyTorch]] — All the Goodies
 
 ## By Date
 

@@ -1,6 +1,9 @@
 ---
 title: "ptq: Dispatching AI Agents to Fix PyTorch Bugs"
 date: 2026-03-12
+tags:
+  - ai
+  - pytorch
 ---
 
 #### Written: March 12, 2026

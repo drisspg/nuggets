@@ -218,6 +218,19 @@ article a.internal {
   padding: 0 0.04rem;
 }
 
+article.all-notes > ul:first-of-type {
+  margin: 1.35rem 0 2.75rem;
+}
+
+article.all-notes > ul:first-of-type li {
+  font-size: clamp(1.22rem, 2.2vw, 1.55rem);
+  line-height: 1.55;
+}
+
+article.all-notes > ul:first-of-type a.internal {
+  font-weight: 700;
+}
+
 blockquote:not(.callout) {
   background: var(--editorial-panel);
   border: 1px solid var(--editorial-rule);

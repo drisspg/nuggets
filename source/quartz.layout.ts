@@ -1,5 +1,6 @@
 import { PageLayout, SharedLayout } from "./quartz/cfg"
 import * as Component from "./quartz/components"
+import { SimpleSlug } from "./quartz/util/path"
 
 // components shared across all pages
 export const sharedPageComponents: SharedLayout = {
@@ -16,7 +17,21 @@ export const sharedPageComponents: SharedLayout = {
 
 // components for pages that display a single page (e.g. a single note)
 export const defaultContentPageLayout: PageLayout = {
-  beforeBody: [Component.ArticleHeader()],
+  beforeBody: [
+    Component.ArticleHeader(),
+    Component.RecentNotes({
+      limit: 5,
+      linkToMore: "All-Notes" as SimpleSlug,
+      linkText: "All Notes",
+      showTags: false,
+      showIf: (page) => page.slug === "index",
+      filter: (page) =>
+        Boolean(page.dates) &&
+        page.slug !== "index" &&
+        page.slug !== "All-Notes" &&
+        !page.slug?.startsWith("tags/"),
+    }),
+  ],
   left: [],
   right: [Component.DesktopOnly(Component.TableOfContents())],
 }

@@ -1,6 +1,8 @@
 ---
 title: FlexAttention Determinism
 date: 2025-10-17
+tags:
+  - pytorch
 ---
 
 #### Written: October 17, 2025

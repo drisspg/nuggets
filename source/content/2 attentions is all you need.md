@@ -1,6 +1,8 @@
 ---
 title: 2 attentions is all you need
 date: 2025-10-01
+tags:
+  - pytorch
 ---
 
 #### Written: October 1, 2025
