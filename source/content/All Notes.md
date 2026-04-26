@@ -17,6 +17,7 @@ cssclasses:
 
 ### 2025
 
+- [[IntraKernel Profiling]] — December 5, 2025
 - [[FlexAttention Determinism]] — October 17, 2025
 - [[Why Rtol and Atol are set the way they are in pytorch assert_close?]] — October 13, 2025
 - [[2 attentions is all you need]] — October 1, 2025
