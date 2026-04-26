@@ -5,41 +5,17 @@ date: 2025-10-13
 
 #### Written: October 13, 2025
 
-There is a great helper in PyTorch `torch.testing.assert_close` I use it all the time. And sometimes it fails. If you are like me you might have looked at its definition when this is happens and seen this table: https://github.com/pytorch/pytorch/blob/5cedc5a0ff236529f76ac514805b825bc73e1a74/torch/testing/_comparison.py#L1418
+There is a great helper in PyTorch `torch.testing.assert_close` I use it all the time. And sometimes it fails. If you are like me you might have looked at its definition and seen PyTorch's [default tolerance table](https://github.com/pytorch/pytorch/blob/5cedc5a0ff236529f76ac514805b825bc73e1a74/torch/testing/_comparison.py#L1418):
 
-```Shell
-    +---------------------------+------------+----------+
-    | ``dtype``                 | ``rtol``   | ``atol`` |
-    +===========================+============+==========+
-    | :attr:`~torch.float16`    | ``1e-3``   | ``1e-5`` |
-    +---------------------------+------------+----------+
-    | :attr:`~torch.bfloat16`   | ``1.6e-2`` | ``1e-5`` |
-    +---------------------------+------------+----------+
-    | :attr:`~torch.float32`    | ``1.3e-6`` | ``1e-5`` |
-    +---------------------------+------------+----------+
-    | :attr:`~torch.float64`    | ``1e-7``   | ``1e-7`` |
-    +---------------------------+------------+----------+
-    | :attr:`~torch.complex32`  | ``1e-3``   | ``1e-5`` |
-    +---------------------------+------------+----------+
-    | :attr:`~torch.complex64`  | ``1.3e-6`` | ``1e-5`` |
-    +---------------------------+------------+----------+
-    | :attr:`~torch.complex128` | ``1e-7``   | ``1e-7`` |
-    +---------------------------+------------+----------+
-    | :attr:`~torch.quint8`     | ``1.3e-6`` | ``1e-5`` |
-    +---------------------------+------------+----------+
-    | :attr:`~torch.quint2x4`   | ``1.3e-6`` | ``1e-5`` |
-    +---------------------------+------------+----------+
-    | :attr:`~torch.quint4x2`   | ``1.3e-6`` | ``1e-5`` |
-    +---------------------------+------------+----------+
-    | :attr:`~torch.qint8`      | ``1.3e-6`` | ``1e-5`` |
-    +---------------------------+------------+----------+
-    | :attr:`~torch.qint32`     | ``1.3e-6`` | ``1e-5`` |
-    +---------------------------+------------+----------+
-    | other                     | ``0.0``    | ``0.0``  |
-    +---------------------------+------------+----------+
-```
+| dtype group | rtol | atol |
+|---|---:|---:|
+| `float16`, `complex32` | `1e-3` | `1e-5` |
+| `bfloat16` | `1.6e-2` | `1e-5` |
+| `float32`, `complex64`, quantized dtypes | `1.3e-6` | `1e-5` |
+| `float64`, `complex128` | `1e-7` | `1e-7` |
+| other | `0.0` | `0.0` |
 
-Its very pretty right? but how did we get these numbers. Spoiler alert that this is basically a regurgitation of [THE article](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html).
+It's very pretty right, but like how did we get these numbers. Spoiler alert that this is basically a regurgitation of [THE article](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html).
 
 These tolerances are meant to allow for 1 type of error, and that is rounding error. Rounding error occurs when you have some real number with its infinite digits of precision, lets use π, and you need to represent it with some finite number of bits.
 
