@@ -2,6 +2,7 @@ node_modules/
 .DS_Store
 .quartz-cache/
 dist/
+public/
 .cache/
 .npm/
 .husky/_/
