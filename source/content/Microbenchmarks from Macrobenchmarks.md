@@ -35,7 +35,7 @@ Heavily inspired by the [LoggingMode](https://github.com/albanD/subclass_zoo/blo
 
 An example output:
 
-```Shell
+```python
     'aten._scaled_dot_product_flash_attention.default': Counter({
         "query:bf16[4,12,512,64]|key:bf16[4,12,512,64]|value:bf16[4,12,512,64]|dropout_p:0.1|is_causal:False|return_debug_mask:False
 |scale:0.125->('bf16[4,12,512,64]', 'f32[4,12,512]', None, None, 512, 512, 'i64[]', 'i64[]', 'bf16[0]')": 12,
@@ -47,7 +47,7 @@ I am also working on a [utility](https://github.com/drisspg/transformer_nuggets/
 
 For example:
 
-```Python
+```python
 aten = torch.ops.aten
 op = aten.unsqueeze.default
 
