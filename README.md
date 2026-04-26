@@ -17,8 +17,11 @@ Open the printed URL to browse the site.
 - Push to `main` to trigger the GitHub Actions build.
 - Published site: https://drisspg.github.io/nuggets/
 
-## Theme Switching
-- Theme overrides live in `source/quartz/styles/custom.scss`, which now imports `source/quartz/styles/themes/_index.scss`.
-- Each theme from [saberzero1/quartz-themes](https://github.com/saberzero1/quartz-themes) belongs in its own folder under `source/quartz/styles/themes/` (e.g., `golden-topaz/_index.scss`).
-- Switch themes by editing `source/quartz/styles/themes/_index.scss` to forward the desired folder (currently `@forward "./golden-topaz/_index.scss";`).
+## Styling
+All site-wide styling is centralized so a single edit propagates everywhere.
+
+- **Base palette** (light + dark mode primitives like `--light`, `--dark`, `--secondary`, etc.) lives in `source/quartz.config.ts` under `theme.colors`.
+- **Syntax highlighting theme** (Shiki theme name per mode) lives in `source/quartz.config.ts` under `Plugin.SyntaxHighlighting`.
+- **All other design tokens** (surfaces, rules, callouts, accent chips, prose rhythm, shadows) live at the top of `source/quartz/styles/custom.scss` in the `:root` and `:root[saved-theme="dark"]` blocks. The rest of `custom.scss` only references these tokens, never raw hex values.
+- Optional third-party themes from [saberzero1/quartz-themes](https://github.com/saberzero1/quartz-themes) can be dropped into `source/quartz/styles/themes/<name>/` and forwarded from `source/quartz/styles/themes/_index.scss`. By default no external theme is forwarded.
 - Rebuild locally with `cd source && npx quartz build --serve` to check the new styling before publishing.

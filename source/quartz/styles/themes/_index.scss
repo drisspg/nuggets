@@ -1,1 +1,3 @@
-@forward "./golden-topaz/_index.scss";
+// Styling is centralized in `source/quartz.config.ts` (color tokens) and
+// `source/quartz/styles/custom.scss` (layout, typography, components).
+// To experiment with a third-party theme, add `@forward "./<theme>/_index.scss";` here.

@@ -1,17 +1,46 @@
 @use "./base.scss";
 @use "./themes";
 
+// ─── Frontier Editorial design tokens ─────────────────────────────────────
+// Single source of truth for site styling. Edit values here and they
+// propagate everywhere downstream.
+//
+// Base palette (--light, --dark, --secondary, --tertiary, --gray, --lightgray,
+// --highlight, --textHighlight) is configured in `source/quartz.config.ts`
+// under `theme.colors`. Syntax-highlighting theme name is configured in the
+// same file under `Plugin.SyntaxHighlighting`.
+
 :root {
+  // Surfaces & rules
   --editorial-rule: color-mix(in srgb, var(--lightgray) 82%, var(--dark) 18%);
   --editorial-panel: color-mix(in srgb, var(--light) 92%, var(--dark) 8%);
   --editorial-code: color-mix(in srgb, var(--light) 86%, var(--dark) 14%);
   --editorial-shadow: 0 18px 56px rgba(24, 34, 29, 0.08);
+
+  // Inline accent chips (e.g. inline code)
+  --editorial-accent-soft: color-mix(in srgb, var(--secondary) 12%, transparent);
+  --editorial-accent-border: color-mix(in srgb, var(--secondary) 20%, transparent);
+
+  // Callout palette
+  --callout-color-result: var(--secondary);
+  --callout-color-protocol: var(--tertiary);
+  --callout-color-caveat: #9a704f;
+  --callout-bg-result: color-mix(in srgb, var(--secondary) 10%, transparent);
+  --callout-bg-protocol: color-mix(in srgb, var(--tertiary) 10%, transparent);
+  --callout-bg-caveat: rgba(154, 112, 79, 0.08);
+  --callout-border-result: color-mix(in srgb, var(--secondary) 42%, transparent);
+  --callout-border-protocol: color-mix(in srgb, var(--tertiary) 42%, transparent);
+  --callout-border-caveat: rgba(154, 112, 79, 0.34);
+
+  // Prose rhythm
+  --prose-size: 1.02rem;
+  --prose-leading: 1.78;
 }
 
 :root[saved-theme="dark"] {
-  --editorial-rule: #222822;
-  --editorial-panel: #141713;
-  --editorial-code: #10130f;
+  --editorial-rule: #202020;
+  --editorial-panel: #141414;
+  --editorial-code: #0a0a0a;
   --editorial-shadow: none;
 }
 
@@ -140,8 +169,8 @@ body::before {
 
 article p,
 article li {
-  font-size: 1.02rem;
-  line-height: 1.78;
+  font-size: var(--prose-size);
+  line-height: var(--prose-leading);
 }
 
 article > p:first-of-type {
@@ -211,21 +240,21 @@ blockquote:not(.callout) {
 }
 
 .callout[data-callout="result"] {
-  --color: #5f7f67;
-  --border: color-mix(in srgb, var(--secondary) 42%, transparent);
-  --bg: color-mix(in srgb, var(--secondary) 10%, transparent);
+  --color: var(--callout-color-result);
+  --border: var(--callout-border-result);
+  --bg: var(--callout-bg-result);
 }
 
 .callout[data-callout="protocol"] {
-  --color: #7f8f86;
-  --border: color-mix(in srgb, var(--tertiary) 42%, transparent);
-  --bg: color-mix(in srgb, var(--tertiary) 10%, transparent);
+  --color: var(--callout-color-protocol);
+  --border: var(--callout-border-protocol);
+  --bg: var(--callout-bg-protocol);
 }
 
 .callout[data-callout="caveat"] {
-  --color: #9a704f;
-  --border: rgba(154, 112, 79, 0.34);
-  --bg: rgba(154, 112, 79, 0.08);
+  --color: var(--callout-color-caveat);
+  --border: var(--callout-border-caveat);
+  --bg: var(--callout-bg-caveat);
 }
 
 .callout-title {
@@ -275,8 +304,8 @@ pre > code > [data-line]::before {
 }
 
 code:not(pre code) {
-  background: color-mix(in srgb, var(--secondary) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--secondary) 20%, transparent);
+  background: var(--editorial-accent-soft);
+  border: 1px solid var(--editorial-accent-border);
   border-radius: 2px;
   color: var(--dark);
   padding: 0.08rem 0.28rem;
