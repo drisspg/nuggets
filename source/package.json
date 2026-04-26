@@ -17,6 +17,7 @@
     "index": "node scripts/generate-all-notes.mjs",
     "dev": "npm run index && npx quartz build --serve",
     "build": "npm run index && npx quartz build",
+    "prepare": "git -C .. rev-parse --is-inside-work-tree >/dev/null 2>&1 && git -C .. config core.hooksPath scripts/git-hooks || true",
     "check": "tsc --noEmit && npx prettier . --check",
     "format": "npx prettier . --write",
     "test": "tsx ./quartz/util/path.test.ts && tsx ./quartz/depgraph.test.ts",

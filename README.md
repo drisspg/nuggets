@@ -4,8 +4,10 @@ Static site for publishing Obsidian notes through Quartz and GitHub Pages.
 
 ## Edit Content
 - Update Markdown notes in `source/content`. Each note needs frontmatter with at least `title:` and `date:` (ISO `YYYY-MM-DD`); set `draft: true` to exclude one from the site.
-- `source/content/All Notes.md` is auto-generated from frontmatter — do not edit by hand. Regenerate with `npm run index` (and CI also regenerates on every build).
+- `source/content/All Notes.md` is auto-generated from frontmatter — do not edit by hand. A pre-commit hook regenerates and stages it on every commit, and CI regenerates it during builds.
 - Place any hand-written HTML in `source/raw_html`.
+
+The pre-commit hook lives at `scripts/git-hooks/pre-commit` and is wired in automatically by `npm install` (via the `prepare` script in `source/package.json`, which sets `core.hooksPath`). On a fresh clone, `cd source && npm install` is enough; if you ever bypass it, you can wire it manually with `git config core.hooksPath scripts/git-hooks`.
 
 ## Preview Locally
 ```bash

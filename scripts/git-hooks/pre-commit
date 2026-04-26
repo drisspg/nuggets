@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Auto-regenerate `source/content/All Notes.md` from frontmatter on every
+# commit and stage it so the index can never drift from the notes.
+set -e
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT/source"
+npm run --silent index
+cd "$ROOT"
+git add "source/content/All Notes.md"
