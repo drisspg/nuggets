@@ -23,7 +23,7 @@ The paper makes proposed two techniques for memory savings 4-bit NormalFloat Qua
 
 The pseudo-code for converted the NF4 representation can be found below:
 
-```Python
+```python
 # 1.) Read full-precision pre-trained weight in blocks of 64
 # 2.) Quantize each element in the block using a pre-computed set of int4 types.
 # 3.) Store the the weight in int4. And dequantize on the fly to original dtype when doing computation.
@@ -31,100 +31,63 @@ The pseudo-code for converted the NF4 representation can be found below:
 
 The actual code for 2) and 3) can be found below:
 
-```Python
+```python
 @staticmethod
 def convert_to_norm_float_weight(
-
-inpt_tensor: torch.Tensor, n_blocks: int, block_size: int, nf4: torch.tensor
-
+    inpt_tensor: torch.Tensor, n_blocks: int, block_size: int, nf4: torch.tensor
 ) -> torch.Tensor:
+    """Convert a tensor to the normalized float weight format"""
+    flattened_tensor = inpt_tensor.flatten()
 
-"""Convert a tensor to the normalized float weight format"""
+    # Since we are using uint8 we will encode 2 entries per byte
+    numel = inpt_tensor.numel()
+    assert (
+        numel % 2 == 0
+    ), "Number of elements must be even just to not have to think about the end"
 
-flattened_tensor = inpt_tensor.flatten()
+    # Reshape the flattened tensor into blocks of size self.block_size
+    blocks = flattened_tensor.view(n_blocks, block_size)
 
-# Since we are using uint8 we will encode 2 entries per byte
+    # Scale the blocks
+    scalers = get_block_absmax(inpt_tensor.flatten(), block_size)
+    scales = scalers.unsqueeze(-1).expand(n_blocks, block_size)
+    scaled_blocks = blocks / scales
+    quantized_blocks = NF4Tensor.quantize_tensor_nearest(scaled_blocks.flatten(), nf4)
 
-numel = inpt_tensor.numel()
-
-assert (
-
-numel % 2 == 0
-
-), "Number of elements must be even just to not have to think about the end"
-
-# Reshape the flattened tensor into blocks of size self.block_size
-
-blocks = flattened_tensor.view(n_blocks, block_size)
-
-# Scale the blocks
-
-scalers = get_block_absmax(inpt_tensor.flatten(), block_size)
-
-scales = scalers.unsqueeze(-1).expand(n_blocks, block_size)
-
-scaled_blocks = blocks / scales
-
-quantized_blocks = NF4Tensor.quantize_tensor_nearest(scaled_blocks.flatten(), nf4)
-
-# Combine the quantized elements into uint8 values
-
-combined_blocks = quantized_blocks[::2] << 4 | quantized_blocks[1::2]
-
-return combined_blocks.to(torch.uint8)
+    # Combine the quantized elements into uint8 values
+    return (quantized_blocks[::2] << 4 | quantized_blocks[1::2]).to(torch.uint8)
 ```
 
-```Python
+```python
 def get_original_weight(self) -> torch.Tensor:
+    """Get the original weight from the normalized float weight format"""
+    # since we are using uint8 we will decode 2 entries per byte
+    # Shift elements down 4 and select out the bottom 4 bits
+    first_elements = (self.quantized_data >> 4).to(torch.long)
+    second_elements = (self.quantized_data & 0b1111).to(torch.long)
 
-"""Get the original weight from the normalized float weight format"""
+    # Dequantize every element
+    dequantized_first = self.dequantize(first_elements, self.nf4)
+    dequantized_second = self.dequantize(second_elements, self.nf4)
 
-# since we are using uint8 we will decode 2 entries per byte
+    # Build up matrix of scalers repeated for each element in the block
+    # Since first and second elements make up a full block, so
+    # we expand out to half the size of the full block
+    scalers = self.dequantize_scalers(
+        self.quantized_scalers, self.quantization_factor, self.scaler_block_size
+    )
+    repeated = scalers.unsqueeze(-1).expand(scalers.size(0), self.block_size // 2)
 
-# Shift elements down 4 and select out the bottom 4 bits
+    scaled_first = dequantized_first * repeated.flatten()
+    scaled_second = dequantized_second * repeated.flatten()
 
-first_elements = (self.quantized_data >> 4).to(torch.long)
-
-second_elements = (self.quantized_data & 0b1111).to(torch.long)
-
-
-# Dequantize every element
-
-dequantized_first = self.dequantize(first_elements, self.nf4)
-
-dequantized_second = self.dequantize(second_elements, self.nf4)
-
-
-# Build up matrix of scalers repeated for each element in the block
-
-# Since first and second elements make up a full block, so
-
-# we expand out to half the size of the full block
-
-scalers = self.dequantize_scalers(
-
-self.quantized_scalers, self.quantization_factor, self.scaler_block_size
-
-)
-
-repeated = scalers.unsqueeze(-1).expand(scalers.size(0), self.block_size // 2)
-
-
-
-scaled_first = dequantized_first * repeated.flatten()
-
-scaled_second = dequantized_second * repeated.flatten()
-
-
-# Flip them to be vertical and them stack them together horizontally
-
-# Upon flattening this will interleave the elements
-
-scaled_first = scaled_first.unsqueeze(-1).transpose(0, 1)
-
-scaled_second = scaled_second.unsqueeze(-1).transpose(0, 1)
-
-return torch.stack([scaled_first, scaled_second], dim=-1).reshape(self.original_shape)
+    # Flip them to be vertical and them stack them together horizontally
+    # Upon flattening this will interleave the elements
+    scaled_first = scaled_first.unsqueeze(-1).transpose(0, 1)
+    scaled_second = scaled_second.unsqueeze(-1).transpose(0, 1)
+    return torch.stack([scaled_first, scaled_second], dim=-1).reshape(
+        self.original_shape
+    )
 ```
 
 ### DoubleQuantization
@@ -148,46 +111,29 @@ I compared between, the "original" (no quantization), BnB's `bnb.nn.LinearNF4` c
 
 For Instance my NF4MLP class looks like
 
-```Python
+```python
 class NF4MLP(nn.Module):
+    def __init__(self, config: LLaMAConfig) -> None:
+        super().__init__()
+        weight1, weight2, weight3 = qlora.get_mlp_weights(config.n_embd)
+        self.w1 = qlora.NF4Tensor.from_tensor(weight1)
+        self.w2 = qlora.NF4Tensor.from_tensor(weight2)
+        self.w3 = qlora.NF4Tensor.from_tensor(weight3)
 
-def __init__(self, config: LLaMAConfig) -> None:
-
-super().__init__()
-
-weight1, weight2, weight3 = qlora.get_mlp_weights(config.n_embd)
-
-self.w1 = qlora.NF4Tensor.from_tensor(weight1)
-
-self.w2 = qlora.NF4Tensor.from_tensor(weight2)
-
-self.w3 = qlora.NF4Tensor.from_tensor(weight3)
-
-
-def forward(self, x: torch.Tensor) -> torch.Tensor:
-
-x = F.silu(F.linear(x, self.w1.get_original_weight())) * F.linear(
-
-x, self.w2.get_original_weight()
-
-)
-
-x = F.linear(x, self.w3.get_original_weight())
-
-return x
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.silu(F.linear(x, self.w1.get_original_weight())) * F.linear(
+            x, self.w2.get_original_weight()
+        )
+        return F.linear(x, self.w3.get_original_weight())
 ```
 
 Below is the plot of timings for the MLP in isolation. I swept over the embed dimensions found in the [Model Card](https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md)
 
-```Python
+```python
 # https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md
-
 # LLama 7b, 13b, 33b, 65b
-
 embed_dims = [4096, 5120, 6656, 8192]
-
 bszs = [8, 16, 32]
-
 seqlens = [128, 256, 512]
 ```
 
@@ -231,33 +177,21 @@ We see the correct total memory usage of this!
 
 So what is the real solution, we should wrap the NF4Linears in their own autograd Fucntions:
 
-```Python
+```python
 class LinearNF4(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input: torch.Tensor, weight: NF4Tensor):
+        ctx.nf4_weight = weight
+        return F.linear(input, weight.get_original_weight())
 
-@staticmethod
-
-def forward(ctx, input: torch.Tensor, weight: NF4Tensor):
-
-ctx.nf4_weight = weight
-
-return F.linear(input, weight.get_original_weight())
-
-
-
-@staticmethod
-
-def backward(ctx, grad_output):
-
-weight: NF4Tensor = ctx.nf4_weight
-
-return grad_output @ weight.get_original_weight(), None
-
-
+    @staticmethod
+    def backward(ctx, grad_output):
+        weight: NF4Tensor = ctx.nf4_weight
+        return grad_output @ weight.get_original_weight(), None
 
 
 def linear_nf4(input: torch.Tensor, weight: NF4Tensor) -> torch.Tensor:
-
-return LinearNF4.apply(input, weight)
+    return LinearNF4.apply(input, weight)
 ```
 
 ### Some Rough Edges:
@@ -283,4 +217,4 @@ Concrete Items:
 
 #### Thanks
 
-I want to say a quick thanks to Christina for pushing to make this component as performant as possible and identifying places to speedup. and Joel for being the best rubber duck ever!
+I want to say a quick thanks to Christian for pushing to make this component as performant as possible and identifying places to speedup. and Joel for being the best rubber duck ever!
