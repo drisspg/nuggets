@@ -21,6 +21,9 @@ This regenerates `All Notes.md`, then starts the Quartz watcher. Open the printe
 - Push to `main` to trigger the GitHub Actions build.
 - Published site: https://drisspg.github.io/nuggets/
 
+## Analytics
+- Minimal page-view analytics are tracked with GoatCounter: https://drisspg.goatcounter.com
+
 ## Styling
 All site-wide styling is centralized so a single edit propagates everywhere.
 
