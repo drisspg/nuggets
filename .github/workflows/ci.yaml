@@ -35,6 +35,10 @@ jobs:
         run: chmod +x ./quartz/bootstrap-cli.mjs
         working-directory: ./source
 
+      - name: Regenerate All Notes index
+        run: npm run index
+        working-directory: ./source
+
       - name: Ensure Quartz builds
         run: npx quartz build --bundleInfo
         working-directory: ./source
@@ -62,7 +66,7 @@ jobs:
       - name: Build Quartz
         run: |
           npm install
-          npx quartz build
+          npm run build
         working-directory: ./source
 
       - name: Copy raw HTML folder

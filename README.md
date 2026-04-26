@@ -3,15 +3,17 @@
 Static site for publishing Obsidian notes through Quartz and GitHub Pages.
 
 ## Edit Content
-- Update Markdown notes in `source/content`.
+- Update Markdown notes in `source/content`. Each note needs frontmatter with at least `title:` and `date:` (ISO `YYYY-MM-DD`); set `draft: true` to exclude one from the site.
+- `source/content/All Notes.md` is auto-generated from frontmatter — do not edit by hand. Regenerate with `npm run index` (and CI also regenerates on every build).
 - Place any hand-written HTML in `source/raw_html`.
 
 ## Preview Locally
 ```bash
 cd source
-npx quartz build --serve
+npm install
+npm run dev
 ```
-Open the printed URL to browse the site.
+This regenerates `All Notes.md`, then starts the Quartz watcher. Open the printed URL to browse the site. Use `npm run build` for a one-shot production build.
 
 ## Deploy
 - Push to `main` to trigger the GitHub Actions build.
