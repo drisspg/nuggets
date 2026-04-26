@@ -13,7 +13,8 @@ const config: QuartzConfig = {
     enableSPA: true,
     enablePopovers: false,
     analytics: {
-      provider: "plausible",
+      provider: "goatcounter",
+      websiteId: "drisspg",
     },
     locale: "en-US",
     baseUrl: "drisspg.github.io/nuggets",

@@ -128,6 +128,14 @@ function addGlobalPageResources(ctx: BuildCtx, componentResources: ComponentReso
       goatcounterScript.setAttribute("data-goatcounter",
         "https://${cfg.analytics.websiteId}.${cfg.analytics.host ?? "goatcounter.com"}/count")
       document.head.appendChild(goatcounterScript)
+
+      let goatcounterPath = location.pathname + location.search + location.hash
+      document.addEventListener("nav", () => {
+        const path = location.pathname + location.search + location.hash
+        if (path === goatcounterPath) return
+        goatcounterPath = path
+        window.goatcounter?.count?.({ path })
+      })
     `)
   } else if (cfg.analytics?.provider === "posthog") {
     componentResources.afterDOMLoaded.push(`
