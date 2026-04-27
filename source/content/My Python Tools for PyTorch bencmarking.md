@@ -1,12 +1,12 @@
 ---
 title: My Python Tools for PyTorch bencmarking
-date: 2026-04-26
+date: 2026-04-25
 tags:
   - tool-tips
   - pytorch
 ---
 
-#### Written: April 26, 2026
+#### Written: April 25, 2026
 
 # My Python Tools for PyTorch bencmarking
 
