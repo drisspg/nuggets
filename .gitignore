@@ -1,2 +1,6 @@
 .trash/*
 source/tsconfig.tsbuildinfo
+source/visuals/touchdesigner/dist/**/*.mov
+source/visuals/touchdesigner/dist/**/*.mp4
+source/visuals/touchdesigner/dist/**/*.toe
+source/visuals/touchdesigner/dist/**/*.tox
