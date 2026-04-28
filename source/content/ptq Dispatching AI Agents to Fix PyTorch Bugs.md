@@ -20,8 +20,6 @@ Two PRs landed so far ([#176559](https://github.com/pytorch/pytorch/pull/176559)
 
 You can see it here: https://github.com/drisspg/pt_job_queue
 
-<video autoplay loop muted playsinline controls src="./media/touchdesigner/ptq-agent-swarm-loop.mp4"></video>
-
 ## Why I Built This
 
 Two motivations:
