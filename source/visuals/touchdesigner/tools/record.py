@@ -32,6 +32,8 @@ def main():
     parser.add_argument('--fps', type=int, default=30)
     parser.add_argument('--crf', type=int, default=23)
     args = parser.parse_args()
+    args.mov = args.mov.resolve()
+    args.mp4 = args.mp4.resolve()
 
     args.mov.parent.mkdir(parents=True, exist_ok=True)
     args.mov.unlink(missing_ok=True)

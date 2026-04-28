@@ -11,12 +11,14 @@ TouchDesigner must be running with twozero MCP listening at `http://localhost:40
 ```bash
 cd source/visuals/touchdesigner
 python3 tools/run_visual.py visuals/neon_orbit/build.py
+python3 tools/run_visual.py visuals/ptq_agent_swarm/build.py
 ```
 
 ## Record
 
 ```bash
 python3 tools/record.py --recorder /project1/neon_orbit/recorder --seconds 6
+python3 tools/record.py --recorder /project1/ptq_agent_swarm/recorder --seconds 8 --mov dist/ptq_agent_swarm/ptq-agent-swarm-capture.mov --mp4 dist/ptq_agent_swarm/ptq-agent-swarm-loop.mp4
 ```
 
 Generated files go to `dist/`. Heavy generated files are gitignored.
@@ -25,6 +27,7 @@ Generated files go to `dist/`. Heavy generated files are gitignored.
 
 ```bash
 python3 tools/publish_asset.py dist/neon_orbit/neon-orbit-loop.mp4
+python3 tools/publish_asset.py dist/ptq_agent_swarm/ptq-agent-swarm-loop.mp4
 ```
 
 This copies the compressed clip to `source/content/media/touchdesigner/`.
@@ -33,6 +36,7 @@ This copies the compressed clip to `source/content/media/touchdesigner/`.
 
 ```html
 <video controls loop muted playsinline src="./media/touchdesigner/neon-orbit-loop.mp4"></video>
+<video autoplay loop muted playsinline controls src="./media/touchdesigner/ptq-agent-swarm-loop.mp4"></video>
 ```
 
 Use `autoplay loop muted playsinline` for hero/background loops.
