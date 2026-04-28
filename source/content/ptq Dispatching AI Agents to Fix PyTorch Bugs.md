@@ -8,6 +8,8 @@ tags:
 
 #### Written: March 12, 2026
 
+<iframe src="./widgets/ptq-conveyor-board.html" title="ptq dispatch board" loading="lazy" style="width: 100%; height: 340px; border: 1px solid var(--editorial-rule); box-shadow: var(--editorial-shadow);"></iframe>
+
 #### Future Driss on April 25, 2026
 
 I gave an internal talk about this and ill probably write a note on this subject in the future. But I categorize AI code workflows as DFS vs BFS style. This was my first real experiment in BFS style work on pytorch, a notoriously hard to work with repo. For the reader, I did have AI write many parts of this blog - it is  much less in my voice (the snake eating its tail and all / corpo life). That being said, in the month since I wrote this. I have basically 180. BFS style work gives me much less joy and I find it soul sucking. Unfrotunately, it definitely has alot of practical value. If you look at this github you will see will see I overhauled it with BFS style. I dont know exactly what I want so lets just implement a million things and see where we get. My guidance, go install Pi and read Marios's blogs. I resonate with them highly. I am fearful that BFS will be the only way to get paid in the future. But for now, while I have agency and economic power I will do my best to lean in on DFS and use BFS where applicable. A reminder that learning shoudl be hard and your brain should fight you. But you will be better for it. Happy clauding :)

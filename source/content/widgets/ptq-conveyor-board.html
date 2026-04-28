@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --paper: #faeadc;
+        --paper-2: #f3dfcd;
+        --ink: #18221d;
+        --muted: #918a7c;
+        --rule: #d7cdbc;
+        --panel: rgba(250, 234, 220, 0.86);
+        --green: #5f7f67;
+        --olive: #7f8f86;
+        --amber: #9a704f;
+      }
+
+      * { box-sizing: border-box; }
+
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        background:
+          linear-gradient(90deg, rgba(24, 34, 29, 0.032) 1px, transparent 1px) 0 0 / 36px 36px,
+          linear-gradient(180deg, rgba(24, 34, 29, 0.026) 1px, transparent 1px) 0 0 / 36px 36px,
+          linear-gradient(180deg, var(--paper), var(--paper-2));
+        color: var(--ink);
+        font-family: IBM Plex Sans, Inter, system-ui, sans-serif;
+        margin: 0;
+      }
+
+      .wrap {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      canvas {
+        display: block;
+        height: 100%;
+        width: 100%;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #1c1c1c;
+          --paper-2: #141414;
+          --ink: #ededed;
+          --muted: #8f918a;
+          --rule: #3a3a3a;
+          --panel: rgba(38, 38, 38, 0.86);
+          --green: #6f8f7b;
+          --olive: #7f8f86;
+          --amber: #b58a63;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <canvas id="conveyor"></canvas>
+    </main>
+    <script>
+      const css = getComputedStyle(document.documentElement)
+      const C = Object.fromEntries(["paper", "ink", "muted", "rule", "panel", "green", "olive", "amber"].map((k) => [k, css.getPropertyValue(`--${k}`).trim()]))
+      const canvas = document.querySelector("#conveyor")
+      const ctx = canvas.getContext("2d")
+
+      function setup() {
+        const r = canvas.getBoundingClientRect()
+        const dpr = Math.min(devicePixelRatio || 1, 2)
+        canvas.width = Math.round(r.width * dpr)
+        canvas.height = Math.round(r.height * dpr)
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+        return [r.width, r.height]
+      }
+
+      function rr(x, y, w, h, r = 4) {
+        ctx.beginPath()
+        ctx.moveTo(x + r, y)
+        ctx.arcTo(x + w, y, x + w, y + h, r)
+        ctx.arcTo(x + w, y + h, x, y + h, r)
+        ctx.arcTo(x, y + h, x, y, r)
+        ctx.arcTo(x, y, x + w, y, r)
+        ctx.closePath()
+      }
+
+      function ease(t) {
+        t = Math.max(0, Math.min(1, t))
+        return t * t * (3 - 2 * t)
+      }
+
+      function loop(t, p, o = 0) {
+        return ((t / p + o) % 1 + 1) % 1
+      }
+
+      function mix(a, b, t) {
+        return a + (b - a) * t
+      }
+
+      function label(s, x, y, size = 11, color = C.muted, align = "left") {
+        ctx.fillStyle = color
+        ctx.font = `${size}px IBM Plex Mono, ui-monospace, monospace`
+        ctx.textAlign = align
+        ctx.textBaseline = "middle"
+        ctx.fillText(s, x, y)
+      }
+
+      function card(x, y, w, h, title, status, accent = C.rule, angle = 0) {
+        ctx.save()
+        ctx.translate(x + w / 2, y + h / 2)
+        ctx.rotate(angle)
+        x = -w / 2
+        y = -h / 2
+        rr(x, y, w, h, 3)
+        ctx.fillStyle = C.panel
+        ctx.strokeStyle = accent
+        ctx.lineWidth = 1.2
+        ctx.fill()
+        ctx.stroke()
+        label(title, x + 12, y + 18, 11, C.ink)
+        ctx.strokeStyle = C.muted
+        ctx.globalAlpha = 0.38
+        ctx.beginPath()
+        ctx.moveTo(x + 12, y + 37)
+        ctx.lineTo(x + w - 16, y + 37)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(x + 12, y + 51)
+        ctx.lineTo(x + w * 0.68, y + 51)
+        ctx.stroke()
+        ctx.globalAlpha = 1
+        if (status) label(status, x + w - 12, y + 18, 9, accent, "right")
+        ctx.restore()
+      }
+
+      function render(t) {
+        const [w, h] = setup()
+        ctx.clearRect(0, 0, w, h)
+
+        const cols = ["queue", "clone", "run", "review", "ship"]
+        for (let i = 0; i < cols.length; i++) {
+          const x = w * (0.06 + i * 0.19)
+          label(cols[i], x, 28, 10, C.green)
+          ctx.strokeStyle = C.rule
+          ctx.beginPath()
+          ctx.moveTo(x, 44)
+          ctx.lineTo(x + w * 0.13, 44)
+          ctx.stroke()
+        }
+
+        ctx.strokeStyle = C.rule
+        ctx.setLineDash([4, 8])
+        ctx.beginPath()
+        ctx.moveTo(w * 0.08, h * 0.76)
+        ctx.lineTo(w * 0.92, h * 0.76)
+        ctx.stroke()
+        ctx.setLineDash([])
+
+        for (let i = 0; i < 16; i++) {
+          const p = loop(t, 8600, -i * 0.07)
+          const stage = Math.floor(p * 5)
+          const local = ease((p * 5) % 1)
+          const x = mix(w * 0.06, w * 0.82, (stage + local) / 5)
+          const y = h * (0.16 + (i % 5) * 0.115) + Math.sin(t * 0.001 + i) * 3
+          const accent = stage >= 4 ? C.green : stage === 3 ? C.olive : i % 6 === 0 ? C.amber : C.rule
+          card(x, y, w * 0.13, 58, `#${110505 + i * 173}`, stage >= 4 ? "PR" : stage === 3 ? "diff" : "", accent)
+        }
+
+        requestAnimationFrame(render)
+      }
+
+      addEventListener("resize", () => requestAnimationFrame(render))
+      requestAnimationFrame(render)
+    </script>
+  </body>
+</html>
