@@ -488,7 +488,10 @@
         (event) => {
           if (event.ctrlKey) return
           event.preventDefault()
-          window.parent.scrollBy({ left: event.deltaX, top: event.deltaY, behavior: "auto" })
+          window.parent.postMessage(
+            { type: "nuggets-widget-wheel", deltaX: event.deltaX, deltaY: event.deltaY },
+            window.location.origin,
+          )
         },
         { passive: false },
       )
