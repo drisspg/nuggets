@@ -403,14 +403,21 @@ iframe.pdf,
   min-height: 1240px;
 }
 
+.widget-frame[src*="clc-work-distribution"],
+.widget-frame[src*="clc-tail-cascade"] {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
 .widget-frame[src*="clc-work-distribution"] {
   height: 960px;
   min-height: 960px;
 }
 
 .widget-frame[src*="clc-tail-cascade"] {
-  height: 720px;
-  min-height: 720px;
+  height: 620px;
+  min-height: 620px;
 }
 
 .interactive-widget {
@@ -534,6 +541,11 @@ footer {
   .widget-frame[src*="clc-work-distribution"] {
     height: 920px;
     min-height: 920px;
+  }
+
+  .widget-frame[src*="clc-tail-cascade"] {
+    height: 620px;
+    min-height: 620px;
   }
 }
 
