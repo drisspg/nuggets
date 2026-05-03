@@ -80,18 +80,14 @@
         font-family: IBM Plex Mono, ui-monospace, monospace;
       }
 
-      .hero,
-      .reactor {
+      .hero {
         background: var(--panel);
         border: 1px solid var(--rule);
         border-radius: 2px;
         box-shadow: none;
-        padding: 0.9rem;
-      }
-
-      .hero {
         display: grid;
         gap: 0.7rem;
+        padding: 0.9rem;
       }
 
       .hero-top,
@@ -144,13 +140,16 @@
       .metric strong { color: var(--ink); }
 
       .reactor {
+        background: transparent;
+        border: 0;
         overflow: hidden;
+        padding: 0;
         position: relative;
       }
 
       canvas {
-        background: var(--panel-2);
-        border: 1px solid var(--rule);
+        background: transparent;
+        border: 0;
         display: block;
         height: 360px;
         width: 100%;
