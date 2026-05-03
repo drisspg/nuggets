@@ -403,6 +403,16 @@ iframe.pdf,
   min-height: 1240px;
 }
 
+.widget-frame[src*="clc-work-distribution"] {
+  height: 960px;
+  min-height: 960px;
+}
+
+.widget-frame[src*="clc-tail-cascade"] {
+  height: 720px;
+  min-height: 720px;
+}
+
 .interactive-widget {
   margin: 2rem 0;
 }
@@ -519,6 +529,11 @@ footer {
   .widget-frame {
     height: 1320px;
     min-height: 1320px;
+  }
+
+  .widget-frame[src*="clc-work-distribution"] {
+    height: 920px;
+    min-height: 920px;
   }
 }
 

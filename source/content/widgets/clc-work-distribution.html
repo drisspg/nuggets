@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --paper: #faeadc;
+        --paper-2: #f3dfcd;
+        --ink: #18221d;
+        --muted: #7f8178;
+        --rule: #d7cdbc;
+        --panel: rgba(250, 234, 220, 0.86);
+        --panel-2: rgba(243, 223, 205, 0.78);
+        --first: #6f8f7b;
+        --later: #b58a63;
+        --invalid: #b55f55;
+        --active: #9fbd8a;
+        --shadow: rgba(24, 34, 29, 0.08);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #1c1c1c;
+          --paper-2: #141414;
+          --ink: #ededed;
+          --muted: #8f918a;
+          --rule: #3a3a3a;
+          --panel: rgba(38, 38, 38, 0.86);
+          --panel-2: rgba(20, 20, 20, 0.82);
+          --first: #7f9f8a;
+          --later: #b58a63;
+          --invalid: #a95f58;
+          --active: #9fbd8a;
+          --shadow: rgba(0, 0, 0, 0.24);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        min-height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
+
+      body {
+        background:
+          linear-gradient(90deg, rgba(127, 143, 134, 0.045) 1px, transparent 1px) 0 0 / 36px 36px,
+          linear-gradient(180deg, rgba(127, 143, 134, 0.035) 1px, transparent 1px) 0 0 / 36px 36px,
+          linear-gradient(180deg, var(--paper), var(--paper-2));
+        color: var(--ink);
+        font-family:
+          IBM Plex Sans,
+          Inter,
+          system-ui,
+          sans-serif;
+        margin: 0;
+        padding: clamp(0.9rem, 2vw, 1.4rem);
+      }
+
+      main {
+        display: grid;
+        gap: 1rem;
+        margin: 0 auto;
+        max-width: 1180px;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-family:
+          Newsreader,
+          Georgia,
+          serif;
+        font-size: clamp(1.55rem, 3vw, 2.25rem);
+        letter-spacing: -0.02em;
+      }
+
+      h2,
+      button,
+      .pill,
+      .metric,
+      .worker-name,
+      .tile,
+      .caption {
+        font-family:
+          IBM Plex Mono,
+          ui-monospace,
+          monospace;
+      }
+
+      h2 {
+        color: var(--first);
+        font-size: 0.68rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      button {
+        background: var(--paper-2);
+        border: 1px solid var(--rule);
+        border-radius: 2px;
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 0.74rem;
+        letter-spacing: 0.08em;
+        padding: 0.55rem 0.7rem;
+        text-transform: uppercase;
+      }
+
+      button:hover {
+        border-color: var(--first);
+      }
+
+      .hero,
+      .queue-panel,
+      .worker-panel,
+      .readout {
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 2px;
+        box-shadow: 0 18px 56px var(--shadow);
+      }
+
+      .hero {
+        display: grid;
+        gap: 0.8rem;
+        padding: 1rem;
+      }
+
+      .hero-top,
+      .controls,
+      .legend,
+      .metrics {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+      }
+
+      .hero-top {
+        justify-content: space-between;
+      }
+
+      .caption {
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.65;
+        max-width: 68rem;
+      }
+
+      .pill,
+      .metric {
+        background: var(--panel-2);
+        border: 1px solid var(--rule);
+        border-radius: 2px;
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.04em;
+        padding: 0.42rem 0.58rem;
+      }
+
+      .metric strong {
+        color: var(--ink);
+        font-weight: 700;
+      }
+
+      .legend span {
+        align-items: center;
+        color: var(--muted);
+        display: inline-flex;
+        gap: 0.35rem;
+        font-size: 0.8rem;
+      }
+
+      .swatch {
+        border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+        border-radius: 2px;
+        display: inline-block;
+        height: 0.72rem;
+        width: 0.72rem;
+      }
+
+      .queue-panel,
+      .worker-panel {
+        display: grid;
+        gap: 0.8rem;
+        padding: 1rem;
+      }
+
+      .queue-wrap {
+        background: var(--panel-2);
+        border: 1px solid var(--rule);
+        min-height: 6rem;
+        overflow: hidden;
+        padding: 0.75rem;
+      }
+
+      .queue {
+        align-content: start;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.28rem;
+        max-height: 4.35rem;
+        overflow: hidden;
+      }
+
+      .tile {
+        align-items: center;
+        border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+        border-radius: 2px;
+        color: var(--paper-2);
+        display: inline-flex;
+        font-size: 0.68rem;
+        height: 1.35rem;
+        justify-content: center;
+        min-width: 1.8rem;
+        padding: 0 0.28rem;
+        transition:
+          opacity 180ms ease,
+          transform 180ms ease;
+      }
+
+      .tile.real {
+        background: var(--later);
+      }
+
+      .tile.first {
+        background: var(--first);
+      }
+
+      .tile.invalid {
+        background: var(--invalid);
+      }
+
+      .tile.drained {
+        opacity: 0.2;
+        transform: scale(0.8);
+      }
+
+      .workers {
+        display: grid;
+        gap: 0.32rem;
+      }
+
+      .worker {
+        align-items: center;
+        display: grid;
+        gap: 0.55rem;
+        grid-template-columns: 3.2rem minmax(0, 1fr) 3.5rem;
+      }
+
+      .worker-name,
+      .worker-count {
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 700;
+      }
+
+      .lane {
+        align-items: center;
+        background: color-mix(in srgb, var(--panel-2) 72%, transparent);
+        border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent);
+        display: flex;
+        gap: 0.22rem;
+        min-height: 1.82rem;
+        overflow: hidden;
+        padding: 0.22rem;
+      }
+
+      .worker.active .lane {
+        border-color: var(--first);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--first) 35%, transparent);
+      }
+
+      .worker.stopped .lane {
+        opacity: 0.72;
+      }
+
+      .worker-count {
+        text-align: right;
+      }
+
+      .footer-note {
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.65;
+      }
+
+      @media (max-width: 760px) {
+        .worker {
+          grid-template-columns: 2.7rem minmax(0, 1fr);
+        }
+
+        .worker-count {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="hero-top">
+          <h1>CLC launch-queue drain</h1>
+          <div class="controls">
+            <button id="play">Pause</button>
+            <button id="step">Step</button>
+            <button id="reset">Reset</button>
+          </div>
+        </div>
+        <p class="caption">
+          Resident CTAs start with one tile, take different amounts of time to process it, then try to steal the next not-yet-started tile with CLC. The red marker indicates a worker asks for more work after the queue (complete launch grid) is empty.
+        </p>
+        <div class="legend">
+          <span><i class="swatch tile first"></i> initial resident CTA tile</span>
+          <span><i class="swatch tile real"></i> CLC pull from queue</span>
+          <span><i class="swatch tile invalid"></i> empty pull / worker stops</span>
+        </div>
+        <div class="metrics">
+          <span class="metric">queue slots: <strong id="slotCount"></strong></span>
+          <span class="metric">real tiles done: <strong id="realDone"></strong></span>
+          <span class="metric">empty pulls: <strong id="invalidDone"></strong></span>
+          <span class="metric">active SM: <strong id="activeSm"></strong></span>
+        </div>
+      </section>
+
+      <section class="queue-panel">
+        <h2>Launch queue</h2>
+        <div class="queue-wrap">
+          <div class="queue" id="queue"></div>
+        </div>
+      </section>
+
+      <section class="worker-panel">
+        <h2>Resident CTAs / SM workers</h2>
+        <div class="workers" id="workers"></div>
+        <p class="footer-note">
+          The noisy processing time is the point: faster workers return to the queue sooner, so SM ownership of tile IDs is intentionally not round-robin. Once the finite launch queue is empty, the next pull attempt fails and that worker stops.
+        </p>
+      </section>
+    </main>
+
+    <script>
+      const smCount = 12
+      const initialTiles = smCount
+      const realQueueTiles = 68
+      const queueEl = document.querySelector("#queue")
+      const workersEl = document.querySelector("#workers")
+      const playEl = document.querySelector("#play")
+      const stepEl = document.querySelector("#step")
+      const resetEl = document.querySelector("#reset")
+      const slotCountEl = document.querySelector("#slotCount")
+      const realDoneEl = document.querySelector("#realDone")
+      const invalidDoneEl = document.querySelector("#invalidDone")
+      const activeSmEl = document.querySelector("#activeSm")
+      let queue = []
+      let workers = []
+      let cursor = 0
+      let activeSm = 0
+      let emptyPulls = 0
+      let playing = true
+      let lastTick = 0
+      let rand = mulberry32(7)
+
+      function mulberry32(seed) {
+        return function () {
+          let t = (seed += 0x6d2b79f5)
+          t = Math.imul(t ^ (t >>> 15), t | 1)
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+        }
+      }
+
+      function duration() {
+        return 1 + Math.floor(rand() * 4)
+      }
+
+      function buildQueue() {
+        return Array.from({ length: realQueueTiles }, (_, i) => ({ kind: "real", value: i + initialTiles }))
+      }
+
+      function reset() {
+        rand = mulberry32(17)
+        queue = buildQueue()
+        workers = Array.from({ length: smCount }, (_, sm) => ({
+          tiles: [{ kind: "first", value: sm }],
+          remaining: duration(),
+          stopped: false,
+        }))
+        cursor = 0
+        activeSm = 0
+        emptyPulls = 0
+        playing = true
+        playEl.textContent = "Pause"
+        render()
+      }
+
+      function step() {
+        const running = workers.filter((worker) => !worker.stopped)
+        if (!running.length) return
+
+        const elapsed = Math.min(...running.map((worker) => worker.remaining))
+        for (const worker of running) worker.remaining -= elapsed
+
+        const sm = workers.findIndex((worker) => !worker.stopped && worker.remaining === 0)
+        activeSm = sm
+
+        if (cursor < queue.length) {
+          workers[sm].tiles.push(queue[cursor])
+          workers[sm].remaining = duration()
+          cursor++
+        } else {
+          workers[sm].tiles.push({ kind: "invalid", value: "×" })
+          workers[sm].stopped = true
+          emptyPulls++
+        }
+        render()
+      }
+
+      function tileHtml(tile, extra = "") {
+        return `<span class="tile ${tile.kind} ${extra}">${tile.value}</span>`
+      }
+
+      function renderQueue() {
+        queueEl.innerHTML = queue
+          .map((tile, index) => tileHtml(tile, index < cursor ? "drained" : ""))
+          .join("")
+      }
+
+      function renderWorkers() {
+        workersEl.innerHTML = workers
+          .map((worker, sm) => {
+            const workCount = worker.tiles.filter((tile) => tile.kind !== "invalid").length
+            const state = worker.stopped ? "stopped" : sm === activeSm ? "active" : ""
+            const label = worker.stopped ? "stopped" : `${workCount} real`
+            return `<div class="worker ${state}"><div class="worker-name">SM${sm}</div><div class="lane">${worker.tiles.map((tile) => tileHtml(tile)).join("")}</div><div class="worker-count">${label}</div></div>`
+          })
+          .join("")
+      }
+
+      function renderMetrics() {
+        slotCountEl.textContent = `${cursor}/${queue.length}`
+        realDoneEl.textContent = initialTiles + cursor
+        invalidDoneEl.textContent = emptyPulls
+        activeSmEl.textContent = workers.every((worker) => worker.stopped) ? "done" : `SM${activeSm}`
+      }
+
+      function render() {
+        renderQueue()
+        renderWorkers()
+        renderMetrics()
+      }
+
+      function animate(now) {
+        if (playing && now - lastTick > 260) {
+          step()
+          lastTick = now
+          if (workers.every((worker) => worker.stopped)) {
+            playing = false
+            playEl.textContent = "Replay"
+          }
+        }
+        requestAnimationFrame(animate)
+      }
+
+      playEl.onclick = () => {
+        if (workers.every((worker) => worker.stopped)) reset()
+        else playing = !playing
+        playEl.textContent = playing ? "Pause" : "Play"
+      }
+
+      stepEl.onclick = () => {
+        playing = false
+        playEl.textContent = "Play"
+        step()
+      }
+
+      window.addEventListener(
+        "wheel",
+        (event) => {
+          if (event.ctrlKey) return
+          event.preventDefault()
+          window.parent.scrollBy({ left: event.deltaX, top: event.deltaY, behavior: "auto" })
+        },
+        { passive: false },
+      )
+
+      resetEl.onclick = reset
+      reset()
+      requestAnimationFrame(animate)
+    </script>
+  </body>
+</html>

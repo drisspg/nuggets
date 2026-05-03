@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --paper: #faeadc;
+        --paper-2: #f3dfcd;
+        --ink: #18221d;
+        --muted: #7f8178;
+        --rule: #d7cdbc;
+        --panel: rgba(250, 234, 220, 0.88);
+        --panel-2: rgba(243, 223, 205, 0.78);
+        --real: #6f8f7b;
+        --padding: #b55f55;
+        --active: #f0b35a;
+        --canceled: #4f5852;
+        --ray: #f0b35a;
+        --shadow: rgba(24, 34, 29, 0.08);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #1c1c1c;
+          --paper-2: #141414;
+          --ink: #ededed;
+          --muted: #8f918a;
+          --rule: #3a3a3a;
+          --panel: rgba(38, 38, 38, 0.88);
+          --panel-2: rgba(20, 20, 20, 0.82);
+          --real: #7f9f8a;
+          --padding: #a95f58;
+          --active: #d99f57;
+          --canceled: #626b65;
+          --ray: #d99f57;
+          --shadow: rgba(0, 0, 0, 0.24);
+        }
+      }
+
+      * { box-sizing: border-box; }
+
+      html,
+      body {
+        height: 100%;
+        min-height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
+
+      body {
+        background:
+          linear-gradient(90deg, rgba(127, 143, 134, 0.045) 1px, transparent 1px) 0 0 / 36px 36px,
+          linear-gradient(180deg, rgba(127, 143, 134, 0.035) 1px, transparent 1px) 0 0 / 36px 36px,
+          linear-gradient(180deg, var(--paper), var(--paper-2));
+        color: var(--ink);
+        font-family: IBM Plex Sans, Inter, system-ui, sans-serif;
+        margin: 0;
+        padding: clamp(0.8rem, 2vw, 1.2rem);
+      }
+
+      main {
+        display: grid;
+        gap: 0.8rem;
+        margin: 0 auto;
+        max-width: 1160px;
+      }
+
+      h1,
+      p { margin: 0; }
+
+      h1 {
+        font-family: Newsreader, Georgia, serif;
+        font-size: clamp(1.45rem, 3vw, 2.1rem);
+        letter-spacing: -0.02em;
+      }
+
+      button,
+      .metric,
+      .caption,
+      .legend {
+        font-family: IBM Plex Mono, ui-monospace, monospace;
+      }
+
+      .hero,
+      .reactor {
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 2px;
+        box-shadow: 0 18px 56px var(--shadow);
+        padding: 0.9rem;
+      }
+
+      .hero {
+        display: grid;
+        gap: 0.7rem;
+      }
+
+      .hero-top,
+      .controls,
+      .metrics,
+      .legend {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+      }
+
+      .hero-top { justify-content: space-between; }
+
+      .caption {
+        color: var(--muted);
+        font-size: 0.76rem;
+        line-height: 1.55;
+        max-width: 74rem;
+      }
+
+      button {
+        background: var(--paper-2);
+        border: 1px solid var(--rule);
+        border-radius: 2px;
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        padding: 0.55rem 0.7rem;
+        text-transform: uppercase;
+      }
+
+      button:hover,
+      button.active {
+        border-color: var(--active);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--active) 32%, transparent);
+      }
+
+      .metric {
+        background: var(--panel-2);
+        border: 1px solid var(--rule);
+        border-radius: 2px;
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.04em;
+        padding: 0.42rem 0.58rem;
+      }
+
+      .metric strong { color: var(--ink); }
+
+      .reactor {
+        overflow: hidden;
+        position: relative;
+      }
+
+      canvas {
+        background: var(--panel-2);
+        border: 1px solid var(--rule);
+        display: block;
+        height: 470px;
+        width: 100%;
+      }
+
+      .legend span {
+        align-items: center;
+        color: var(--muted);
+        display: inline-flex;
+        gap: 0.35rem;
+        font-size: 0.76rem;
+      }
+
+      .swatch {
+        border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+        display: inline-block;
+        height: 0.74rem;
+        width: 0.74rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="hero-top">
+          <h1>CLC tail: drain vs cascade</h1>
+          <div class="controls">
+            <button id="toggle">Spray &amp; pray: on</button>
+            <button id="reset">Reset</button>
+          </div>
+        </div>
+        <p class="caption">For large EP we get thousands of padded launch slots. Lets see some pretty colors of the cancellation cascade with and without spray-and-pray on</p>
+        <div class="legend">
+          <span><i class="swatch" style="background: var(--real)"></i> real prefix</span>
+          <span><i class="swatch" style="background: var(--padding)"></i> padded slot</span>
+          <span><i class="swatch" style="background: var(--active)"></i> launched padded CTA</span>
+          <span><i class="swatch" style="background: linear-gradient(90deg, hsl(180 48% 52%), hsl(300 48% 56%))"></i> worker-colored cancel fallout</span>
+        </div>
+        <div class="metrics">
+          <span class="metric">visited: <strong id="visited"></strong></span>
+          <span class="metric">canceled: <strong id="canceled"></strong></span>
+          <span class="metric">alive tail: <strong id="alive"></strong></span>
+          <span class="metric">workers: <strong id="workers"></strong></span>
+          <span class="metric">cancel cap: <strong>56 / worker</strong></span>
+        </div>
+      </section>
+
+      <section class="reactor">
+        <canvas id="canvas"></canvas>
+      </section>
+    </main>
+
+    <script>
+      const canvas = document.querySelector("#canvas")
+      const ctx = canvas.getContext("2d")
+      const toggleEl = document.querySelector("#toggle")
+      const resetEl = document.querySelector("#reset")
+      const visitedEl = document.querySelector("#visited")
+      const canceledEl = document.querySelector("#canceled")
+      const aliveEl = document.querySelector("#alive")
+      const workersEl = document.querySelector("#workers")
+      const workerCount = 10
+      const realCount = 800
+      const totalCount = 80000
+      const cancelCap = 56
+      const colors = getComputedStyle(document.documentElement)
+      const workerHues = [180, 195, 210, 225, 240, 255, 270, 285, 150, 165]
+      const workerColors = workerHues.map((hue) => `hsl(${hue} 58% 58%)`)
+      const state = {
+        spray: true,
+        cursors: [],
+        visited: 0,
+        canceled: 0,
+        frame: 0,
+        flashes: [],
+        particles: [],
+        tiles: [],
+      }
+
+      function css(name) {
+        return colors.getPropertyValue(name).trim()
+      }
+
+      function reset() {
+        state.cursors = Array.from({ length: workerCount }, (_, worker) => realCount + worker)
+        state.visited = 0
+        state.canceled = 0
+        state.frame = 0
+        state.flashes = []
+        state.particles = []
+        state.tiles = Array.from({ length: totalCount }, (_, index) => {
+          if (index < realCount) return -1
+          return 0
+        })
+        renderMetrics()
+      }
+
+      function resize() {
+        const ratio = window.devicePixelRatio || 1
+        const rect = canvas.getBoundingClientRect()
+        canvas.width = Math.floor(rect.width * ratio)
+        canvas.height = Math.floor(rect.height * ratio)
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+      }
+
+      function step(worker) {
+        const index = nextAlive(state.cursors[worker])
+        if (index < 0) return false
+        state.cursors[worker] = index + workerCount
+        state.tiles[index] = worker + 1
+        state.visited++
+        state.flashes.push({ index, worker, age: 0, active: true })
+
+        if (!state.spray) return true
+
+        const targets = []
+        for (let i = index + 1; i < totalCount && targets.length < cancelCap; i++) {
+          if (state.tiles[i] === 0) targets.push(i)
+        }
+        for (const [targetOffset, target] of targets.entries()) {
+          state.tiles[target] = worker + 1
+          state.canceled++
+          if (targetOffset % 14 === 0) {
+            state.flashes.push({ index: target, worker, age: 0, active: false })
+            state.particles.push({ from: index, to: target, worker, age: 0, life: 26 + Math.random() * 18, wobble: Math.random() * 6.28 })
+          }
+        }
+        return true
+      }
+
+      function nextAlive(start) {
+        for (let i = start; i < totalCount; i += workerCount) {
+          if (state.tiles[i] === 0) return i
+        }
+        for (let i = realCount; i < totalCount; i++) {
+          if (state.tiles[i] === 0) return i
+        }
+        return -1
+      }
+
+      function layout() {
+        const width = canvas.clientWidth
+        const height = canvas.clientHeight
+        const gap = 1
+        const size = Math.max(2, Math.floor(Math.sqrt((width * height) / totalCount) - gap))
+        const cols = Math.floor(width / (size + gap))
+        const left = Math.max(0, (width - cols * (size + gap)) / 2)
+        const top = 18
+        return { size, gap, cols, left, top }
+      }
+
+      function point(index, l = layout()) {
+        const row = Math.floor(index / l.cols)
+        const col = index % l.cols
+        return {
+          x: l.left + col * (l.size + l.gap) + l.size / 2,
+          y: l.top + row * (l.size + l.gap) + l.size / 2,
+        }
+      }
+
+      function drawTiles(l) {
+        const real = css("--real")
+        const padding = css("--padding")
+        const active = css("--active")
+        const canceled = css("--canceled")
+        for (let i = 0; i < state.tiles.length; i++) {
+          const row = Math.floor(i / l.cols)
+          const col = i % l.cols
+          const x = l.left + col * (l.size + l.gap)
+          const y = l.top + row * (l.size + l.gap)
+          if (y > canvas.clientHeight - l.size) continue
+          const value = state.tiles[i]
+          ctx.globalAlpha = value > 0 ? 0.86 : 1
+          ctx.fillStyle = value === -1 ? real : value > 0 ? workerColors[(value - 1) % workerCount] : padding
+          ctx.fillRect(x, y, l.size, l.size)
+        }
+        ctx.globalAlpha = 1
+      }
+
+      function drawParticles(l) {
+        ctx.lineWidth = 1.25
+        for (const particle of state.particles) {
+          const a = particle.age / particle.life
+          if (a >= 1) continue
+          const from = point(particle.from, l)
+          const to = point(particle.to, l)
+          const midX = from.x + (to.x - from.x) * a
+          const midY = from.y + (to.y - from.y) * a + Math.sin(a * 8 + particle.wobble) * 18
+          ctx.globalAlpha = Math.max(0, 1 - a)
+          ctx.strokeStyle = workerColors[particle.worker]
+          ctx.beginPath()
+          ctx.moveTo(from.x, from.y)
+          ctx.quadraticCurveTo((from.x + to.x) / 2, Math.min(from.y, to.y) - 32, midX, midY)
+          ctx.stroke()
+          ctx.fillStyle = workerColors[particle.worker]
+          ctx.beginPath()
+          ctx.arc(midX, midY, 2.4, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.globalAlpha = 1
+      }
+
+      function drawFlashes(l) {
+        for (const flash of state.flashes) {
+          const p = point(flash.index, l)
+          const radius = 4 + flash.age * 0.55
+          ctx.globalAlpha = Math.max(0, 1 - flash.age / 26)
+          ctx.strokeStyle = flash.active ? css("--active") : workerColors[flash.worker]
+          ctx.lineWidth = flash.active ? 2.2 : 1.15
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2)
+          ctx.stroke()
+        }
+        ctx.globalAlpha = 1
+      }
+
+      function renderMetrics() {
+        const alive = state.tiles.filter((tile, index) => index >= realCount && tile === 0).length
+        visitedEl.textContent = state.visited
+        canceledEl.textContent = state.canceled
+        aliveEl.textContent = alive
+        workersEl.textContent = workerCount
+        toggleEl.textContent = `Spray & pray: ${state.spray ? "on" : "off"}`
+        toggleEl.classList.toggle("active", state.spray)
+      }
+
+      function animate() {
+        state.frame++
+        const shouldAdvance = state.spray ? state.frame % 2 === 0 : state.frame % 3 === 0
+        if (shouldAdvance) {
+          for (let worker = 0; worker < workerCount; worker++) step(worker)
+        }
+        state.flashes.forEach((flash) => flash.age++)
+        state.particles.forEach((particle) => particle.age++)
+        state.flashes = state.flashes.filter((flash) => flash.age < 26)
+        state.particles = state.particles.filter((particle) => particle.age < particle.life)
+
+        ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight)
+        const l = layout()
+        drawTiles(l)
+        drawParticles(l)
+        drawFlashes(l)
+        renderMetrics()
+        requestAnimationFrame(animate)
+      }
+
+      toggleEl.onclick = () => {
+        state.spray = !state.spray
+        reset()
+      }
+      resetEl.onclick = reset
+      window.addEventListener("resize", () => {
+        resize()
+        reset()
+      })
+      window.addEventListener(
+        "wheel",
+        (event) => {
+          if (event.ctrlKey) return
+          event.preventDefault()
+          window.parent.scrollBy({ left: event.deltaX, top: event.deltaY, behavior: "auto" })
+        },
+        { passive: false },
+      )
+
+      resize()
+      reset()
+      requestAnimationFrame(animate)
+    </script>
+  </body>
+</html>
