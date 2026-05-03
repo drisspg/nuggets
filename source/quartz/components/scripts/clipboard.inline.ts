@@ -9,7 +9,35 @@ window.addEventListener("message", (event) => {
   window.scrollBy({ left: event.data.deltaX, top: event.data.deltaY, behavior: "auto" })
 })
 
+function deactivateWidgets(except?: Element) {
+  document.querySelectorAll(".widget-shell.widget-active").forEach((shell) => {
+    if (shell === except) return
+    shell.classList.remove("widget-active")
+    shell.querySelector(".widget-frame")?.classList.add("widget-frame-inert")
+  })
+}
+
+document.addEventListener("click", (event) => {
+  const target = event.target as Element | null
+  if (!target?.closest(".widget-shell")) deactivateWidgets()
+})
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") deactivateWidgets()
+})
+
 document.addEventListener("nav", () => {
+  document.querySelectorAll(".widget-shell").forEach((shell) => {
+    const frame = shell.querySelector(".widget-frame")
+    const activate = shell.querySelector(".widget-activate")
+    activate?.addEventListener("click", (event) => {
+      event.stopPropagation()
+      deactivateWidgets(shell)
+      shell.classList.add("widget-active")
+      frame?.classList.remove("widget-frame-inert")
+    })
+  })
+
   const els = document.getElementsByTagName("pre")
   for (let i = 0; i < els.length; i++) {
     const codeBlock = els[i].getElementsByTagName("code")[0]

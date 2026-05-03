@@ -269,7 +269,7 @@ export const ObsidianFlavoredMarkdown: QuartzTransformerPlugin<Partial<Options>>
                     const caption = alias ? `<figcaption>${escapeHTML(alias)}</figcaption>` : ""
                     return {
                       type: "html",
-                      value: `<figure class="interactive-widget"><iframe src="${widgetUrl}" class="widget-frame" loading="lazy"></iframe>${caption}</figure>`,
+                      value: `<figure class="interactive-widget"><div class="widget-shell"><iframe src="${widgetUrl}" class="widget-frame widget-frame-inert" loading="lazy"></iframe><button class="widget-activate" type="button" aria-label="Activate interactive widget"><span>Click to interact</span></button></div>${caption}</figure>`,
                     }
                   } else {
                     const block = anchor

@@ -424,6 +424,32 @@ iframe.pdf,
   margin: 2rem 0;
 }
 
+.widget-shell {
+  position: relative;
+}
+
+.widget-frame-inert {
+  pointer-events: none;
+}
+
+.widget-activate {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  inset: 0;
+  padding: 0;
+  position: absolute;
+}
+
+.widget-activate span {
+  position: absolute;
+  left: -9999px;
+}
+
+.widget-shell.widget-active .widget-activate {
+  display: none;
+}
+
 .widget-header {
   align-items: center;
   border: 1px solid var(--editorial-rule);
