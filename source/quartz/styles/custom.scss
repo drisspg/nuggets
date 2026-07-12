@@ -403,6 +403,14 @@ iframe.pdf,
   min-height: 1240px;
 }
 
+.pizza-calculator {
+  background: var(--editorial-code);
+  border: 1px solid var(--editorial-rule);
+  box-shadow: var(--editorial-shadow);
+  height: 680px;
+  width: 100%;
+}
+
 .widget-frame[src*="clc-work-distribution"],
 .widget-frame[src*="clc-tail-cascade"] {
   background: transparent;
@@ -572,6 +580,10 @@ footer {
   .widget-frame[src*="clc-tail-cascade"] {
     height: 620px;
     min-height: 620px;
+  }
+
+  .pizza-calculator {
+    height: 820px;
   }
 }
 
