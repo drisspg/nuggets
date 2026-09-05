@@ -17,6 +17,52 @@ npm run dev
 ```
 This regenerates `All Notes.md`, then starts the Quartz watcher. Open the printed URL to browse the site. Use `npm run build` for a one-shot production build.
 
+## Interactive documentation helpers
+
+Ported from `attention-gym` and adapted to Quartz: use a fenced block with a JSON object. Asset paths are relative to `source/content/`, must start with `media/`, and work on nested notes and the GitHub Pages `/nuggets/` base path. Titles are required; `height` is an optional positive integer in pixels.
+
+### Perfetto traces
+
+Store the trace and its screenshot under `source/content/media/traces/`:
+
+````markdown
+```perfetto
+{
+  "src": "media/traces/training.pftrace",
+  "snapshot": "media/traces/training.png",
+  "title": "Training step",
+  "alt": "CPU launch activity above GPU kernel execution",
+  "height": 680
+}
+```
+````
+
+The snapshot loads first. Clicking opens the interactive viewer, with fullscreen, return-to-snapshot, and download controls. The interactive viewer requires access to `ui.perfetto.dev`; the trace is fetched from this site and passed to that viewer in the browser. Only publish traces and screenshots you are comfortable making public.
+
+### Plotly charts
+
+Export a standalone HTML chart (for example, `fig.write_html("source/content/media/plots/results.html", include_plotlyjs=True, config={"responsive": True})`), then embed it:
+
+````markdown
+```plotly
+{"src": "media/plots/results.html", "title": "Benchmark results", "height": 560}
+```
+````
+
+Chart backgrounds, text, and Cartesian axes follow the site's light/dark theme. Data colors, titles, annotations, and layout are preserved. Plotly is loaded only inside chart frames, not globally on every note. Exports must expose `window.Plotly`, as ordinary standalone Plotly HTML exports do.
+
+### Standalone HTML widgets
+
+````markdown
+```html-widget
+{"src": "media/widgets/demo.html", "title": "Interactive demonstration", "height": 640}
+```
+````
+
+Only embed trusted HTML: these same-origin frames run JavaScript with access to the site. Generic widgets own their own styling. These helpers do not change existing hand-written iframe embeds or import attention-gym's article content or benchmark assets.
+
+Implementation: `source/quartz/plugins/transformers/docEmbeds.ts`, `source/quartz/components/scripts/docEmbeds.inline.ts`, and `source/quartz/static/widgets/perfetto-trace/`. Embed styles are imported by `source/quartz/styles/custom.scss`.
+
 ## Deploy
 - Push to `main` to trigger the GitHub Actions build.
 - Published site: https://drisspg.github.io/nuggets/

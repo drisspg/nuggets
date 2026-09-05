@@ -60,6 +60,7 @@ const config: QuartzConfig = {
       Plugin.CreatedModifiedDate({
         priority: ["frontmatter", "filesystem"],
       }),
+      Plugin.DocEmbeds(),
       Plugin.SyntaxHighlighting({
         theme: {
           light: "github-light",

@@ -1,0 +1,82 @@
+.doc-widget.widget-frame {
+  min-height: 0;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--lightgray);
+  border-radius: 6px;
+  background: var(--light);
+}
+.trace-embed,
+.plotly-chart,
+.html-widget {
+  margin: 1.5rem 0;
+  min-width: 0;
+  figcaption {
+    margin-top: 0.5rem;
+    color: var(--darkgray);
+    font-size: 0.9rem;
+  }
+}
+.trace-preview {
+  display: block;
+  position: relative;
+  width: 100%;
+  padding: 0;
+  cursor: pointer;
+  background: var(--light);
+  color: var(--dark);
+  border: 1px solid var(--lightgray);
+  border-radius: 6px;
+  overflow: hidden;
+  img.widget-frame {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+  }
+  span {
+    display: block;
+    padding: 0.6rem;
+  }
+}
+.trace-preview[hidden],
+.trace-embed__viewer[hidden] {
+  display: none;
+}
+.trace-embed__controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  button {
+    cursor: pointer;
+    border: 1px solid var(--lightgray);
+    border-radius: 4px;
+    padding: 0.5rem;
+    background: var(--light);
+    color: var(--dark);
+  }
+}
+.trace-embed__viewer:fullscreen,
+.trace-embed__viewer--fullscreen {
+  display: flex;
+  flex-direction: column;
+  background: var(--light);
+  width: 100%;
+  height: 100%;
+  .doc-widget {
+    flex: 1;
+    min-height: 0;
+  }
+}
+.trace-embed__viewer--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+}
+body.trace-embed-fullscreen-open {
+  overflow: hidden;
+}
