@@ -7,6 +7,8 @@ function asString(value: unknown): string | undefined {
 }
 
 const ArticleHeader: QuartzComponent = ({ fileData, displayClass }: QuartzComponentProps) => {
+  if (fileData.slug === "index") return null
+
   const title = asString(fileData.frontmatter?.title) ?? "Untitled"
   const dek = asString(fileData.frontmatter?.dek) ?? asString(fileData.frontmatter?.description)
   const hero = asString(fileData.frontmatter?.hero)

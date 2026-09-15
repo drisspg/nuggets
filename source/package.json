@@ -21,7 +21,7 @@
     "prepare": "git -C .. rev-parse --is-inside-work-tree >/dev/null 2>&1 && git -C .. config core.hooksPath scripts/git-hooks || true",
     "check": "tsc --noEmit && npx prettier . --check",
     "format": "npx prettier . --write",
-    "test": "tsx ./quartz/util/path.test.ts && tsx ./quartz/depgraph.test.ts",
+    "test": "tsx ./quartz/util/path.test.ts && tsx ./quartz/depgraph.test.ts && tsx ./quartz/util/chargeMotion.test.ts",
     "profile": "0x -D prof ./quartz/bootstrap-cli.mjs build --concurrency=1"
   },
   "engines": {

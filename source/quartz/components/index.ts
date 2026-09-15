@@ -4,6 +4,7 @@ import FolderContent from "./pages/FolderContent"
 import NotFound from "./pages/404"
 import ArticleTitle from "./ArticleTitle"
 import ArticleHeader from "./ArticleHeader"
+import HomeHeader from "./HomeHeader"
 import Darkmode from "./Darkmode"
 import Head from "./Head"
 import PageTitle from "./PageTitle"
@@ -27,6 +28,7 @@ import PublicationNav from "./PublicationNav"
 export {
   ArticleTitle,
   ArticleHeader,
+  HomeHeader,
   Content,
   TagContent,
   FolderContent,

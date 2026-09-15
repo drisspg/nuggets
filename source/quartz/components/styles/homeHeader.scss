@@ -1,0 +1,152 @@
+// Keep the decoration in the welcome area; the reading list stays quiet.
+.page:has(.home-intro) {
+  > #quartz-body {
+    max-width: 960px;
+  }
+
+  .home-intro {
+    --packet-teal: #1f6a6e;
+    --packet-ember: #d1662a;
+    isolation: isolate;
+    position: relative;
+    padding: 3rem 0 2.5rem;
+
+    .home-collision {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+      opacity: 0.5;
+      mask-image: linear-gradient(to right, transparent 25%, black 85%);
+
+      circle {
+        fill: none;
+        stroke: var(--dark);
+        stroke-width: 0.75px;
+        vector-effect: non-scaling-stroke;
+      }
+
+      .charge-packet-b circle {
+        stroke: var(--packet-teal);
+      }
+
+      circle.charge-origin {
+        fill: var(--packet-ember);
+        stroke: none;
+      }
+    }
+
+    h1 {
+      color: var(--dark);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2.5rem, 5vw, 3.5rem);
+      font-weight: 400;
+      letter-spacing: -0.04em;
+      line-height: 1.15;
+      margin: 0;
+    }
+
+    a {
+      background: transparent;
+      font-weight: 400;
+      padding: 0;
+    }
+  }
+
+  .home-byline {
+    color: var(--gray);
+    font-family: var(--codeFont);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    margin: 0 0 1rem;
+
+    a {
+      color: var(--darkgray);
+    }
+  }
+
+  .home-dek {
+    font-size: 1.05rem;
+    line-height: 1.6;
+    margin: 0.65rem 0 1.25rem;
+  }
+
+  .home-topics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    font-size: 0.85rem;
+  }
+
+  .recent-notes {
+    margin-bottom: 2.5rem;
+
+    > h3 {
+      color: var(--gray);
+      font-family: var(--codeFont);
+      font-size: 0.7rem;
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    > ul.recent-ul > li {
+      padding: 0.8rem 0;
+
+      .section > .desc > h3 > a {
+        color: var(--darkgray);
+      }
+    }
+
+    > .recent-more {
+      margin-top: 1rem;
+    }
+  }
+
+  .home-intro a:hover,
+  .recent-notes a:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  .home-intro a:focus-visible,
+  .recent-notes a:focus-visible {
+    outline: 2px solid var(--secondary);
+    outline-offset: 4px;
+  }
+
+  .center > article:empty,
+  .center > article:empty + hr {
+    display: none;
+  }
+
+  .center > .page-footer {
+    margin-top: 0;
+  }
+
+  footer {
+    margin-top: 2.5rem;
+    margin-bottom: 2rem;
+  }
+}
+
+:root[saved-theme="dark"] .page .home-intro {
+  --packet-teal: #5fb3b3;
+  --packet-ember: #e07a3a;
+}
+
+@media (max-width: 600px) {
+  .page:has(.home-intro) {
+    .home-intro {
+      padding: 2rem 0;
+    }
+
+    .recent-notes > ul.recent-ul > li .section {
+      gap: 0.25rem;
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}

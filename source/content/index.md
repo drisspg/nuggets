@@ -2,6 +2,5 @@
 title: Welcome
 dek: Enjoy the ramblings.
 layout: landing
+enableToc: false
 ---
-
-![[widgets/function-backprop.html]]
