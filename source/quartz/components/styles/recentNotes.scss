@@ -1,9 +1,10 @@
 .recent-notes {
-  margin-bottom: 2.75rem;
+  margin-bottom: 2rem;
 
   & > h3 {
-    font-size: clamp(1.35rem, 2.4vw, 2rem);
-    letter-spacing: -0.035em;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
     margin: 0 0 1rem;
   }
 
@@ -16,7 +17,7 @@
     & > li {
       border-bottom: 1px solid var(--editorial-rule, var(--lightgray));
       margin: 0;
-      padding: 0.75rem 0;
+      padding: 0.6rem 0;
 
       .section {
         align-items: baseline;
@@ -26,21 +27,21 @@
       }
 
       .section > .desc > h3 {
-        font-size: clamp(1.05rem, 1.8vw, 1.35rem);
-        letter-spacing: -0.025em;
-        line-height: 1.15;
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
         margin: 0;
       }
 
       .section > .desc > h3 > a {
         background-color: transparent;
+        font-weight: inherit;
       }
 
       .section > .meta {
-        font-family: var(--codeFont);
-        font-size: 0.72rem;
+        color: var(--gray);
+        font-size: 0.75rem;
         margin: 0;
-        opacity: 0.62;
         white-space: nowrap;
       }
 
@@ -54,14 +55,9 @@
     margin: 1.25rem 0 0;
 
     & > a {
-      border: 1px solid var(--editorial-rule, var(--lightgray));
-      border-radius: 999px;
-      display: inline-flex;
-      font-family: var(--codeFont);
-      font-size: 0.72rem;
-      letter-spacing: 0.12em;
-      padding: 0.45rem 0.75rem;
-      text-transform: uppercase;
+      background: transparent;
+      font-size: 0.875rem;
+      font-weight: 400;
     }
   }
 }

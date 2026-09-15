@@ -27,27 +27,25 @@ const ArticleHeader: QuartzComponent = ({ fileData, displayClass }: QuartzCompon
 
 ArticleHeader.css = `
 .article-hero {
-  border-bottom: 1px solid var(--editorial-rule, var(--lightgray));
-  margin: 1.25rem 0 2.35rem;
-  padding-bottom: 1.65rem;
+  display: block;
+  margin: 2.5rem 0 1.5rem;
 }
 
 .article-hero h1 {
-  color: var(--dark);
+  color: var(--heading-color, var(--dark));
   font-family: var(--headerFont);
-  font-size: clamp(2.6rem, 5vw, 4.6rem);
-  font-weight: 600;
-  letter-spacing: -0.06em;
-  line-height: 0.98;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
   margin: 0;
-  max-width: 24ch;
 }
 
 .article-dek {
   color: var(--darkgray);
-  font-size: clamp(1.08rem, 1.8vw, 1.3rem);
-  line-height: 1.55;
-  margin: 1.1rem 0 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0.75rem 0 0;
   max-width: 42rem;
 }
 
@@ -63,21 +61,6 @@ ArticleHeader.css = `
   width: 100%;
 }
 
-@media all and (max-width: 800px) {
-  .article-hero {
-    display: block;
-  }
-
-  .article-hero h1 {
-    font-size: clamp(3rem, 18vw, 5.5rem);
-    max-width: none;
-  }
-
-
-  .article-dek {
-    margin-top: 1rem;
-  }
-}
 `
 
 export default (() => ArticleHeader) satisfies QuartzComponentConstructor
