@@ -3,13 +3,15 @@ title: Pizza Recipe
 date: 2026-07-11
 tags:
   - tool-tips
+cssclasses:
+  - sidenotes
 ---
 
 #### Written: July 11, 2026
 
 A different kind of tool tip: this is my favorite pizza dough recipe. Thought I would share the dough ball / size calculator I use.
 
-This is adapted from Julian Sisofo's [Puffy Crust, Low Hydration!](https://www.youtube.com/watch?v=FSX86eFK92o) recipe. His original uses a mix of 00, Type 0, and Manitoba flours, aint nobody got time for all that. I only use bread flour and it tastes great.
+This is adapted from Julian Sisofo's [Puffy Crust, Low Hydration!](https://www.youtube.com/watch?v=FSX86eFK92o) recipe. His original uses a mix of 00, Type 0, and Manitoba flours, aint nobody got time for all that.<span class="sidenote-ref" aria-hidden="true"></span><span class="sidenote" role="note">Julian explicitly says bread flour is a valid substitute, so this is laziness with permission.</span> I only use bread flour and it tastes great.
 
 <iframe class="pizza-calculator" src="./widgets/pizza-dough-calculator.html" title="Dough Calculator" loading="lazy" scrolling="no"></iframe>
 
