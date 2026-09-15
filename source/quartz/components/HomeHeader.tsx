@@ -40,9 +40,6 @@ const HomeHeader: QuartzComponent = ({ fileData }) => {
           </g>
         </defs>
       </svg>
-      <p class="home-byline">
-        Personal notes · <a href="https://github.com/drisspg">@drisspg</a>
-      </p>
       <h1>{fileData.frontmatter?.title}</h1>
       {typeof dek === "string" && <p class="home-dek">{dek}</p>}
       <nav class="home-topics" aria-label="Browse topics">
