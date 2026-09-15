@@ -6,7 +6,9 @@
 
   .home-intro {
     --packet-teal: #1f6a6e;
-    --packet-ember: #d1662a;
+    --packet-ember: #ba642f;
+    --packet-gold: #a77a3b;
+    --packet-jade: #388b7d;
     isolation: isolate;
     position: relative;
     padding: 3rem 0 2.5rem;
@@ -19,23 +21,45 @@
       z-index: -1;
       overflow: hidden;
       pointer-events: none;
-      opacity: 0.5;
-      mask-image: linear-gradient(to right, transparent 25%, black 85%);
+      opacity: 0.65;
+      mask-image:
+        linear-gradient(to right, transparent 25%, black 65%, black 85%, transparent),
+        linear-gradient(to bottom, transparent, black 18%, black 75%, transparent);
+      mask-composite: intersect;
 
-      circle {
-        fill: none;
-        stroke: var(--dark);
-        stroke-width: 0.75px;
-        vector-effect: non-scaling-stroke;
+      .charge-gradient-warm {
+        .packet-highlight {
+          stop-color: var(--packet-gold);
+        }
+        .packet-color {
+          stop-color: var(--packet-ember);
+        }
+        .packet-edge {
+          stop-color: var(--packet-teal);
+        }
       }
 
-      .charge-packet-b circle {
-        stroke: var(--packet-teal);
+      .charge-gradient-cool {
+        .packet-highlight {
+          stop-color: var(--packet-jade);
+        }
+        .packet-color {
+          stop-color: var(--packet-teal);
+        }
+        .packet-edge {
+          stop-color: var(--packet-gold);
+        }
       }
 
-      circle.charge-origin {
-        fill: var(--packet-ember);
+      .charge-field {
+        fill: url("#charge-cool-field");
         stroke: none;
+      }
+
+      .charge-packet[data-charge="1"] {
+        .charge-field {
+          fill: url("#charge-warm-field");
+        }
       }
     }
 
@@ -135,7 +159,9 @@
 
 :root[saved-theme="dark"] .page .home-intro {
   --packet-teal: #5fb3b3;
-  --packet-ember: #e07a3a;
+  --packet-ember: #d99a62;
+  --packet-gold: #d5c09a;
+  --packet-jade: #a2d0b9;
 }
 
 @media (max-width: 600px) {

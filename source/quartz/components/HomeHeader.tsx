@@ -4,6 +4,8 @@ import style from "./styles/homeHeader.scss"
 // @ts-ignore
 import script from "./scripts/chargeBackground.inline"
 
+const FIELD_RADIUS = 140
+
 const HomeHeader: QuartzComponent = ({ fileData }) => {
   const currentSlug = fileData.slug
   if (currentSlug !== "index") return null
@@ -17,19 +19,26 @@ const HomeHeader: QuartzComponent = ({ fileData }) => {
         preserveAspectRatio="xMidYMid slice"
         aria-hidden="true"
       >
-        {["a", "b"].map((source) => (
-          <g
-            class={`charge-packet-${source}`}
-            transform={`translate(${source === "a" ? 250 : 530} 115)`}
-          >
-            {/* Gaussian-windowed contours are illustrative, not electron wavefunctions. */}
-            {Array.from({ length: 18 }, (_, i) => {
-              const radius = (i + 1) * 7
-              return <circle r={radius} opacity={Math.exp(-0.5 * (radius / 55) ** 2)} />
-            })}
-            <circle class="charge-origin" r="2.2" />
+        <defs>
+          {["warm", "cool"].map((tone) => (
+            <radialGradient
+              id={`charge-${tone}-field`}
+              class={`charge-gradient-${tone}`}
+              gradientUnits="userSpaceOnUse"
+              cx="0"
+              cy="0"
+              r={FIELD_RADIUS}
+            >
+              <stop offset="0" class="packet-highlight" stop-opacity="0.32" />
+              <stop offset="0.32" class="packet-color" stop-opacity="0.23" />
+              <stop offset="0.68" class="packet-edge" stop-opacity="0.1" />
+              <stop offset="1" class="packet-edge" stop-opacity="0" />
+            </radialGradient>
+          ))}
+          <g id="charge-packet-template">
+            <circle class="charge-field" r={FIELD_RADIUS} />
           </g>
-        ))}
+        </defs>
       </svg>
       <p class="home-byline">
         Personal notes · <a href="https://github.com/drisspg">@drisspg</a>
