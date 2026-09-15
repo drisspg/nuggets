@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <title>Nuggets</title>
+  <path d="M14 9 30 6 41 18 37 35 22 42 8 31 5 18Z" fill="#C99B56"/>
+  <path d="M14 9 30 6 27 21 16 25 5 18Z" fill="#E9D2A0"/>
+  <path d="M30 6 41 18 27 21Z" fill="#DDB773"/>
+  <path d="m27 21 14-3-4 17-15 7-6-17Z" fill="#B98049"/>
+  <path d="m8 31 14 5 15-1-15 7Z" fill="#52766C"/>
+  <path d="M14 9 30 6 41 18 37 35 22 42 8 31 5 18Z" stroke="#354B42" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>

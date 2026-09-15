@@ -4,13 +4,13 @@ import { QuartzComponent, QuartzComponentConstructor, QuartzComponentProps } fro
 
 const PublicationNav: QuartzComponent = ({ cfg, fileData, displayClass }: QuartzComponentProps) => {
   const baseDir = pathToRoot(fileData.slug!)
-  const iconPath = joinSegments(baseDir, "static/icon.png")
+  const iconPath = joinSegments(baseDir, "static/icon.svg")
 
   return (
     <nav class={classNames(displayClass, "publication-nav")} aria-label="Publication">
       <a class="publication-mark" href={baseDir}>
         <span>{cfg.pageTitle}</span>
-        <img src={iconPath} alt="" aria-hidden="true" />
+        <img src={iconPath} alt="" aria-hidden="true" width="32" height="32" />
       </a>
       <div class="publication-links">
         <a href={baseDir}>Home</a>
@@ -45,10 +45,9 @@ PublicationNav.css = `
 }
 
 .publication-mark img {
-  border-radius: 2px;
   height: 2rem;
   order: -1;
-  width: auto;
+  width: 2rem;
 }
 
 .publication-mark:hover {

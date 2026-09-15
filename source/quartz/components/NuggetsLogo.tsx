@@ -3,7 +3,7 @@ import { QuartzComponent, QuartzComponentConstructor, QuartzComponentProps } fro
 
 const NuggetsLogo: QuartzComponent = ({ fileData }: QuartzComponentProps) => {
   const baseDir = pathToRoot(fileData.slug!)
-  const iconPath = joinSegments(baseDir, "static/icon.png")
+  const iconPath = joinSegments(baseDir, "static/icon.svg")
 
   return (
     <div class="nuggets-logo">
@@ -22,8 +22,6 @@ NuggetsLogo.css = `
 .nuggets-logo img {
   width: 96px;
   height: auto;
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 `
 
