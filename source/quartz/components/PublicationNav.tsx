@@ -13,8 +13,15 @@ const PublicationNav: QuartzComponent = ({ cfg, fileData, displayClass }: Quartz
         <img src={iconPath} alt="" aria-hidden="true" width="32" height="32" />
       </a>
       <div class="publication-links">
-        <a href={baseDir}>Home</a>
-        <a href={joinSegments(baseDir, "All-Notes")}>All Notes</a>
+        <a href={baseDir} aria-current={fileData.slug === "index" ? "page" : undefined}>
+          Home
+        </a>
+        <a
+          href={joinSegments(baseDir, "All-Notes")}
+          aria-current={fileData.slug === "All-Notes" ? "page" : undefined}
+        >
+          All Notes
+        </a>
         <a class="publication-social" href="https://github.com/drisspg">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M8 21v-4c-3-.5-5-2-5-5 0-1.5.5-2.7 1.5-3.7C4.2 7.5 4.3 6.3 4.8 5c1.6 0 2.8.7 3.6 1.3a12 12 0 0 1 7.2 0C16.4 5.7 17.6 5 19.2 5c.5 1.3.6 2.5.3 3.3C20.5 9.3 21 10.5 21 12c0 3-2 4.5-5 5v4M8 19c-3 1-4-1-5-2" />
@@ -68,29 +75,38 @@ PublicationNav.css = `
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.5rem;
   justify-content: flex-end;
 }
 
 .publication-links a {
+  align-items: center;
+  border: 1px solid var(--editorial-rule, var(--lightgray));
+  border-radius: 6px;
   color: var(--darkgray);
+  display: inline-flex;
   font-size: 0.875rem;
   font-weight: 400;
+  gap: 0.45rem;
+  line-height: 1.2;
+  padding: 0.4rem 0.6rem;
+  white-space: nowrap;
 }
 
 .publication-links a:hover {
+  background: color-mix(in srgb, var(--secondary) 12%, transparent);
+  border-color: var(--secondary);
   color: var(--dark) !important;
 }
 
+.publication-links a[aria-current="page"] {
+  background: color-mix(in srgb, var(--secondary) 10%, transparent);
+  border-color: color-mix(in srgb, var(--secondary) 55%, var(--editorial-rule, var(--lightgray)));
+  color: var(--secondary);
+}
+
 .publication-links .publication-social {
-  align-items: center;
   background: color-mix(in srgb, var(--secondary) 5%, transparent);
-  border: 1px solid var(--editorial-rule, var(--lightgray));
-  border-radius: 6px;
-  display: inline-flex;
-  gap: 0.45rem;
-  padding: 0.4rem 0.6rem;
-  line-height: 1.2;
 }
 
 .publication-social svg {
@@ -102,11 +118,6 @@ PublicationNav.css = `
   stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.publication-links .publication-social:hover {
-  background: color-mix(in srgb, var(--secondary) 12%, transparent);
-  border-color: var(--secondary);
 }
 
 .publication-links a:focus-visible {
