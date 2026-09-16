@@ -8,14 +8,35 @@ document.addEventListener("nav", () => {
   if (!svg || !template) return
 
   const particles: VisibleCharge[] = []
+  let width = 12
+  let height = 12
+  const resize = () => {
+    const bounds = svg.getBoundingClientRect()
+    if (!bounds.width || !bounds.height) return
+    // Match the decoration's aspect ratio so fields stay circular on every screen.
+    const scale = 12 / Math.min(bounds.width, bounds.height)
+    const nextWidth = bounds.width * scale
+    const nextHeight = bounds.height * scale
+    for (const p of particles) {
+      p.x *= nextWidth / width
+      p.y *= nextHeight / height
+    }
+    width = nextWidth
+    height = nextHeight
+    svg.setAttribute("viewBox", `0 0 ${width * 50} ${height * 50}`)
+  }
+  resize()
+  const observer = new ResizeObserver(resize)
+  observer.observe(svg)
+
   const random = (min: number, max: number) => min + Math.random() * (max - min)
   const spawn = () => {
-    if (particles.length >= 6) return
+    if (particles.length >= 3) return
     let x = 0
     let y = 0
     for (let attempt = 0; attempt < 12; attempt++) {
-      x = random(5.4, 11)
-      y = random(0.6, 4)
+      x = random(width * 0.1, width * 0.9)
+      y = random(height * 0.15, height * 0.35)
       if (particles.every((p) => Math.hypot(p.x - x, p.y - y) > 0.8)) break
       if (attempt === 11) return
     }
@@ -40,8 +61,8 @@ document.addEventListener("nav", () => {
       node,
       age: 0,
       lifetime: random(24, 36),
-      vx: (8 - x) * 0.08 + random(-0.15, 0.15),
-      vy: random(-0.25, 0.25),
+      vx: random(-0.12, 0.12),
+      vy: random(-0.12, 0.12),
     })
   }
 
@@ -60,7 +81,7 @@ document.addEventListener("nav", () => {
       spawn()
       nextSpawn = random(2.5, 4.5)
     }
-    accumulator += elapsed * 0.35
+    accumulator += elapsed * 0.18
     while (accumulator >= step) {
       stepCharges(particles, step)
       accumulator -= step
@@ -68,7 +89,7 @@ document.addEventListener("nav", () => {
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i]
       p.age += elapsed
-      const edge = Math.min(p.x - 4, 12.8 - p.x, p.y + 0.8, 5.4 - p.y)
+      const edge = Math.min(p.x + 0.8, width + 0.8 - p.x, p.y + 0.8, height + 0.8 - p.y)
       if (p.age >= p.lifetime || edge <= 0) {
         p.node.remove()
         particles.splice(i, 1)
@@ -83,6 +104,7 @@ document.addEventListener("nav", () => {
   frame = requestAnimationFrame(draw)
   window.addCleanup(() => {
     cancelAnimationFrame(frame)
+    observer.disconnect()
     for (const p of particles) p.node.remove()
   })
 })

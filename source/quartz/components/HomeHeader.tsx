@@ -4,7 +4,7 @@ import style from "./styles/homeHeader.scss"
 // @ts-ignore
 import script from "./scripts/chargeBackground.inline"
 
-const FIELD_RADIUS = 140
+const FIELD_RADIUS = 240
 
 const HomeHeader: QuartzComponent = ({ fileData }) => {
   const currentSlug = fileData.slug
