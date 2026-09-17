@@ -1,4 +1,4 @@
-import { FilePath, pathToRoot, slugifyFilePath } from "../util/path"
+import { FilePath, joinSegments, pathToRoot, slugifyFilePath } from "../util/path"
 import { classNames } from "../util/lang"
 import { QuartzComponent, QuartzComponentConstructor, QuartzComponentProps } from "./types"
 
@@ -20,7 +20,10 @@ const ArticleHeader: QuartzComponent = ({ fileData, displayClass }: QuartzCompon
       {dek && <p class="article-dek">{dek}</p>}
       {hero && (
         <figure class="article-hero-media">
-          <img src={baseDir + slugifyFilePath(hero as FilePath)} alt="" />
+          <img
+            src={joinSegments(baseDir, slugifyFilePath(hero as FilePath))}
+            alt={asString(fileData.frontmatter?.heroAlt) ?? ""}
+          />
         </figure>
       )}
     </header>

@@ -1,4 +1,4 @@
-/** Lazy trace viewers and same-origin Plotly theming, scoped to Quartz navigation. */
+/** Media reveals, lazy trace viewers and Plotly theming, scoped to Quartz navigation. */
 interface PlotlyGraph extends HTMLElement {
   layout?: Record<string, unknown>
 }
@@ -18,6 +18,22 @@ document.addEventListener("nav", () => {
     timers.forEach(clearTimeout)
     document.body.classList.remove("trace-embed-fullscreen-open")
   })
+
+  for (const note of document.querySelectorAll<HTMLElement>(".sidenote-hover")) {
+    const reopen = () => note.classList.remove("sidenote-dismissed")
+    note.addEventListener("pointerenter", reopen, { signal })
+    note.addEventListener("focusin", reopen, { signal })
+    note.addEventListener("click", reopen, { signal })
+    document.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key === "Escape" && note.matches(":hover, :focus-within")) {
+          note.classList.add("sidenote-dismissed")
+        }
+      },
+      { signal },
+    )
+  }
 
   for (const embed of document.querySelectorAll<HTMLElement>("[data-trace-embed]")) {
     const preview = embed.querySelector<HTMLButtonElement>(".trace-preview")!
@@ -126,7 +142,7 @@ document.addEventListener("nav", () => {
       }
       const theme = getComputedStyle(document.documentElement)
       const foreground = theme.getPropertyValue("--dark").trim()
-      const background = theme.getPropertyValue("--light").trim()
+      const background = getComputedStyle(frame).backgroundColor
       const grid = theme.getPropertyValue("--lightgray").trim()
       doc.documentElement.style.background = background
       doc.body.style.background = background

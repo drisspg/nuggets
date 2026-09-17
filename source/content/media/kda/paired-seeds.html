@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Final checkpoints: paired excess autoregressive penalty</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <style>
+    html, body { height: 100%; margin: 0; background: #161616; }
+    .modebar { opacity: 0; transition: opacity 120ms ease; }
+    .plot-container:hover .modebar, .plot-container:focus-within .modebar { opacity: 1; }
+  </style>
+</head>
+<body>
+<div style="height:100%; width:100%;">                        <script>window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
+        <script charset="utf-8" src="https://cdn.plot.ly/plotly-4.0.0.min.js" integrity="sha256-FEYfO0yRyLtZCpnW0Dw/0DHKQO7Afrq3ml4+rBB818o=" crossorigin="anonymous"></script>                <div id="paired-seeds" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("paired-seeds")) {                    Plotly.newPlot(                        "paired-seeds",                        [{"customdata":[[4000,5.1614033806098e-05],[4000,5.3371410863087457e-05],[4000,4.870127089081781e-05],[7600,5.118582758300765e-05]],"error_x":{"array":[0.00010116350625995208,0.00010460796529165142,9.54544909460029e-05,0.00010032422206269498]},"hovertemplate":"%{y}\u003cbr\u003eStep %{customdata[0]:,}\u003cbr\u003e\u0394G %{x:.7f} nats\u002ftoken\u003cbr\u003ePaired SE %{customdata[1]:.7f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"size":9},"meta":{"color":5},"mode":"markers","showlegend":false,"x":[-3.935295832625113e-05,6.475663717455532e-05,-3.156410532945131e-06,8.819354240234556e-06],"y":["520M \u00b7 seed 42","520M \u00b7 seed 11","520M \u00b7 seed 23","1.45B \u00b7 seed 42"],"type":"scatter"}],                        {"template":{"data":{"scatter":[{"type":"scatter"}]}},"xaxis":{"title":{"text":"\u0394G (nats\u002ftoken)","font":{"family":"IBM Plex Mono, monospace","size":11}},"tickformat":".1e","zeroline":true,"tickfont":{"size":11},"automargin":true,"gridcolor":"rgba(153,153,153,0.18)","zerolinecolor":"rgba(153,153,153,0.32)"},"yaxis":{"autorange":"reversed","showgrid":false,"title":{"font":{"family":"IBM Plex Mono, monospace","size":11}},"tickfont":{"size":11},"automargin":true,"gridcolor":"rgba(153,153,153,0.18)","zerolinecolor":"rgba(153,153,153,0.32)"},"margin":{"l":64,"r":20,"t":92,"b":65},"font":{"family":"IBM Plex Sans, sans-serif","size":12,"color":"#d4d4d4"},"hoverlabel":{"font":{"family":"IBM Plex Sans, sans-serif","size":12}},"legend":{"font":{"size":10},"orientation":"h","x":0,"y":1.03,"yanchor":"bottom"},"autosize":true,"paper_bgcolor":"#161616","plot_bgcolor":"#161616","hovermode":"closest"},                        {"responsive": true, "displaylogo": false, "scrollZoom": false}                    )                };            </script>        </div>
+<script>
+  // Match attention-gym's IBM Plex typography and light/slate data palettes.
+  // Quartz themes chart chrome; this frame additionally themes trace colors.
+  const palettes = {
+    dark: ["#68b5e6", "#e3a15f", "#6f8f7b", "#d36b62", "#d0a85c", "#a58fc9"],
+    light: ["#176d9c", "#97551c", "#5f7f67", "#aa413a", "#9a6a22", "#725b91"],
+  };
+  const plot = document.querySelector(".plotly-graph-div");
+  function themeTraces() {
+    if (!plot.data) return;
+    const scheme = window.parent === window
+      ? "dark"
+      : window.parent.document.documentElement.getAttribute("saved-theme");
+    const colors = palettes[scheme] || palettes.dark;
+    const traceColors = plot.data.map(trace => colors[trace.meta.color]);
+    Plotly.restyle(plot, {
+      "line.color": traceColors,
+      "marker.color": traceColors,
+      "error_x.color": traceColors,
+      "error_y.color": traceColors,
+    });
+  }
+  new MutationObserver(themeTraces).observe(document.documentElement, {
+    attributes: true, attributeFilter: ["style"],
+  });
+  themeTraces();
+
+  document.addEventListener("wheel", event => {
+    if (window.parent === window || event.ctrlKey || event.metaKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
+      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? window.parent.innerHeight : 1;
+    window.parent.postMessage({
+      type: "nuggets-widget-wheel",
+      deltaX: event.deltaX * unit,
+      deltaY: event.deltaY * unit,
+    }, window.location.origin);
+  }, {capture: true, passive: false});
+</script>
+</body>
+</html>

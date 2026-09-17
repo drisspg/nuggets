@@ -1,0 +1,239 @@
+{
+  "description": "Selected W&B metrics, exported without private run metadata. NLL and gaps are in nats/token. SEs are logged paired/sequence standard errors, not variation across training seeds.",
+  "series": {
+    "pilot_seed11": {
+      "num_sequences": 1024,
+      "rows": [
+        {
+          "_step": 2000,
+          "paired/gap_did": 1.6557170064157578e-05,
+          "paired/gap_did_se": 4.80658787523033e-05
+        },
+        {
+          "_step": 4000,
+          "paired/gap_did": 6.475663717455532e-05,
+          "paired/gap_did_se": 5.3371410863087457e-05
+        }
+      ],
+      "seed": 11
+    },
+    "pilot_seed23": {
+      "num_sequences": 1024,
+      "rows": [
+        {
+          "_step": 2000,
+          "paired/gap_did": -4.244954150987856e-05,
+          "paired/gap_did_se": 4.705136112862385e-05
+        },
+        {
+          "_step": 4000,
+          "paired/gap_did": -3.156410532945131e-06,
+          "paired/gap_did_se": 4.870127089081781e-05
+        }
+      ],
+      "seed": 23
+    },
+    "pilot_seed42": {
+      "num_sequences": 1024,
+      "rows": [
+        {
+          "_step": 2000,
+          "paired/gap_did": 2.96501098820956e-05,
+          "paired/gap_did_se": 5.004339410528618e-05
+        },
+        {
+          "_step": 4000,
+          "paired/gap_did": -3.935295832625113e-05,
+          "paired/gap_did_se": 5.1614033806098e-05
+        }
+      ],
+      "seed": 42
+    },
+    "scaled_causal": {
+      "num_sequences": 64,
+      "rows": [
+        {
+          "_step": 1000,
+          "eval/all/autoregressive_nll": 3.9396859952812058,
+          "eval/all/gap_nats": -0.0003886832094925907,
+          "eval/all/gap_stderr_by_sequence": 0.0001385024641734717,
+          "eval/all/parallel_nll": 3.9400746784906984
+        },
+        {
+          "_step": 2000,
+          "eval/all/autoregressive_nll": 3.6088909753687624,
+          "eval/all/gap_nats": -4.3632360352541255e-06,
+          "eval/all/gap_stderr_by_sequence": 0.00014178549886360948,
+          "eval/all/parallel_nll": 3.6088953386047975
+        },
+        {
+          "_step": 3000,
+          "eval/all/autoregressive_nll": 3.4318641155030747,
+          "eval/all/gap_nats": 0.00012672132238200629,
+          "eval/all/gap_stderr_by_sequence": 0.00013721421979372234,
+          "eval/all/parallel_nll": 3.4317373941806926
+        },
+        {
+          "_step": 4000,
+          "eval/all/autoregressive_nll": 3.3405771809212284,
+          "eval/all/gap_nats": 0.00014005161340802097,
+          "eval/all/gap_stderr_by_sequence": 0.00014227136595494988,
+          "eval/all/parallel_nll": 3.34043712930782
+        },
+        {
+          "_step": 5000,
+          "eval/all/autoregressive_nll": 3.267958359597414,
+          "eval/all/gap_nats": 6.385002743913848e-05,
+          "eval/all/gap_stderr_by_sequence": 0.0001488049583847421,
+          "eval/all/parallel_nll": 3.267894509569975
+        },
+        {
+          "_step": 6000,
+          "eval/all/autoregressive_nll": 3.217473273256635,
+          "eval/all/gap_nats": -0.0002032357130789808,
+          "eval/all/gap_stderr_by_sequence": 0.00014059586856393543,
+          "eval/all/parallel_nll": 3.217676508969714
+        },
+        {
+          "_step": 7000,
+          "eval/all/autoregressive_nll": 3.1968265058653333,
+          "eval/all/gap_nats": 0.00013024866571866023,
+          "eval/all/gap_stderr_by_sequence": 0.00016571662977859,
+          "eval/all/parallel_nll": 3.1966962571996143
+        },
+        {
+          "_step": 7600,
+          "eval/all/autoregressive_nll": 3.1945261961615827,
+          "eval/all/gap_nats": 0.0002755544096389867,
+          "eval/all/gap_stderr_by_sequence": 0.0001537007990563384,
+          "eval/all/parallel_nll": 3.194250641751944
+        }
+      ],
+      "seed": 42
+    },
+    "scaled_midpoint": {
+      "num_sequences": 64,
+      "rows": [
+        {
+          "_step": 1000,
+          "eval/all/autoregressive_nll": 3.94180331795887,
+          "eval/all/gap_nats": 2.0586539601907816e-05,
+          "eval/all/gap_stderr_by_sequence": 0.00016273612229696704,
+          "eval/all/parallel_nll": 3.941782731419268
+        },
+        {
+          "_step": 2000,
+          "eval/all/autoregressive_nll": 3.5999794399180955,
+          "eval/all/gap_nats": 8.635467680229159e-05,
+          "eval/all/gap_stderr_by_sequence": 0.0001214412724814513,
+          "eval/all/parallel_nll": 3.5998930852412934
+        },
+        {
+          "_step": 3000,
+          "eval/all/autoregressive_nll": 3.4293343146639232,
+          "eval/all/gap_nats": 0.00018982923634047744,
+          "eval/all/gap_stderr_by_sequence": 0.00015160010530345142,
+          "eval/all/parallel_nll": 3.429144485427583
+        },
+        {
+          "_step": 4000,
+          "eval/all/autoregressive_nll": 3.3324678791876057,
+          "eval/all/gap_nats": 9.427710475523599e-05,
+          "eval/all/gap_stderr_by_sequence": 0.0001340008678729241,
+          "eval/all/parallel_nll": 3.3323736020828507
+        },
+        {
+          "_step": 5000,
+          "eval/all/autoregressive_nll": 3.2654040449498267,
+          "eval/all/gap_nats": 5.565448738201195e-05,
+          "eval/all/gap_stderr_by_sequence": 0.00016301462151841836,
+          "eval/all/parallel_nll": 3.265348390462445
+        },
+        {
+          "_step": 6000,
+          "eval/all/autoregressive_nll": 3.211811794250721,
+          "eval/all/gap_nats": -2.814022231485691e-05,
+          "eval/all/gap_stderr_by_sequence": 0.0001229542872060119,
+          "eval/all/parallel_nll": 3.211839934473036
+        },
+        {
+          "_step": 7000,
+          "eval/all/autoregressive_nll": 3.1913602602547058,
+          "eval/all/gap_nats": -9.54156357572955e-06,
+          "eval/all/gap_stderr_by_sequence": 0.00014685969802821696,
+          "eval/all/parallel_nll": 3.1913698018182814
+        },
+        {
+          "_step": 7600,
+          "eval/all/autoregressive_nll": 3.1894350564347134,
+          "eval/all/gap_nats": -3.243542478531536e-05,
+          "eval/all/gap_stderr_by_sequence": 0.00014338739607771024,
+          "eval/all/parallel_nll": 3.189467491859499
+        }
+      ],
+      "seed": 42
+    },
+    "scaled_paired_1024": {
+      "num_sequences": 1024,
+      "rows": [
+        {
+          "_step": 4000,
+          "paired/gap_did": -7.888255197388387e-05,
+          "paired/gap_did_se": 4.9325668467165084e-05
+        },
+        {
+          "_step": 7600,
+          "paired/gap_did": 8.819354240234556e-06,
+          "paired/gap_did_se": 5.118582758300765e-05
+        }
+      ],
+      "seed": 42
+    },
+    "scaled_paired_64": {
+      "num_sequences": 64,
+      "rows": [
+        {
+          "_step": 1000,
+          "paired/gap_did": 0.00040926974909449854,
+          "paired/gap_did_se": 0.00021436683174049417
+        },
+        {
+          "_step": 2000,
+          "paired/gap_did": 9.071791283754571e-05,
+          "paired/gap_did_se": 0.00018608972672772993
+        },
+        {
+          "_step": 3000,
+          "paired/gap_did": 6.310791395847115e-05,
+          "paired/gap_did_se": 0.00021581750643539762
+        },
+        {
+          "_step": 4000,
+          "paired/gap_did": -4.5774508652784984e-05,
+          "paired/gap_did_se": 0.00019628014373190435
+        },
+        {
+          "_step": 5000,
+          "paired/gap_did": -8.195540057126527e-06,
+          "paired/gap_did_se": 0.0002351809263579034
+        },
+        {
+          "_step": 6000,
+          "paired/gap_did": 0.0001750954907641239,
+          "paired/gap_did_se": 0.00019351850484234764
+        },
+        {
+          "_step": 7000,
+          "paired/gap_did": -0.00013979022929438978,
+          "paired/gap_did_se": 0.0002229137719913592
+        },
+        {
+          "_step": 7600,
+          "paired/gap_did": -0.00030798983442430206,
+          "paired/gap_did_se": 0.00022530600260312265
+        }
+      ],
+      "seed": 42
+    }
+  }
+}

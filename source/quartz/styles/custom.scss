@@ -1,6 +1,7 @@
 @use "./base.scss";
 @use "./themes";
 @use "../components/styles/docEmbeds.scss";
+@use "../components/styles/kdaFigures.scss";
 
 // ─── Frontier Editorial design tokens ─────────────────────────────────────
 // Single source of truth for site styling. Edit values here and they
@@ -12,12 +13,15 @@
 // same file under `Plugin.SyntaxHighlighting`.
 
 :root {
+  color-scheme: light;
+
   // Surfaces & rules
   --editorial-rule: var(--lightgray);
   --editorial-panel: #ece8e0;
   --editorial-code: #eae6de;
   --editorial-shadow: none;
   --heading-color: #3a4a3e;
+  --editorial-muted: color-mix(in srgb, var(--gray) 85%, var(--dark));
 
   // Callout palette
   --callout-color-result: var(--secondary);
@@ -36,6 +40,7 @@
 }
 
 :root[saved-theme="dark"] {
+  color-scheme: dark;
   --editorial-panel: #0a0a0a;
   --editorial-code: #161616;
   --heading-color: #999999;
@@ -68,15 +73,9 @@ body {
   padding: 0 clamp(1rem, 3vw, 3rem);
 }
 
-.page > #quartz-body:has(.sidebar.right .toc) {
-  column-gap: clamp(1rem, 2.5vw, 2rem);
-  grid-template-areas:
-    "grid-sidebar-right grid-header"
-    "grid-sidebar-right grid-center"
-    "grid-sidebar-right grid-footer";
-  grid-template-columns: minmax(110px, 160px) minmax(0, 1fr);
-  max-width: none;
-  padding: 0 clamp(1rem, 4vw, 5rem);
+.page > #quartz-body:has(.toc, article.sidenotes) {
+  max-width: 1440px;
+  padding: 0 1.5rem;
 }
 
 .page > #quartz-body .sidebar {
@@ -91,12 +90,6 @@ body {
 
 .page > #quartz-body .sidebar.right {
   display: none;
-}
-
-.page > #quartz-body:has(.sidebar.right .toc) .sidebar.right {
-  border-right: 1px solid var(--editorial-rule);
-  display: flex;
-  padding-right: 1rem;
 }
 
 .page > #quartz-body .center {
@@ -115,6 +108,11 @@ body {
   margin: 0 calc(-1 * clamp(1rem, 3vw, 3rem));
   min-height: 3.5rem;
   padding: 0.25rem clamp(1rem, 3vw, 3rem);
+}
+
+.page > #quartz-body:has(.toc, article.sidenotes) .page-header > header {
+  margin: 0 -1.5rem;
+  padding: 0.25rem 1.5rem;
 }
 
 .page > #quartz-body .page-header .search {
@@ -197,6 +195,98 @@ article.sidenotes {
   content: counter(sidenote) ". ";
   font-family: var(--codeFont);
   font-weight: 700;
+}
+
+article.sidenotes :is(p, li):has(.sidenote-hover) {
+  position: relative;
+}
+
+.sidenote-trigger {
+  border: 0;
+  border-radius: 2px;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: help;
+  font: inherit;
+  text-decoration: underline dotted var(--secondary);
+  text-underline-offset: 0.2em;
+}
+
+.sidenote-trigger:hover,
+.sidenote-trigger:focus-visible {
+  background: var(--highlight);
+}
+
+.sidenote-trigger:focus-visible {
+  outline: 2px solid var(--secondary);
+  outline-offset: 3px;
+}
+
+.sidenote.sidenote--hover-media {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  box-sizing: border-box;
+  width: min(100%, 22rem);
+  margin: 0;
+  padding: 0.4rem;
+  border: 1px solid var(--editorial-rule);
+  border-radius: 2px;
+  background: var(--light);
+  box-shadow: 0 0.4rem 1.2rem rgb(0 0 0 / 18%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-0.25rem);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    visibility 140ms ease;
+
+  &::before {
+    content: none;
+  }
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    border: 0;
+    box-shadow: none;
+  }
+}
+
+.sidenote-hover:not(.sidenote-dismissed):is(:hover, :focus-within) .sidenote--hover-media {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+}
+
+.sidenote-hover-caption {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--editorial-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+@media (min-width: 960px) {
+  .sidenote.sidenote--hover-media {
+    top: 0;
+    left: calc(100% + 2.2rem);
+    width: 14rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidenote.sidenote--hover-media {
+    transition: none;
+    transform: none;
+  }
 }
 
 article h2 {
@@ -512,14 +602,41 @@ iframe.pdf,
 
 .toc {
   font-family: var(--bodyFont);
-  font-size: 0.8125rem;
-  max-height: calc(100vh - 8rem);
+  font-size: 0.875rem;
+  margin: 1rem 0 1.5rem;
+  max-height: none;
+}
+
+button#toc {
+  align-self: flex-start;
+  gap: 0.5rem;
 }
 
 button#toc h3 {
-  color: var(--darkgray);
+  color: var(--editorial-muted);
   font-family: var(--bodyFont);
   font-size: 0.875rem;
+  font-weight: 500;
+}
+
+button#toc .fold {
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+
+#toc-content:not(.collapsed) {
+  max-height: none;
+  overflow: visible;
+}
+
+#toc-content > ul.overflow {
+  max-height: none;
+  overflow: visible;
+}
+
+#toc-content > ul.overflow > li:last-of-type {
+  margin-bottom: 0;
 }
 
 #toc-content a {
@@ -528,7 +645,7 @@ button#toc h3 {
 }
 
 #toc-content ul > li > a {
-  color: var(--gray);
+  color: var(--editorial-muted);
   display: inline-block;
   font-weight: 400;
   line-height: 1.4;
@@ -537,7 +654,7 @@ button#toc h3 {
 }
 
 #toc-content ul > li > a.in-view {
-  color: var(--secondary);
+  color: color-mix(in srgb, var(--secondary) 80%, var(--dark));
   opacity: 1;
 }
 
@@ -550,13 +667,18 @@ footer {
   padding-top: 1rem;
 }
 
-@media all and (min-width: 1400px) {
-  article.sidenotes > :where(p, ul, ol, blockquote) {
-    max-width: 46rem;
+@media all and (min-width: 960px) {
+  .page > #quartz-body:has(article.sidenotes) .center {
+    box-sizing: border-box;
+    padding-right: 15.2rem;
   }
 
-  article.sidenotes > :not(p, ul, ol, blockquote) {
-    clear: right;
+  .page > #quartz-body:has(article.sidenotes) .page-header > header {
+    margin-right: calc(-15.2rem - 1.5rem);
+  }
+
+  article.sidenotes :is(p, li):has(> .sidenote) {
+    position: relative;
   }
 
   article.sidenotes > iframe {
@@ -567,39 +689,35 @@ footer {
     background: transparent;
     border-left: 0;
     border-top: 1px solid var(--editorial-rule);
-    clear: right;
-    float: right;
-    margin: 0.35rem -19rem 1.25rem 2rem;
+    left: calc(100% + 2.2rem);
+    margin: 0;
     padding: 0.55rem 0 0;
-    width: 17rem;
+    position: absolute;
+    top: 0;
+    width: 13rem;
   }
 }
 
 @media all and (max-width: 1200px) {
-  .page > #quartz-body,
-  .page > #quartz-body:has(.sidebar.right .toc) {
+  .page > #quartz-body {
     grid-template-areas:
       "grid-header"
       "grid-center"
-      "grid-sidebar-right"
       "grid-footer";
     grid-template-columns: minmax(0, 1fr);
     max-width: 980px;
     padding: 0 clamp(1rem, 5vw, 3rem);
   }
-
-  .page > #quartz-body:has(.sidebar.right .toc) .sidebar.right {
-    border-right: 0;
-    padding: 0;
-  }
 }
 
 @media all and (max-width: 800px) {
-  .page > #quartz-body {
+  .page > #quartz-body,
+  .page > #quartz-body:has(.toc, article.sidenotes) {
     padding: 0 1rem;
   }
 
-  .page > #quartz-body .page-header > header {
+  .page > #quartz-body .page-header > header,
+  .page > #quartz-body:has(.toc, article.sidenotes) .page-header > header {
     flex-wrap: wrap;
     margin: 0 -1rem;
     padding: 0.75rem 1rem;

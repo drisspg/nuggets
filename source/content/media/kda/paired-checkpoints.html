@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scaled model: excess autoregressive penalty</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <style>
+    html, body { height: 100%; margin: 0; background: #161616; }
+    .modebar { opacity: 0; transition: opacity 120ms ease; }
+    .plot-container:hover .modebar, .plot-container:focus-within .modebar { opacity: 1; }
+  </style>
+</head>
+<body>
+<div style="height:100%; width:100%;">                        <script>window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
+        <script charset="utf-8" src="https://cdn.plot.ly/plotly-4.0.0.min.js" integrity="sha256-FEYfO0yRyLtZCpnW0Dw/0DHKQO7Afrq3ml4+rBB818o=" crossorigin="anonymous"></script>                <div id="paired-checkpoints" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("paired-checkpoints")) {                    Plotly.newPlot(                        "paired-checkpoints",                        [{"customdata":[0.00021436683174049417,0.00018608972672772993,0.00021581750643539762,0.00019628014373190435,0.0002351809263579034,0.00019351850484234764,0.0002229137719913592,0.00022530600260312265],"error_y":{"array":[0.0004201589902113686,0.0003647358643863507,0.0004230023126133793,0.0003847090817145325,0.00046095461566149067,0.00037929626949100134,0.000436910993103064,0.00044159976510212037]},"hovertemplate":"Step %{x:,}\u003cbr\u003e\u0394G %{y:.7f} nats\u002ftoken\u003cbr\u003ePaired SE %{customdata:.7f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"width":2},"marker":{"size":8,"symbol":"circle"},"meta":{"color":2},"mode":"lines+markers","name":"64 sequences","x":[1000,2000,3000,4000,5000,6000,7000,7600],"y":[0.00040926974909449854,9.071791283754571e-05,6.310791395847115e-05,-4.5774508652784984e-05,-8.195540057126527e-06,0.0001750954907641239,-0.00013979022929438978,-0.00030798983442430206],"type":"scatter"},{"customdata":[4.9325668467165084e-05,5.118582758300765e-05],"error_y":{"array":[9.667831019564357e-05,0.00010032422206269498]},"hovertemplate":"Step %{x:,}\u003cbr\u003e\u0394G %{y:.7f} nats\u002ftoken\u003cbr\u003ePaired SE %{customdata:.7f}\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"width":2},"marker":{"size":8,"symbol":"diamond"},"meta":{"color":5},"mode":"markers","name":"1,024 sequences","x":[4000,7600],"y":[-7.888255197388387e-05,8.819354240234556e-06],"type":"scatter"}],                        {"template":{"data":{"scatter":[{"type":"scatter"}]}},"xaxis":{"title":{"text":"Training step","font":{"family":"IBM Plex Mono, monospace","size":11}},"tickformat":",d","tickfont":{"size":11},"automargin":true,"gridcolor":"rgba(153,153,153,0.18)","zerolinecolor":"rgba(153,153,153,0.32)"},"yaxis":{"title":{"text":"\u0394G (nats\u002ftoken)","font":{"family":"IBM Plex Mono, monospace","size":11}},"tickformat":".1e","zeroline":true,"tickfont":{"size":11},"automargin":true,"gridcolor":"rgba(153,153,153,0.18)","zerolinecolor":"rgba(153,153,153,0.32)"},"margin":{"l":64,"r":20,"t":92,"b":65},"font":{"family":"IBM Plex Sans, sans-serif","size":12,"color":"#d4d4d4"},"hoverlabel":{"font":{"family":"IBM Plex Sans, sans-serif","size":12}},"legend":{"font":{"size":10},"orientation":"h","x":0,"y":1.03,"yanchor":"bottom"},"autosize":true,"paper_bgcolor":"#161616","plot_bgcolor":"#161616","hovermode":"closest"},                        {"responsive": true, "displaylogo": false, "scrollZoom": false}                    )                };            </script>        </div>
+<script>
+  // Match attention-gym's IBM Plex typography and light/slate data palettes.
+  // Quartz themes chart chrome; this frame additionally themes trace colors.
+  const palettes = {
+    dark: ["#68b5e6", "#e3a15f", "#6f8f7b", "#d36b62", "#d0a85c", "#a58fc9"],
+    light: ["#176d9c", "#97551c", "#5f7f67", "#aa413a", "#9a6a22", "#725b91"],
+  };
+  const plot = document.querySelector(".plotly-graph-div");
+  function themeTraces() {
+    if (!plot.data) return;
+    const scheme = window.parent === window
+      ? "dark"
+      : window.parent.document.documentElement.getAttribute("saved-theme");
+    const colors = palettes[scheme] || palettes.dark;
+    const traceColors = plot.data.map(trace => colors[trace.meta.color]);
+    Plotly.restyle(plot, {
+      "line.color": traceColors,
+      "marker.color": traceColors,
+      "error_x.color": traceColors,
+      "error_y.color": traceColors,
+    });
+  }
+  new MutationObserver(themeTraces).observe(document.documentElement, {
+    attributes: true, attributeFilter: ["style"],
+  });
+  themeTraces();
+
+  document.addEventListener("wheel", event => {
+    if (window.parent === window || event.ctrlKey || event.metaKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
+      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? window.parent.innerHeight : 1;
+    window.parent.postMessage({
+      type: "nuggets-widget-wheel",
+      deltaX: event.deltaX * unit,
+      deltaY: event.deltaY * unit,
+    }, window.location.origin);
+  }, {capture: true, passive: false});
+</script>
+</body>
+</html>

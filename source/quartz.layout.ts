@@ -20,6 +20,7 @@ export const defaultContentPageLayout: PageLayout = {
   beforeBody: [
     Component.HomeHeader(),
     Component.ArticleHeader(),
+    Component.TableOfContents(),
     Component.RecentNotes({
       title: "Latest notes",
       limit: 5,
@@ -35,7 +36,7 @@ export const defaultContentPageLayout: PageLayout = {
     }),
   ],
   left: [],
-  right: [Component.DesktopOnly(Component.TableOfContents())],
+  right: [],
 }
 
 // components for pages that display lists of pages  (e.g. tags or folders)

@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KDA reference-direction animation</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f4f0e8;
+        --panel: #eae6de;
+        --ink: #1a2e22;
+        --rule: #d0ccc4;
+        --green: #5f7f67;
+        --amber: #97551c;
+        --red: #aa413a;
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --paper: #161616;
+        --panel: #202020;
+        --ink: #d4d4d4;
+        --rule: #3a3a3a;
+        --green: #6f8f7b;
+        --amber: #e3a15f;
+        --red: #d36b62;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "IBM Plex Sans", system-ui, sans-serif;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+      }
+      canvas:focus-visible {
+        outline: 2px solid var(--amber);
+        outline-offset: -3px;
+      }
+      button {
+        position: absolute;
+        right: 12px;
+        bottom: 10px;
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        padding: 4px;
+        border: 1px solid var(--rule);
+        border-radius: 2px;
+        background: var(--paper);
+        color: var(--ink);
+        cursor: pointer;
+        font: inherit;
+      }
+      button svg {
+        width: 14px;
+        height: 14px;
+        fill: currentColor;
+      }
+      button[data-state="running"] .play-icon,
+      button[data-state="paused"] .pause-icon {
+        display: none;
+      }
+      button:focus-visible {
+        outline: 2px solid var(--green);
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas
+      role="slider"
+      tabindex="0"
+      aria-label="Selected token in a conceptual reference animation"
+      aria-description="Use arrow keys or click a token to select it. Lookup arrows toward earlier positions are green; later positions are red. This is not measured data."
+      aria-orientation="horizontal"
+      aria-valuemin="0"
+      aria-valuemax="15"
+      aria-valuenow="8"
+    ></canvas>
+    <button type="button" id="toggle" data-state="running" aria-label="Pause illustration">
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path class="pause-icon" d="M3 2h3v12H3zM10 2h3v12h-3z" />
+        <path class="play-icon" d="M4 2l10 6-10 6z" />
+      </svg>
+    </button>
+    <script>
+      const canvas = document.querySelector("canvas")
+      const ctx = canvas.getContext("2d")
+      const button = document.querySelector("#toggle")
+      const controller = new AbortController()
+      const { signal } = controller
+      const host = window.parent === window ? document : window.parent.document
+      const motion = matchMedia("(prefers-reduced-motion: reduce)")
+      const systemTheme = matchMedia("(prefers-color-scheme: dark)")
+      let colors
+      let width = 0
+      let height = 0
+      const tokenCount = 16
+      let elapsed = 0
+      let previous = 0
+      let frame = 0
+      let running = !motion.matches
+      let visible = true
+      let selected = 8
+      let pivot = 8
+      let fromPivot = 8
+      let selectedAt = 0
+      let autoSelect = true
+      let autoStep = 0
+
+      function geometry() {
+        const pad = width < 600 ? 16 : 28
+        const gap = width < 600 ? 4 : 7
+        const cardWidth = (width - pad * 2 - gap * (tokenCount - 1)) / tokenCount
+        const cardHeight = width < 600 ? 32 : 48
+        return { pad, gap, cardWidth, cardHeight, topY: 40, bottomY: height - 40 - cardHeight }
+      }
+
+      function selectToken(index, manual = true) {
+        if (manual) autoSelect = false
+        const next = Math.max(0, Math.min(tokenCount - 1, index))
+        if (next !== selected) {
+          fromPivot = running ? pivot : next
+          selected = next
+          selectedAt = elapsed
+        }
+        canvas.setAttribute("aria-valuenow", String(selected))
+      }
+
+      function card(x, y, w, h, index) {
+        ctx.fillStyle = colors.panel
+        ctx.strokeStyle = index === selected ? colors.amber : colors.rule
+        ctx.lineWidth = index === selected ? 2 : 1
+        ctx.beginPath()
+        ctx.roundRect(x, y, w, h, 2)
+        ctx.fill()
+        if (index === selected) {
+          ctx.fillStyle = colors.amber
+          ctx.globalAlpha = 0.1
+          ctx.fill()
+          ctx.globalAlpha = 1
+        }
+        ctx.stroke()
+        ctx.fillStyle = index === selected ? colors.amber : colors.ink
+        if (w >= 32) {
+          for (let row = 0; row < 3; row++) {
+            for (let column = 0; column < 3; column++) {
+              ctx.globalAlpha = (index + row * 3 + column) % 4 === 0 ? 0.65 : 0.2
+              ctx.fillRect(x + 6 + column * 5, y + 9 + row * 5, 3, 3)
+            }
+          }
+          ctx.globalAlpha = 0.3
+          ctx.fillRect(x + 25, y + 12, w - 31, 2)
+          ctx.fillRect(x + 25, y + 20, (w - 31) * 0.65, 2)
+          for (let bit = 0; bit < 4; bit++) {
+            ctx.globalAlpha = (index + bit) % 3 === 0 ? 0.55 : 0.2
+            ctx.fillRect(x + 6 + (bit * (w - 12)) / 4, y + h - 10, (w - 18) / 5, 3)
+          }
+        } else {
+          for (let bit = 0; bit < 3; bit++) {
+            ctx.globalAlpha = (index + bit) % 3 === 0 ? 0.6 : 0.25
+            ctx.fillRect(x + 3, y + 8 + bit * 6, Math.max(2, w - 6), 2)
+          }
+        }
+        ctx.globalAlpha = 1
+      }
+
+      function arrow(pivotX, pivotY, x, y, color, progress) {
+        ctx.strokeStyle = color
+        ctx.fillStyle = color
+        ctx.lineWidth = 1
+        ctx.globalAlpha = 0.4
+        ctx.beginPath()
+        ctx.moveTo(pivotX, pivotY)
+        ctx.quadraticCurveTo(x, pivotY, x, y)
+        ctx.stroke()
+        const direction = Math.sign(y - pivotY)
+        ctx.globalAlpha = 0.8
+        ctx.beginPath()
+        ctx.moveTo(x, y)
+        ctx.lineTo(x - 3, y - direction * 5)
+        ctx.lineTo(x + 3, y - direction * 5)
+        ctx.closePath()
+        ctx.fill()
+        const q = 1 - progress
+        const dotX = q * q * pivotX + 2 * q * progress * x + progress * progress * x
+        const dotY = q * q * pivotY + 2 * q * progress * pivotY + progress * progress * y
+        ctx.globalAlpha = 1
+        ctx.beginPath()
+        ctx.arc(dotX, dotY, 2.2, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      function draw(time) {
+        ctx.clearRect(0, 0, width, height)
+        ctx.strokeStyle = colors.rule
+        ctx.lineWidth = 0.5
+        ctx.globalAlpha = 0.22
+        ctx.beginPath()
+        for (let x = 0; x < width; x += 32) {
+          ctx.moveTo(x, 0)
+          ctx.lineTo(x, height)
+        }
+        for (let y = 0; y < height; y += 32) {
+          ctx.moveTo(0, y)
+          ctx.lineTo(width, y)
+        }
+        ctx.stroke()
+        ctx.globalAlpha = 1
+
+        const step = Math.floor(time / 3400)
+        if (autoSelect && step !== autoStep) {
+          autoStep = step
+          const cycle = (8 + step) % (2 * (tokenCount - 1))
+          selectToken(cycle < tokenCount ? cycle : 2 * (tokenCount - 1) - cycle, false)
+        }
+        const blend = Math.min(1, (time - selectedAt) / 420)
+        const ease = blend * blend * (3 - 2 * blend)
+        pivot = fromPivot + (selected - fromPivot) * ease
+        const { pad, gap, cardWidth: w, cardHeight: h, topY, bottomY } = geometry()
+        const pivotX = pad + pivot * (w + gap) + w / 2
+        const pivotY = height / 2
+        for (let i = 0; i < tokenCount; i++) {
+          const x = pad + i * (w + gap)
+          const center = x + w / 2
+          const color = i < selected ? colors.green : i > selected ? colors.red : colors.amber
+          const progress = (time / 4800 + i * 0.025) % 1
+          arrow(pivotX, pivotY, center, topY + h + 3, color, progress)
+          arrow(pivotX, pivotY, center, bottomY - 3, color, (progress + 0.15) % 1)
+          card(x, topY, w, h, i)
+          card(x, bottomY, w, h, i)
+        }
+        ctx.fillStyle = colors.paper
+        ctx.strokeStyle = colors.amber
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.roundRect(pivotX - 17, pivotY - 13, 34, 26, 3)
+        ctx.fill()
+        ctx.stroke()
+        ctx.fillStyle = colors.amber
+        ctx.beginPath()
+        ctx.arc(pivotX, pivotY, 3.5, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      function resize() {
+        const rect = canvas.getBoundingClientRect()
+        width = rect.width
+        height = rect.height
+        const dpr = Math.min(devicePixelRatio || 1, 2)
+        canvas.width = Math.round(width * dpr)
+        canvas.height = Math.round(height * dpr)
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+        if (colors) draw(elapsed)
+      }
+
+      function syncTheme() {
+        document.documentElement.dataset.theme =
+          host.documentElement.getAttribute("saved-theme") ||
+          (systemTheme.matches ? "dark" : "light")
+        const css = getComputedStyle(document.documentElement)
+        colors = Object.fromEntries(
+          ["paper", "panel", "ink", "rule", "green", "amber", "red"].map((key) => [
+            key,
+            css.getPropertyValue(`--${key}`).trim(),
+          ]),
+        )
+        draw(elapsed)
+      }
+
+      function tick(now) {
+        elapsed += previous ? Math.min(now - previous, 50) : 0
+        previous = now
+        draw(elapsed)
+        frame = requestAnimationFrame(tick)
+      }
+
+      function schedule() {
+        cancelAnimationFrame(frame)
+        previous = 0
+        button.dataset.state = running ? "running" : "paused"
+        button.setAttribute("aria-label", running ? "Pause illustration" : "Play illustration")
+        if (running && visible && !document.hidden) frame = requestAnimationFrame(tick)
+        else draw(elapsed)
+      }
+
+      canvas.addEventListener(
+        "pointerdown",
+        (event) => {
+          const x = event.clientX - canvas.getBoundingClientRect().left
+          const { pad, gap, cardWidth } = geometry()
+          selectToken(Math.round((x - pad - cardWidth / 2) / (cardWidth + gap)))
+          canvas.focus({ preventScroll: true })
+          draw(elapsed)
+        },
+        { signal },
+      )
+      canvas.addEventListener(
+        "focus",
+        () => {
+          autoSelect = false
+        },
+        { signal },
+      )
+      canvas.addEventListener(
+        "keydown",
+        (event) => {
+          if (event.ctrlKey || event.metaKey || event.altKey) return
+          let next = selected
+          switch (event.key) {
+            case "ArrowLeft":
+            case "ArrowDown":
+              next--
+              break
+            case "ArrowRight":
+            case "ArrowUp":
+              next++
+              break
+            case "Home":
+              next = 0
+              break
+            case "End":
+              next = tokenCount - 1
+              break
+            default:
+              return
+          }
+          event.preventDefault()
+          selectToken(next)
+          draw(elapsed)
+        },
+        { signal },
+      )
+      button.addEventListener(
+        "click",
+        () => {
+          running = !running
+          schedule()
+        },
+        { signal },
+      )
+      document.addEventListener("visibilitychange", schedule, { signal })
+      motion.addEventListener(
+        "change",
+        () => {
+          running = !motion.matches
+          schedule()
+        },
+        { signal },
+      )
+      host.addEventListener("themechange", syncTheme, { signal })
+      systemTheme.addEventListener("change", syncTheme, { signal })
+      window.addEventListener("resize", resize, { signal })
+      document.addEventListener(
+        "wheel",
+        (event) => {
+          if (window.parent === window || event.ctrlKey || event.metaKey) return
+          event.preventDefault()
+          const unit =
+            event.deltaMode === WheelEvent.DOM_DELTA_LINE
+              ? 16
+              : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+                ? window.parent.innerHeight
+                : 1
+          window.parent.postMessage(
+            {
+              type: "nuggets-widget-wheel",
+              deltaX: event.deltaX * unit,
+              deltaY: event.deltaY * unit,
+            },
+            location.origin,
+          )
+        },
+        { capture: true, passive: false, signal },
+      )
+      const observer = new IntersectionObserver(([entry]) => {
+        visible = entry.isIntersecting
+        schedule()
+      })
+      resize()
+      syncTheme()
+      observer.observe(canvas)
+      schedule()
+      window.addEventListener(
+        "pageshow",
+        () => {
+          syncTheme()
+          resize()
+          schedule()
+        },
+        { signal },
+      )
+      window.addEventListener("pagehide", (event) => {
+        cancelAnimationFrame(frame)
+        if (!event.persisted) {
+          observer.disconnect()
+          controller.abort()
+        }
+      })
+    </script>
+  </body>
+</html>
