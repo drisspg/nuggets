@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scaled model: held-out NLL</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <style>
+    html, body { height: 100%; margin: 0; background: #161616; }
+    .modebar { opacity: 0; transition: opacity 120ms ease; }
+    .plot-container:hover .modebar, .plot-container:focus-within .modebar { opacity: 1; }
+  </style>
+</head>
+<body>
+<div style="height:100%; width:100%;">                        <script>window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
+        <script charset="utf-8" src="https://cdn.plot.ly/plotly-4.0.0.min.js" integrity="sha256-FEYfO0yRyLtZCpnW0Dw/0DHKQO7Afrq3ml4+rBB818o=" crossorigin="anonymous"></script>                <div id="scaled-loss" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("scaled-loss")) {                    Plotly.newPlot(                        "scaled-loss",                        [{"hovertemplate":"Step %{x:,}\u003cbr\u003eNLL %{y:.6f} nats\u002ftoken\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"dash":"solid","width":2},"marker":{"size":7},"meta":{"color":0},"mode":"lines+markers","name":"Causal \u002f parallel","x":[1000,2000,3000,4000,5000,6000,7000,7600],"y":[3.9400746784906984,3.6088953386047975,3.4317373941806926,3.34043712930782,3.267894509569975,3.217676508969714,3.1966962571996143,3.194250641751944],"type":"scatter"},{"hovertemplate":"Step %{x:,}\u003cbr\u003eNLL %{y:.6f} nats\u002ftoken\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"dash":"dash","width":2},"marker":{"size":7},"meta":{"color":0},"mode":"lines+markers","name":"Causal \u002f AR","x":[1000,2000,3000,4000,5000,6000,7000,7600],"y":[3.9396859952812058,3.6088909753687624,3.4318641155030747,3.3405771809212284,3.267958359597414,3.217473273256635,3.1968265058653333,3.1945261961615827],"type":"scatter"},{"hovertemplate":"Step %{x:,}\u003cbr\u003eNLL %{y:.6f} nats\u002ftoken\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"dash":"solid","width":2},"marker":{"size":7},"meta":{"color":1},"mode":"lines+markers","name":"Midpoint \u002f parallel","x":[1000,2000,3000,4000,5000,6000,7000,7600],"y":[3.941782731419268,3.5998930852412934,3.429144485427583,3.3323736020828507,3.265348390462445,3.211839934473036,3.1913698018182814,3.189467491859499],"type":"scatter"},{"hovertemplate":"Step %{x:,}\u003cbr\u003eNLL %{y:.6f} nats\u002ftoken\u003cextra\u003e%{fullData.name}\u003c\u002fextra\u003e","line":{"dash":"dash","width":2},"marker":{"size":7},"meta":{"color":1},"mode":"lines+markers","name":"Midpoint \u002f AR","x":[1000,2000,3000,4000,5000,6000,7000,7600],"y":[3.94180331795887,3.5999794399180955,3.4293343146639232,3.3324678791876057,3.2654040449498267,3.211811794250721,3.1913602602547058,3.1894350564347134],"type":"scatter"}],                        {"template":{"data":{"scatter":[{"type":"scatter"}]}},"xaxis":{"title":{"text":"Training step","font":{"family":"IBM Plex Mono, monospace","size":11}},"tickformat":",d","tickfont":{"size":11},"automargin":true,"gridcolor":"rgba(153,153,153,0.18)","zerolinecolor":"rgba(153,153,153,0.32)"},"yaxis":{"title":{"text":"NLL (nats\u002ftoken; lower is better)","font":{"family":"IBM Plex Mono, monospace","size":11}},"tickfont":{"size":11},"automargin":true,"gridcolor":"rgba(153,153,153,0.18)","zerolinecolor":"rgba(153,153,153,0.32)"},"margin":{"l":64,"r":20,"t":92,"b":65},"font":{"family":"IBM Plex Sans, sans-serif","size":12,"color":"#d4d4d4"},"hoverlabel":{"font":{"family":"IBM Plex Sans, sans-serif","size":12}},"legend":{"font":{"size":10},"orientation":"h","x":0,"y":1.03,"yanchor":"bottom"},"autosize":true,"paper_bgcolor":"#161616","plot_bgcolor":"#161616","hovermode":"closest"},                        {"responsive": true, "displaylogo": false, "scrollZoom": false}                    )                };            </script>        </div>
+<script>
+  // Match attention-gym's IBM Plex typography and light/slate data palettes.
+  // Quartz themes chart chrome; this frame additionally themes trace colors.
+  const palettes = {
+    dark: ["#68b5e6", "#e3a15f", "#6f8f7b", "#d36b62", "#d0a85c", "#a58fc9"],
+    light: ["#176d9c", "#97551c", "#5f7f67", "#aa413a", "#9a6a22", "#725b91"],
+  };
+  const plot = document.querySelector(".plotly-graph-div");
+  function themeTraces() {
+    if (!plot.data) return;
+    const scheme = window.parent === window
+      ? "dark"
+      : window.parent.document.documentElement.getAttribute("saved-theme");
+    const colors = palettes[scheme] || palettes.dark;
+    const traceColors = plot.data.map(trace => colors[trace.meta.color]);
+    Plotly.restyle(plot, {
+      "line.color": traceColors,
+      "marker.color": traceColors,
+      "error_x.color": traceColors,
+      "error_y.color": traceColors,
+    });
+  }
+  new MutationObserver(themeTraces).observe(document.documentElement, {
+    attributes: true, attributeFilter: ["style"],
+  });
+  themeTraces();
+
+  document.addEventListener("wheel", event => {
+    if (window.parent === window || event.ctrlKey || event.metaKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
+      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? window.parent.innerHeight : 1;
+    window.parent.postMessage({
+      type: "nuggets-widget-wheel",
+      deltaX: event.deltaX * unit,
+      deltaY: event.deltaY * unit,
+    }, window.location.origin);
+  }, {capture: true, passive: false});
+</script>
+</body>
+</html>

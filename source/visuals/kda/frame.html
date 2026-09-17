@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>$TITLE$</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <style>
+    html, body { height: 100%; margin: 0; background: #161616; }
+    .modebar { opacity: 0; transition: opacity 120ms ease; }
+    .plot-container:hover .modebar, .plot-container:focus-within .modebar { opacity: 1; }
+  </style>
+</head>
+<body>
+$PLOT$
+<script>
+  // Match attention-gym's IBM Plex typography and light/slate data palettes.
+  // Quartz themes chart chrome; this frame additionally themes trace colors.
+  const palettes = {
+    dark: ["#68b5e6", "#e3a15f", "#6f8f7b", "#d36b62", "#d0a85c", "#a58fc9"],
+    light: ["#176d9c", "#97551c", "#5f7f67", "#aa413a", "#9a6a22", "#725b91"],
+  };
+  const plot = document.querySelector(".plotly-graph-div");
+  function themeTraces() {
+    if (!plot.data) return;
+    const scheme = window.parent === window
+      ? "dark"
+      : window.parent.document.documentElement.getAttribute("saved-theme");
+    const colors = palettes[scheme] || palettes.dark;
+    const traceColors = plot.data.map(trace => colors[trace.meta.color]);
+    Plotly.restyle(plot, {
+      "line.color": traceColors,
+      "marker.color": traceColors,
+      "error_x.color": traceColors,
+      "error_y.color": traceColors,
+    });
+  }
+  new MutationObserver(themeTraces).observe(document.documentElement, {
+    attributes: true, attributeFilter: ["style"],
+  });
+  themeTraces();
+
+  document.addEventListener("wheel", event => {
+    if (window.parent === window || event.ctrlKey || event.metaKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
+      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? window.parent.innerHeight : 1;
+    window.parent.postMessage({
+      type: "nuggets-widget-wheel",
+      deltaX: event.deltaX * unit,
+      deltaY: event.deltaY * unit,
+    }, window.location.origin);
+  }, {capture: true, passive: false});
+</script>
+</body>
+</html>

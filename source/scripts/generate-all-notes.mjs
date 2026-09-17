@@ -50,7 +50,8 @@ async function collectEntries() {
     if (data.draft) continue
     if (!data.date) continue
 
-    entries.push({ slug, iso: isoDate(data.date) })
+    const title = typeof data.title === "string" && data.title.trim() ? data.title : slug
+    entries.push({ slug, title, iso: isoDate(data.date) })
   }
 
   entries.sort((a, b) => b.iso.localeCompare(a.iso))
@@ -82,7 +83,8 @@ function renderMarkdown(entries) {
   for (const [year, items] of groups) {
     lines.push(`### ${year}`, "")
     for (const item of items) {
-      lines.push(`- [[${item.slug}]] — ${formatDate(item.iso)}`)
+      const link = item.title === item.slug ? item.slug : `${item.slug}|${item.title}`
+      lines.push(`- [[${link}]] — ${formatDate(item.iso)}`)
     }
     lines.push("")
   }

@@ -12,11 +12,12 @@ cssclasses:
 
 ### 2026
 
+- [[KDA Future Token Leakage|KDA Doesn't Care About the Future]] — September 15, 2026
 - [[Pizza Recipe]] — July 11, 2026
 - [[A Tale of Two Schedulers]] — May 3, 2026
 - [[Adding kernels to PyTorch core is the least leveraged thing]] — April 26, 2026
 - [[My Python Tools for PyTorch bencmarking]] — April 25, 2026
-- [[ptq Dispatching AI Agents to Fix PyTorch Bugs]] — March 12, 2026
+- [[ptq Dispatching AI Agents to Fix PyTorch Bugs|ptq: Dispatching AI Agents to Fix PyTorch Bugs]] — March 12, 2026
 - [[Debugging pipeline hangs]] — February 13, 2026
 
 ### 2025
