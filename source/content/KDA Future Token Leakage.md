@@ -142,7 +142,9 @@ Let's call this weight $A_{qk}[i,j]$. How much does query i read from token j's 
 
 From here on, $g_{i,d}=\sum_{t=0}^{i}\delta_{t,d}$ is the <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-gate-units-note">cumulative log-base-2 gate</span> at token $i$, <span class="sidenote-ref" tabindex="0" aria-describedby="kda-channel-gate-note">channel $d$</span>, measured within the chunk.<span class="sidenote" role="note"><span id="kda-gate-units-note">Attention Gym's KDA API uses natural-log gates. The lower bound is currently capped at $-5,$ that means means the strongest decay =  $e^{-5}\approx0.006738$: or in other words only about 0.67% of the previous state is retained before the other update terms.</span><br><br><span id="kda-channel-gate-note">Notice that extra $d$ index. GDN uses one decay per token per head; KDA gives every key channel its own. Seems like a small change, but as we'll see it makes a big difference to how we implement the chunkwise kernel.</span></span></span> The increments $\delta_{t,d}$ are the per-token log2 gates called $g$ in the recurrence above.
 
-A write at token $j$ picks up the decays at tokens $j+1$ through $i$. Not $j$ itself: step (4) writes *after* that token's decay. For query and key vectors with $D$ channels, leaving out the usual query scale $s$:
+Suppose $j<i$. Token $j$ writes a correction into the state. By the time query $i$ reads it, that correction has been decayed at every step from $j+1$ through $i$. We start at $j+1$ because each token decays the existing state *before* adding its own correction.
+
+With $D$ channels, and leaving out the usual query scale $s$, the weight on that correction is:
 
 $$
 A_{qk}[i,j] = \sum_{d=1}^{D} q_{i,d} k_{j,d} 2^{g_{i,d}-g_{j,d}}, \qquad j \leq i.

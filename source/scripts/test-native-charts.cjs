@@ -388,6 +388,23 @@ async function main() {
     )
     await widgetPage.mouse.wheel(0, 150)
     await widgetPage.waitForFunction((before) => scrollY > before, activeScroll)
+    const forwarded = await widgetPage.evaluate(async () => {
+      window.scrollTo({ top: 500, behavior: "instant" })
+      await new Promise(requestAnimationFrame)
+      await new Promise(requestAnimationFrame)
+      document.documentElement.style.setProperty("scroll-behavior", "smooth", "important")
+      const before = scrollY
+      const firstScroll = new Promise((resolve) =>
+        window.addEventListener("scroll", () => resolve(scrollY), { once: true }),
+      )
+      window.postMessage({ type: "nuggets-widget-wheel", deltaX: 0, deltaY: 150 }, location.origin)
+      return { before, after: await firstScroll }
+    })
+    assert.equal(
+      forwarded.after - forwarded.before,
+      150,
+      "forwarded wheel deltas must not turn into smooth-scroll animations",
+    )
     await widgetPage.close()
     console.log(
       "Inactive widgets pass scroll to the page; activation opts in; iframe Escape releases in place",
