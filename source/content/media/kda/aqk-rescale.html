@@ -1,0 +1,1101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>One retained Aqk entry through rebasing</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f4f0e8;
+        --panel: #eae6de;
+        --ink: #1a2e22;
+        --muted: #6a7a6e;
+        --rule: #d0ccc4;
+        --green: #5f7f67;
+        --amber: #97551c;
+        --red: #aa413a;
+        --mask: #b9b4aa;
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --paper: #161616;
+        --panel: #202020;
+        --ink: #d4d4d4;
+        --muted: #999999;
+        --rule: #3a3a3a;
+        --green: #6f8f7b;
+        --amber: #e3a15f;
+        --red: #d36b62;
+        --mask: #4a4a4a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        overflow: hidden;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "IBM Plex Sans", system-ui, sans-serif;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      .aqk {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px 18px 16px;
+      }
+      .aqk-summary {
+        margin: 0;
+        color: var(--muted);
+      }
+      .aqk-summary b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .aqk-tabs {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 5px;
+      }
+      .aqk-tab {
+        appearance: none;
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        background: var(--panel);
+        color: var(--ink);
+        font: inherit;
+        font-size: 13px;
+        line-height: 1.2;
+        text-align: left;
+        padding: 6px 8px;
+        cursor: pointer;
+        display: flex;
+        gap: 7px;
+        align-items: baseline;
+        min-width: 0;
+      }
+      .aqk-tab .n {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .aqk-tab span:last-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .aqk-tab[aria-selected="true"] {
+        border-color: var(--amber);
+        box-shadow: inset 0 -2px 0 var(--amber);
+      }
+      .aqk-tab[aria-selected="true"] .n {
+        color: var(--amber);
+      }
+      .aqk-tab:focus-visible,
+      .aqk-chip:focus-visible {
+        outline: 2px solid var(--amber);
+        outline-offset: 1px;
+      }
+      .aqk-panel[hidden] {
+        display: none;
+      }
+      .aqk-panel h2 {
+        margin: 0 0 6px;
+        font-size: 15px;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+      .aqk-panel p {
+        margin: 0 0 6px;
+      }
+      .math {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-size: 13px;
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        padding: 7px 10px;
+        margin: 0 0 8px;
+        overflow-wrap: anywhere;
+        line-height: 1.6;
+      }
+      .math sub,
+      .math sup {
+        font-size: 0.72em;
+        line-height: 0;
+      }
+      .g {
+        color: var(--green);
+      }
+      .r {
+        color: var(--red);
+      }
+      .strike {
+        text-decoration: line-through;
+        text-decoration-color: var(--red);
+        text-decoration-thickness: 1.5px;
+        color: var(--muted);
+      }
+      .cols {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+        grid-template-areas:
+          "legend tables"
+          "chips tables"
+          "verdict tables"
+          "fine tables";
+        column-gap: 16px;
+        align-items: start;
+      }
+      .legend-line {
+        grid-area: legend;
+      }
+      .chips {
+        grid-area: chips;
+      }
+      .tables {
+        grid-area: tables;
+      }
+      #verdict {
+        grid-area: verdict;
+      }
+      .fine {
+        grid-area: fine;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin: 0 0 8px;
+      }
+      .aqk-chip {
+        appearance: none;
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        background: var(--panel);
+        color: var(--ink);
+        font: inherit;
+        font-size: 12.5px;
+        padding: 3px 9px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .aqk-chip[aria-checked="true"] {
+        border-color: var(--amber);
+        background: color-mix(in srgb, var(--amber) 14%, var(--panel));
+      }
+      .legend-line {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 0 0 6px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        border: 1.5px solid var(--muted);
+        display: inline-block;
+        vertical-align: -1px;
+      }
+      .dot.sum {
+        border-color: var(--amber);
+        background: var(--amber);
+      }
+      .dot.bf16 {
+        border-color: var(--red);
+        background: var(--red);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--red) 35%, transparent);
+      }
+      .toy {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-size: 12px;
+        margin: 0 0 6px;
+      }
+      .toy th,
+      .toy td {
+        text-align: right;
+        padding: 2px 6px;
+        border-bottom: 1px solid var(--rule);
+        white-space: nowrap;
+      }
+      .toy th:first-child,
+      .toy td:first-child {
+        text-align: left;
+        font-family: "IBM Plex Sans", system-ui, sans-serif;
+      }
+      .toy th {
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .toy .hot td {
+        background: color-mix(in srgb, var(--amber) 10%, transparent);
+      }
+      .toy .moved {
+        color: var(--red);
+        font-weight: 600;
+      }
+      .toy .same {
+        color: var(--muted);
+      }
+      .status {
+        font-size: 13px;
+        margin: 0 0 6px;
+        line-height: 1.4;
+      }
+      .short {
+        display: none;
+      }
+      .fine {
+        font-size: 11.5px;
+        color: var(--muted);
+        margin: 0;
+      }
+      .aqk-matrix {
+        margin: 2px auto 0;
+        width: min(100%, 560px);
+      }
+      .aqk-matrix svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .cell,
+        .hdr,
+        .band,
+        .bracket {
+          transition:
+            fill 220ms ease,
+            opacity 220ms ease,
+            stroke 220ms ease;
+        }
+      }
+      @media (max-width: 639px) {
+        .aqk {
+          gap: 8px;
+          padding: 10px 12px 12px;
+        }
+        body {
+          font-size: 13px;
+        }
+        .aqk-tab span:last-child {
+          display: none;
+        }
+        .aqk-tab {
+          justify-content: center;
+          padding: 5px 4px;
+        }
+        .aqk-tab .n {
+          font-size: 12px;
+          color: var(--ink);
+        }
+        .aqk-tab .n::after {
+          content: attr(data-short);
+          margin-left: 5px;
+          font-family: "IBM Plex Sans", system-ui, sans-serif;
+        }
+        .aqk-panel h2 {
+          font-size: 14px;
+        }
+        .math {
+          font-size: 11.5px;
+          padding: 5px 7px;
+        }
+        .cols {
+          display: block;
+        }
+        .chan,
+        .long,
+        .toy th:nth-child(3),
+        .toy td:nth-child(3) {
+          display: none;
+        }
+        .short {
+          display: initial;
+        }
+        .toy {
+          font-size: 11.5px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="aqk">
+      <p class="aqk-summary">
+        <b>A<sub>qk</sub>[5,2]</b> is fully causal: query 5 reads the write from token 2. Rebasing
+        around the row-8 gate cancels exactly, yet separately rounded GEMM operands let
+        <span class="r">δ₆, δ₇, δ₈</span> — gates <em>after</em> query 5 — change the retained
+        value.
+      </p>
+      <div class="aqk-tabs" role="tablist" aria-label="Stages">
+        <button class="aqk-tab" role="tab" id="tab-1" aria-controls="panel-1" aria-selected="true">
+          <span class="n" data-short="Decay">1</span><span>Write, then decay</span>
+        </button>
+        <button
+          class="aqk-tab"
+          role="tab"
+          id="tab-2"
+          aria-controls="panel-2"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="n" data-short="Split">2</span><span>Split into operands</span>
+        </button>
+        <button
+          class="aqk-tab"
+          role="tab"
+          id="tab-3"
+          aria-controls="panel-3"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="n" data-short="r = g₈">3</span><span>Midpoint reference</span>
+        </button>
+        <button
+          class="aqk-tab"
+          role="tab"
+          id="tab-4"
+          aria-controls="panel-4"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <span class="n" data-short="Round">4</span><span>Round separately</span>
+        </button>
+      </div>
+      <div class="aqk-panels">
+        <div class="aqk-panel" role="tabpanel" id="panel-1" aria-labelledby="tab-1" tabindex="0">
+          <h2>Token 2 writes; query 5 reads it through three decays</h2>
+          <div class="math">
+            A<sub>qk</sub>[5,2] = Σ<sub>d</sub> q<sub>5,d</sub> k<sub>2,d</sub> 2<sup
+              >g<sub>5,d</sub> − g<sub>2,d</sub></sup
+            >,&nbsp; g<sub>5</sub> − g<sub>2</sub> = <span class="g">δ₃ + δ₄ + δ₅</span>
+          </div>
+          <p>
+            Token 2 decays the state, then writes its correction <b>z₂</b>. The write picks up the
+            per-channel decays at tokens 3, 4, 5 — not δ₂, and nothing later. That weight multiplies
+            z₂ (not the raw v₂); there is no softmax.
+          </p>
+          <p>
+            Row 5, column 2 sits below the diagonal, so the causal mask keeps it. Everything above
+            the diagonal is dropped.
+          </p>
+        </div>
+        <div
+          class="aqk-panel"
+          role="tabpanel"
+          id="panel-2"
+          aria-labelledby="tab-2"
+          tabindex="0"
+          hidden
+        >
+          <h2>Split the decay so a plain GEMM can do the sum</h2>
+          <div class="math">
+            2<sup>g<sub>5</sub> − g<sub>2</sub></sup> = 2<sup>g<sub>5</sub> − r</sup> · 2<sup
+              >r − g<sub>2</sub></sup
+            ><br />Q̃<sub>5,d</sub> = q<sub>5,d</sub> 2<sup>g<sub>5,d</sub> − r<sub>d</sub></sup
+            >,&nbsp; K̃<sub>2,d</sub> = k<sub>2,d</sub> 2<sup>r<sub>d</sub> − g<sub>2,d</sub></sup
+            ><br />A<sub>qk</sub> = mask(Q̃ K̃<sup>⊤</sup>)
+          </div>
+          <p>
+            The decay lives inside the channel reduction, so it cannot be a scalar applied after
+            QK<sup>⊤</sup>. But 2<sup>g₅−g₂</sup> factors into a query-only and a key-only part, so
+            each operand row is prepared once and the tensor cores take it from there.
+          </p>
+          <p>
+            Any reference r<sub>d</sub> separates the decay — r = 0 would too. The reference is for
+            <b>range</b>: it reduces the exponent magnitudes of both factors. One r<sub>d</sub> per
+            channel is shared by the whole block.
+          </p>
+        </div>
+        <div
+          class="aqk-panel"
+          role="tabpanel"
+          id="panel-3"
+          aria-labelledby="tab-3"
+          tabindex="0"
+          hidden
+        >
+          <h2>r = g₈ cancels exactly — but it is the future for row 5</h2>
+          <div class="math">
+            g<sub>5</sub> − g<sub>8</sub> = <span class="r">−(δ₆ + δ₇ + δ₈)</span> ≥ 0<br />g<sub
+              >8</sub
+            >
+            − g<sub>2</sub> = <span class="g">δ₃ + δ₄ + δ₅</span>
+            <span class="r">+ δ₆ + δ₇ + δ₈</span> ≤ 0<br />sum = <span class="g">δ₃ + δ₄ + δ₅</span>
+            <span class="strike">− δ₆ − δ₇ − δ₈ + δ₆ + δ₇ + δ₈</span> = g<sub>5</sub> − g<sub
+              >2</sub
+            >
+            ✓
+          </div>
+          <p>
+            The midpoint of the 16-row block is row 8. In exact arithmetic the red terms cancel
+            symbol for symbol, so the entry is unchanged: same decay, just written as a factor ≥ 1
+            times a factor ≤ 1.
+          </p>
+          <p>
+            Rows 8–15 already have δ₆–δ₈ in their past. Row 5 has none of them, and every row before
+            8 is missing at least the increments after itself — yet its rescaled query row is built
+            from g₈. The mask never sees this; it only removes columns j &gt; i.
+          </p>
+        </div>
+        <div
+          class="aqk-panel"
+          role="tabpanel"
+          id="panel-4"
+          aria-labelledby="tab-4"
+          tabindex="0"
+          hidden
+        >
+          <h2>Round each operand to BF16, then change only the gates after query 5</h2>
+          <div class="cols">
+            <p class="status legend-line">
+              Pick h₆, h₇, h₈ in nats/token (δ<sub>t,d</sub> = h<sub>t</sub>·w<sub>d</sub>·log₂e).
+              <span class="dot none"></span> no change · <span class="dot sum"></span> accumulator
+              moves · <span class="dot bf16"></span> stored BF16 moves
+            </p>
+            <div class="chips" role="radiogroup" aria-label="Suffix gate scenario" id="chips"></div>
+            <div class="tables">
+              <table class="toy" aria-label="Aqk[5,2] under each computation path">
+                <thead>
+                  <tr>
+                    <th>path for A<sub>qk</sub>[5,2]</th>
+                    <th>value</th>
+                    <th>Δ vs baseline</th>
+                  </tr>
+                </thead>
+                <tbody id="totals"></tbody>
+              </table>
+              <table
+                class="toy chan"
+                aria-label="Per-channel rounded operands for the midpoint path"
+              >
+                <thead>
+                  <tr>
+                    <th>r = g₈, channel d</th>
+                    <th>Q̃<sub>5,d</sub></th>
+                    <th>K̃<sub>2,d</sub></th>
+                    <th>Q̃·K̃</th>
+                    <th>Δ vs baseline</th>
+                  </tr>
+                </thead>
+                <tbody id="channels"></tbody>
+              </table>
+            </div>
+            <p class="status" id="verdict"></p>
+            <p class="fine long" id="fine"></p>
+            <p class="fine short">
+              Toy with exactly emulated BF16 operand rounding, not a GPU measurement. Measured
+              gate-only probe: 11 of 512 BF16 Aqk values changed, max |Δ| 1.526e-5
+              (workload-specific).
+            </p>
+          </div>
+        </div>
+      </div>
+      <figure class="aqk-matrix" id="matrix"></figure>
+    </main>
+    <script>
+      const controller = new AbortController()
+      const { signal } = controller
+      const host = window.parent === window ? document : window.parent.document
+      const systemTheme = matchMedia("(prefers-color-scheme: dark)")
+      const N = 16
+      const I = 5
+      const J = 2
+      const R = 8
+      let stage = 1
+
+      // ---------- matrix ----------
+      const NS = "http://www.w3.org/2000/svg"
+      const cellSize = 16
+      const originX = 30
+      const originY = 48
+      const el = (tag, attrs, parent) => {
+        const node = document.createElementNS(NS, tag)
+        for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v)
+        if (parent) parent.appendChild(node)
+        return node
+      }
+      const svg = el("svg", {
+        viewBox: `0 0 ${originX + N * cellSize + 4} ${originY + N * cellSize + 18}`,
+        role: "img",
+        "aria-labelledby": "matrix-title",
+      })
+      const title = el("title", { id: "matrix-title" }, svg)
+      const defs = el("defs", {}, svg)
+      const pattern = el(
+        "pattern",
+        {
+          id: "hatch",
+          width: "5",
+          height: "5",
+          patternUnits: "userSpaceOnUse",
+          patternTransform: "rotate(45)",
+        },
+        defs,
+      )
+      el("rect", { width: 5, height: 5, fill: "var(--paper)" }, pattern)
+      el(
+        "line",
+        { x1: 0, y1: 0, x2: 0, y2: 5, stroke: "var(--mask)", "stroke-width": 1.2 },
+        pattern,
+      )
+
+      const cellLayer = el("g", {}, svg)
+      const bands = el("g", {}, svg)
+      const bandRow = el(
+        "rect",
+        {
+          class: "band",
+          x: originX,
+          y: originY + I * cellSize,
+          width: (I + 1) * cellSize,
+          height: cellSize,
+          fill: "var(--amber)",
+          opacity: 0,
+        },
+        bands,
+      )
+      const bandCol = el(
+        "rect",
+        {
+          class: "band",
+          x: originX + J * cellSize,
+          y: originY + J * cellSize,
+          width: cellSize,
+          height: (N - J) * cellSize,
+          fill: "var(--green)",
+          opacity: 0,
+        },
+        bands,
+      )
+      const bandRef = el(
+        "rect",
+        {
+          class: "band",
+          x: originX,
+          y: originY + R * cellSize,
+          width: (R + 1) * cellSize,
+          height: cellSize,
+          fill: "var(--red)",
+          opacity: 0,
+        },
+        bands,
+      )
+
+      const cells = []
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < N; j++) {
+          const masked = j > i
+          const c = el(
+            "rect",
+            {
+              class: "cell",
+              x: originX + j * cellSize,
+              y: originY + i * cellSize,
+              width: cellSize,
+              height: cellSize,
+              fill: masked ? "url(#hatch)" : "var(--panel)",
+              stroke: "var(--rule)",
+              "stroke-width": 0.6,
+            },
+            cellLayer,
+          )
+          cells.push(c)
+        }
+      }
+      const target = el(
+        "rect",
+        {
+          x: originX + J * cellSize,
+          y: originY + I * cellSize,
+          width: cellSize,
+          height: cellSize,
+          fill: "var(--amber)",
+          stroke: "var(--ink)",
+          "stroke-width": 1.4,
+        },
+        svg,
+      )
+      el(
+        "text",
+        {
+          x: originX + J * cellSize + cellSize / 2,
+          y: originY + I * cellSize + cellSize / 2 + 3.2,
+          "text-anchor": "middle",
+          "font-size": 8.5,
+          "font-weight": 700,
+          fill: "var(--paper)",
+        },
+        svg,
+      ).textContent = "5,2"
+      el(
+        "text",
+        {
+          x: originX + N * cellSize - 2,
+          y: originY + 4 * cellSize + 2,
+          "text-anchor": "end",
+          "font-size": 8.5,
+          fill: "var(--muted)",
+        },
+        svg,
+      ).textContent = "masked j > i"
+
+      // headers (the reference mark is placed first so the token-8 label draws on top of it)
+      const refMark = el("g", { class: "bracket", opacity: 0 }, svg)
+      el(
+        "rect",
+        {
+          x: originX + R * cellSize + 1,
+          y: originY - 14,
+          width: cellSize - 2,
+          height: 11,
+          rx: 1.5,
+          fill: "var(--red)",
+        },
+        refMark,
+      )
+      const colHdr = []
+      const rowHdr = []
+      for (let t = 0; t < N; t++) {
+        const hc = el(
+          "text",
+          {
+            class: "hdr",
+            x: originX + t * cellSize + cellSize / 2,
+            y: originY - 6,
+            "text-anchor": "middle",
+            "font-size": 8,
+            fill: "var(--muted)",
+          },
+          svg,
+        )
+        hc.textContent = t
+        colHdr.push(hc)
+        const hr = el(
+          "text",
+          {
+            class: "hdr",
+            x: originX - 5,
+            y: originY + t * cellSize + cellSize / 2 + 3,
+            "text-anchor": "end",
+            "font-size": 8,
+            fill: "var(--muted)",
+          },
+          svg,
+        )
+        hr.textContent = t
+        rowHdr.push(hr)
+      }
+      el(
+        "text",
+        {
+          x: originX + N * cellSize,
+          y: originY - 30,
+          "text-anchor": "end",
+          "font-size": 8.5,
+          fill: "var(--muted)",
+        },
+        svg,
+      ).textContent = "key / write token j →"
+      const rowAxis = el(
+        "text",
+        {
+          x: 0,
+          y: 0,
+          "text-anchor": "middle",
+          "font-size": 8.5,
+          fill: "var(--muted)",
+          transform: `translate(8 ${originY + (N * cellSize) / 2}) rotate(-90)`,
+        },
+        svg,
+      )
+      rowAxis.textContent = "query row i ↓"
+
+      // brackets over the token header: decay tokens 3..5 (green) and future tokens 6..8 (red)
+      function bracket(from, to, color, label, anchor) {
+        const g = el("g", { class: "bracket", opacity: 0 }, svg)
+        const x1 = originX + from * cellSize + 1.5
+        const x2 = originX + (to + 1) * cellSize - 1.5
+        const y = originY - 17
+        el(
+          "path",
+          {
+            d: `M${x1} ${y + 4} V${y} H${x2} V${y + 4}`,
+            fill: "none",
+            stroke: color,
+            "stroke-width": 1.2,
+          },
+          g,
+        )
+        const t = el(
+          "text",
+          {
+            x: anchor === "start" ? x1 : (x1 + x2) / 2,
+            y: y - 4,
+            "text-anchor": anchor,
+            "font-size": 8,
+            fill: color,
+          },
+          g,
+        )
+        t.textContent = label
+        return g
+      }
+      const decayBracket = bracket(3, 5, "var(--green)", "δ₃…δ₅", "middle")
+      const futureBracket = bracket(6, 8, "var(--red)", "δ₆…δ₈ · after query 5 · r = g₈", "start")
+      const belowLabel = el(
+        "text",
+        {
+          class: "bracket",
+          x: originX + N * cellSize - 2,
+          y: originY + N * cellSize + 12,
+          "text-anchor": "end",
+          "font-size": 8,
+          fill: "var(--red)",
+          opacity: 0,
+        },
+        svg,
+      )
+      belowLabel.textContent = "rows 0–7: reference gate g₈ is in their future"
+      const operandLabels = el("g", { class: "bracket", opacity: 0 }, svg)
+      el(
+        "text",
+        {
+          x: originX + (I + 1) * cellSize + 3,
+          y: originY + I * cellSize + cellSize / 2 + 3,
+          "font-size": 8,
+          "font-weight": 700,
+          fill: "var(--amber)",
+        },
+        operandLabels,
+      ).textContent = "Q̃₅ row"
+      el(
+        "text",
+        {
+          x: originX + J * cellSize + cellSize / 2,
+          y: originY + N * cellSize + 9,
+          "text-anchor": "middle",
+          "font-size": 8,
+          "font-weight": 700,
+          fill: "var(--green)",
+        },
+        operandLabels,
+      ).textContent = "K̃₂ col"
+      const rowsFutureMark = el(
+        "rect",
+        {
+          class: "bracket",
+          x: originX - 2,
+          y: originY,
+          width: 1.5,
+          height: R * cellSize,
+          fill: "var(--red)",
+          opacity: 0,
+        },
+        svg,
+      )
+
+      document.getElementById("matrix").appendChild(svg)
+
+      const titles = {
+        1: "Sixteen by sixteen Aqk block. Entries above the diagonal are hatched: masked. Row 5, column 2 is highlighted: query 5 reads the write from token 2 through the gates at tokens 3, 4 and 5.",
+        2: "Row 5 of Q tilde and column 2 of K tilde meet at the highlighted retained entry (5,2); the block is one masked matrix multiply.",
+        3: "Row 8 supplies the reference gate. Rows 0 through 7 are above it: each is scaled by a reference that includes gate increments after itself; row 5 lacks all of increments 6 through 8. Entry (5,2) stays below the diagonal and retained.",
+        4: "Same block; entry (5,2) under separately rounded operands. The reference row 8 remains highlighted.",
+      }
+
+      function paintStage() {
+        title.textContent = titles[stage]
+        const showRef = stage >= 3
+        bandRow.setAttribute("opacity", stage === 2 ? 0.22 : 0.12)
+        bandCol.setAttribute("opacity", stage === 2 ? 0.22 : 0.12)
+        bandRef.setAttribute("opacity", showRef ? 0.28 : 0)
+        decayBracket.setAttribute("opacity", stage === 1 || stage === 3 ? 1 : 0)
+        futureBracket.setAttribute("opacity", showRef ? 1 : 0)
+        refMark.setAttribute("opacity", showRef ? 1 : 0)
+        belowLabel.setAttribute("opacity", showRef ? 1 : 0)
+        rowsFutureMark.setAttribute("opacity", showRef ? 1 : 0)
+        operandLabels.setAttribute("opacity", stage === 2 ? 1 : 0)
+        for (let t = 0; t < N; t++) {
+          const col = colHdr[t]
+          const row = rowHdr[t]
+          col.setAttribute(
+            "fill",
+            t === J ? "var(--green)" : showRef && t === R ? "var(--paper)" : "var(--muted)",
+          )
+          col.setAttribute("font-weight", t === J ? 700 : 400)
+          row.setAttribute(
+            "fill",
+            t === I ? "var(--amber)" : showRef && t === R ? "var(--red)" : "var(--muted)",
+          )
+          row.setAttribute("font-weight", t === I || (showRef && t === R) ? 700 : 400)
+        }
+        for (let i = 0; i < N; i++) {
+          for (let j = 0; j < N; j++) {
+            if (j > i) continue
+            cells[i * N + j].setAttribute(
+              "fill",
+              showRef && i < R ? "color-mix(in srgb, var(--red) 9%, var(--panel))" : "var(--panel)",
+            )
+          }
+        }
+      }
+
+      // ---------- stages ----------
+      const tabs = [...document.querySelectorAll(".aqk-tab")]
+      const panels = [...document.querySelectorAll(".aqk-panel")]
+      function setStage(next, focus) {
+        stage = Math.max(1, Math.min(4, next))
+        tabs.forEach((tab, k) => {
+          const on = k + 1 === stage
+          tab.setAttribute("aria-selected", on)
+          tab.tabIndex = on ? 0 : -1
+          panels[k].hidden = !on
+        })
+        if (focus) tabs[stage - 1].focus({ preventScroll: true })
+        paintStage()
+      }
+      tabs.forEach((tab, k) => {
+        tab.addEventListener("click", () => setStage(k + 1), { signal })
+        tab.addEventListener(
+          "keydown",
+          (event) => {
+            const map = {
+              ArrowRight: stage + 1,
+              ArrowDown: stage + 1,
+              ArrowLeft: stage - 1,
+              ArrowUp: stage - 1,
+              Home: 1,
+              End: 4,
+            }
+            if (!(event.key in map)) return
+            event.preventDefault()
+            setStage(map[event.key], true)
+          },
+          { signal },
+        )
+      })
+
+      // ---------- toy numerics (stage 4) ----------
+      // BF16 round-to-nearest-even to 8 significand bits, for inputs inside the normal BF16 range
+      // (2^-126 <= |x| < 2^128). No subnormal or overflow handling: this toy never leaves that range.
+      function bf16(x) {
+        if (x === 0) return x
+        const sign = x < 0 ? -1 : 1
+        const a = Math.abs(x)
+        let e = Math.floor(Math.log2(a))
+        if (2 ** e > a) e--
+        if (2 ** (e + 1) <= a) e++
+        if (!Number.isFinite(x) || e < -126 || e > 127)
+          throw new RangeError(`bf16 toy: ${x} outside the normal BF16 range`)
+        const ulp = 2 ** (e - 7)
+        const q = a / ulp // exact: power-of-two scaling
+        let m = Math.floor(q)
+        const frac = q - m
+        if (frac > 0.5 || (frac === 0.5 && m % 2 === 1)) m++
+        return sign * m * ulp
+      }
+      const LOG2E = Math.LOG2E
+      const q5 = [0.8125, -0.4375, 1.25, 0.59375] // exact BF16
+      const k2 = [0.6875, 1.125, -0.34375, 0.90625] // exact BF16
+      const channelWeight = [1, 0.55, 0.3, 0.8] // per-channel gate scale: decay differs per channel
+      const prefixNats = [-0.4, -1.1, -0.2, -0.9, -0.35, -1.6] // tokens 0..5, fixed
+      const scenarios = [
+        { name: "baseline", suffix: [-0.5, -0.5, -0.5] },
+        { name: "same total", suffix: [-0.2, -0.8, -0.5] },
+        { name: "mild", suffix: [-0.1, -0.1, -0.1] },
+        { name: "bursty", suffix: [-0.9, -0.2, -0.3] },
+        { name: "−1.5 each", suffix: [-1.5, -1.5, -1.5] },
+        { name: "−2.5 each", suffix: [-2.5, -2.5, -2.5] },
+        { name: "floor −5", suffix: [-5, -5, -5] },
+      ]
+      function cumulative(deltasNats, d) {
+        const g = []
+        let acc = 0
+        for (const h of deltasNats) {
+          acc += h * channelWeight[d] * LOG2E
+          g.push(acc)
+        }
+        return g
+      }
+      function evaluate(scenario) {
+        const deltas = [...prefixNats, ...scenario.suffix]
+        let exact = 0
+        let causal = 0
+        let mid = 0
+        const channels = []
+        for (let d = 0; d < 4; d++) {
+          const g = cumulative(deltas, d)
+          exact += q5[d] * k2[d] * 2 ** (g[I] - g[J])
+          causal += bf16(q5[d] * 2 ** (g[I] - g[0])) * bf16(k2[d] * 2 ** (g[0] - g[J]))
+          const Q = bf16(q5[d] * 2 ** (g[I] - g[R]))
+          const K = bf16(k2[d] * 2 ** (g[R] - g[J]))
+          mid += Q * K
+          channels.push({ Q, K, prod: Q * K })
+        }
+        return { exact, causal, mid, midStored: bf16(mid), channels }
+      }
+      const results = scenarios.map(evaluate)
+      const base = results[0]
+      const fmt = (x, p = 7) => (x < 0 ? "−" : "") + Math.abs(x).toPrecision(p)
+      const fmtDelta = (x) =>
+        x === 0 ? "0" : (x > 0 ? "+" : "−") + Math.abs(x).toExponential(2).replace("-", "−")
+      const fmtNats = (v) => v.map((h) => (h === 0 ? "0" : "−" + Math.abs(h))).join(", ")
+
+      const chips = document.getElementById("chips")
+      let selected = 0
+      scenarios.forEach((s, k) => {
+        const r = results[k]
+        const kind = r.midStored !== base.midStored ? "bf16" : r.mid !== base.mid ? "sum" : "none"
+        const chip = document.createElement("button")
+        chip.className = "aqk-chip"
+        chip.type = "button"
+        chip.setAttribute("role", "radio")
+        chip.setAttribute("aria-checked", k === 0)
+        chip.tabIndex = k === 0 ? 0 : -1
+        chip.innerHTML = `<span class="dot ${kind}" aria-hidden="true"></span>${s.name}`
+        chip.setAttribute(
+          "aria-label",
+          `${s.name}: h6, h7, h8 = ${fmtNats(s.suffix)} nats per token`,
+        )
+        chip.addEventListener("click", () => select(k), { signal })
+        chip.addEventListener(
+          "keydown",
+          (event) => {
+            const map = {
+              ArrowRight: k + 1,
+              ArrowDown: k + 1,
+              ArrowLeft: k - 1,
+              ArrowUp: k - 1,
+              Home: 0,
+              End: scenarios.length - 1,
+            }
+            if (!(event.key in map)) return
+            event.preventDefault()
+            select((map[event.key] + scenarios.length) % scenarios.length, true)
+          },
+          { signal },
+        )
+        chips.appendChild(chip)
+      })
+      const totals = document.getElementById("totals")
+      const channelBody = document.getElementById("channels")
+      const verdict = document.getElementById("verdict")
+      const fine = document.getElementById("fine")
+
+      function select(k, focus) {
+        selected = k
+        const s = scenarios[k]
+        const r = results[k]
+        chips.querySelectorAll(".aqk-chip").forEach((chip, idx) => {
+          chip.setAttribute("aria-checked", idx === k)
+          chip.tabIndex = idx === k ? 0 : -1
+        })
+        if (focus) chips.children[k].focus({ preventScroll: true })
+        const cls = (x, y) => (x === y ? "same" : "moved")
+        totals.innerHTML = `
+          <tr><td><span class="long">no operand rounding (FP64)</span><span class="short">FP64 reference</span></td><td>${fmt(r.exact)}</td><td class="same">${fmtDelta(r.exact - base.exact)}</td></tr>
+          <tr><td><span class="long">r = g₀ (first row), BF16 operands</span><span class="short">r = g₀, BF16</span></td><td class="${cls(r.causal, base.causal)}">${fmt(r.causal)}</td><td class="${cls(r.causal, base.causal)}">${fmtDelta(r.causal - base.causal)}</td></tr>
+          <tr class="hot"><td><span class="long">r = g₈ (midpoint), BF16 operands</span><span class="short">r = g₈, BF16</span></td><td class="${cls(r.mid, base.mid)}">${fmt(r.mid)}</td><td class="${cls(r.mid, base.mid)}">${fmtDelta(r.mid - base.mid)}</td></tr>
+          <tr class="hot"><td><span class="long">… stored as BF16</span><span class="short">→ stored BF16</span></td><td class="${cls(r.midStored, base.midStored)}">${fmt(r.midStored, 6)}</td><td class="${cls(r.midStored, base.midStored)}">${fmtDelta(r.midStored - base.midStored)}</td></tr>`
+        channelBody.innerHTML = r.channels
+          .map((c, d) => {
+            const dp = c.prod - base.channels[d].prod
+            return `<tr><td>d = ${d}</td><td>${fmt(c.Q, 4)}</td><td>${fmt(c.K, 4)}</td><td>${fmt(c.prod, 5)}</td><td class="${dp === 0 ? "same" : "moved"}">${fmtDelta(dp)}</td></tr>`
+          })
+          .join("")
+        let msg
+        const lead = `h₆, h₇, h₈ = ${fmtNats(s.suffix)} nats: `
+        if (k === 0)
+          msg = `Baseline, ${lead.slice(0, -2)}. Pick another suffix; the top two rows never move.`
+        else if (r.mid === base.mid)
+          msg =
+            lead +
+            `same total as baseline, so g₈ and every operand are identical. Only the cumulative gate matters, not how it is split across tokens.`
+        else if (r.midStored !== base.midStored)
+          msg =
+            lead +
+            `the midpoint entry and its stored BF16 both moved — a retained causal entry changed because of gates after query 5.`
+        else
+          msg =
+            lead +
+            `the midpoint accumulator moved but rounds to the same stored BF16; not every suffix change survives output rounding.`
+        verdict.textContent = msg
+        fine.textContent = `Toy, not a GPU measurement: 4 channels, exact-BF16 q₅, k₂; per-channel gates δ = h·w_d·log₂e with w = [1, 0.55, 0.3, 0.8]; operands rounded to BF16 (round-to-nearest-even, emulated exactly); products and the 4-term sum are exact in FP32. Real kernels also round exp2 and reduce 128 channels. Measured gate-only probe: 11 of 512 BF16 Aqk values changed, max |Δ| 1.526e-5 — workload-specific.`
+      }
+      select(0)
+
+      // ---------- theme / embed plumbing ----------
+      function syncTheme() {
+        document.documentElement.dataset.theme =
+          host.documentElement.getAttribute("saved-theme") ||
+          (systemTheme.matches ? "dark" : "light")
+      }
+      host.addEventListener("themechange", syncTheme, { signal })
+      systemTheme.addEventListener("change", syncTheme, { signal })
+      document.addEventListener(
+        "wheel",
+        (event) => {
+          if (window.parent === window || event.ctrlKey || event.metaKey) return
+          event.preventDefault()
+          const unit =
+            event.deltaMode === WheelEvent.DOM_DELTA_LINE
+              ? 16
+              : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+                ? window.parent.innerHeight
+                : 1
+          window.parent.postMessage(
+            {
+              type: "nuggets-widget-wheel",
+              deltaX: event.deltaX * unit,
+              deltaY: event.deltaY * unit,
+            },
+            location.origin,
+          )
+        },
+        { capture: true, passive: false, signal },
+      )
+      // Same-origin embed: size the iframe to the intrinsic content height so no stage clips or scrolls.
+      const main = document.querySelector(".aqk")
+      const frame = window.frameElement
+      let frameHeight = 0
+      function fitFrame() {
+        if (!frame) return
+        const next = Math.ceil(main.getBoundingClientRect().height)
+        if (next && next !== frameHeight) {
+          frameHeight = next
+          frame.style.height = `${next}px`
+        }
+      }
+      const sizer = new ResizeObserver(fitFrame)
+      sizer.observe(main)
+      window.addEventListener(
+        "pageshow",
+        () => {
+          syncTheme()
+          fitFrame()
+        },
+        { signal },
+      )
+      window.addEventListener("pagehide", (event) => {
+        if (!event.persisted) {
+          sizer.disconnect()
+          controller.abort()
+        }
+      })
+      syncTheme()
+      setStage(1)
+      fitFrame()
+    </script>
+  </body>
+</html>

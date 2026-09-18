@@ -20,11 +20,15 @@
     text-align: left;
   }
 
+  // Legend: a row of small editorial "stat" entries. The series name is the
+  // muted label; the live value is the large figure beneath it, underlined by
+  // a hairline in the series colour that strengthens while inspecting/pinned.
   .native-chart-legend {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
-    gap: 0.35rem 0.9rem;
-    margin-bottom: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem 1.6rem;
+    margin-bottom: 0.6rem;
   }
 
   .native-chart-legend-item {
@@ -32,22 +36,34 @@
     grid-template-columns: 1.1rem minmax(0, 1fr);
     align-content: start;
     align-items: center;
-    gap: 0.15rem 0.4rem;
-    min-width: 0;
+    gap: 0 0.45rem;
+    // Keep wrapping independent of the current number of digits.
+    flex: 0 1 clamp(8rem, 15vw, 10rem);
+    min-width: min(100%, 8rem);
+    max-width: 100%;
     min-height: 44px;
-    padding: 0.2rem 0;
+    margin: 0;
+    padding: 0.2rem 0 0.1rem;
     border: 0;
     border-radius: 2px;
     background: none;
     color: var(--darkgray);
     font: inherit;
-    font-size: 0.8rem;
     text-align: left;
     cursor: pointer;
+    transition: opacity 160ms ease;
 
     &[aria-pressed="false"] {
-      opacity: 0.45;
-      text-decoration: line-through;
+      opacity: 0.4;
+
+      .native-chart-legend-name {
+        text-decoration: line-through;
+        text-decoration-color: var(--gray);
+      }
+
+      .native-chart-legend-value {
+        border-bottom-color: transparent;
+      }
     }
 
     &[aria-disabled="true"] {
@@ -58,44 +74,49 @@
   .native-chart-legend-name {
     min-width: 0;
     overflow-wrap: anywhere;
+    color: var(--editorial-muted);
+    font-family: var(--bodyFont);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.35;
   }
 
   .native-chart-legend-value {
     grid-column: 2;
     box-sizing: border-box;
     justify-self: start;
-    min-width: min(8.5ch, 100%);
+    min-width: min(8ch, 100%);
     max-width: 100%;
-    height: 1.65rem;
-    padding: 0.15rem 0.35rem;
+    height: 1.75rem;
+    margin-top: 0.1rem;
+    padding: 0 0 0.15rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    border: 1px solid transparent;
-    border-radius: 3px;
-    background: transparent;
-    color: var(--editorial-muted);
+    border-bottom: 1.5px solid color-mix(in srgb, var(--series-color) 30%, transparent);
+    color: var(--gray);
     font-family: var(--codeFont);
-    font-size: 0.72rem;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.2rem;
+    font-size: clamp(0.875rem, 1.4vw, 1rem);
+    font-weight: 400;
+    font-variant-numeric: tabular-nums lining-nums;
+    letter-spacing: -0.01em;
+    line-height: 1.6rem;
     transition:
-      background-color 160ms ease,
       border-color 160ms ease,
       color 160ms ease;
   }
 
   .native-chart-legend-item[data-inspecting="true"] .native-chart-legend-value {
-    color: var(--darkgray);
-    border-color: color-mix(in srgb, var(--series-color) 22%, transparent);
-    background: color-mix(in srgb, var(--series-color) 9%, transparent);
+    color: var(--dark);
+    border-bottom-color: color-mix(in srgb, var(--series-color) 70%, transparent);
   }
 
   &[data-pinned="true"] {
     .native-chart-legend-item[data-inspecting="true"] .native-chart-legend-value {
-      border-color: color-mix(in srgb, var(--series-color) 50%, transparent);
-      background: color-mix(in srgb, var(--series-color) 15%, transparent);
+      border-bottom-color: var(--series-color);
+      border-bottom-width: 2px;
+      padding-bottom: calc(0.15rem - 0.5px);
     }
 
     .native-chart-crosshair {
@@ -222,7 +243,7 @@
 
   .native-chart-coordinate {
     display: flex;
-    align-items: flex-start;
+    align-items: baseline;
     gap: 0.5rem;
     height: 3em;
     overflow: hidden;
@@ -235,34 +256,47 @@
 
   .native-chart-mode {
     display: inline-flex;
+    flex: none;
     align-items: center;
-    justify-content: center;
-    gap: 0.3rem;
+    gap: 0.35rem;
     box-sizing: border-box;
-    min-width: 3.75rem;
-    padding: 0.1rem 0.35rem;
-    border: 1px solid transparent;
-    border-radius: 3px;
-    font-size: 0.6rem;
-    letter-spacing: 0.04em;
+    min-width: 4.25rem;
+    padding: 0;
+    color: var(--gray);
+    font-family: var(--bodyFont);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
+    transition: color 160ms ease;
 
     &::before {
-      width: 4px;
-      height: 4px;
+      flex: none;
+      box-sizing: border-box;
+      width: 6px;
+      height: 6px;
+      border: 1px solid currentColor;
       border-radius: 50%;
-      background: currentColor;
       content: "";
+      transition: background-color 160ms ease;
     }
 
     &[data-mode="live"] {
       color: var(--secondary);
+
+      &::before {
+        background: currentColor;
+      }
     }
 
     &[data-mode="pinned"] {
-      color: var(--darkgray);
-      border-color: var(--secondary);
-      background: var(--highlight);
+      color: var(--dark);
+
+      &::before {
+        border-color: var(--secondary);
+        background: var(--secondary);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--secondary) 25%, transparent);
+      }
     }
   }
 
@@ -341,7 +375,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .native-chart .native-chart-legend-value {
+  .native-chart .native-chart-legend-item,
+  .native-chart .native-chart-legend-value,
+  .native-chart .native-chart-mode,
+  .native-chart .native-chart-mode::before {
     transition: none;
   }
 }

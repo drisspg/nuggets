@@ -152,6 +152,7 @@ document.addEventListener("nav", async (e: CustomEventMap["nav"]) => {
   const searchBar = document.getElementById("search-bar") as HTMLInputElement | null
   const searchLayout = document.getElementById("search-layout")
   const idDataMap = Object.keys(data) as FullSlug[]
+  let searchReturnFocus: HTMLElement | SVGSVGElement | null = null
 
   const appendLayout = (el: HTMLElement) => {
     if (searchLayout?.querySelector(`#${el.id}`) === null) {
@@ -192,10 +193,15 @@ document.addEventListener("nav", async (e: CustomEventMap["nav"]) => {
 
     searchType = "basic" // reset search type after closing
 
-    searchButton?.focus()
+    const target = searchReturnFocus?.isConnected ? searchReturnFocus : searchButton
+    target?.focus({ preventScroll: true })
+    searchReturnFocus = null
   }
 
   function showSearch(searchTypeNew: SearchType) {
+    const active = document.activeElement
+    searchReturnFocus =
+      active instanceof HTMLElement || active instanceof SVGSVGElement ? active : null
     searchType = searchTypeNew
     if (sidebar) {
       sidebar.style.zIndex = "1"

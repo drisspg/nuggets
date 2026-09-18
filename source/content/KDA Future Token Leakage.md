@@ -132,34 +132,17 @@ $$
 
 This recurrent form is great when we are decoding 1 token at a time but for training it is not efficient. If only there was some way to turn this memory bound problem into one that can use our tensorcores.. <span class="sidenote-hover"><button type="button" class="sidenote-trigger" aria-describedby="kda-chunking-reaction">CHUNKING!</button><span id="kda-chunking-reaction" class="sidenote sidenote--hover-media" role="note"><img src="./media/kda/kool-aid-man.gif" alt="The Kool-Aid Man bursts through a wall. Oh yeah!" width="420" height="310" loading="lazy"></span></span>
 
-The chunked implementation reorganizes that recurrence into local matrix operations plus a state update across chunks, effectively shortening our sequential depth at the cost of explicitly computing pairwise terms within each chunk. 
+The chunked implementation reorganizes that recurrence into local matrix operations plus a state update across chunks, this shortens our sequential depth at the cost of explicitly computing pairwise terms within each chunk. 
 
- Here is the logical flow for an implementation that processes 64 tokens at a time
+The math is really fun but im hesitant to dive super deep here cause it can be distracting. SO stick with me and let's follow one of those pairwise terms: how query $i$ reads the correction written at token $j$; which comes from `step 5` in this recurrence.
 
+## Chunkwise Aqk
 
-<figure class="kda-figure" aria-labelledby="kda-flow-title">
-<div class="kda-figure-title" id="kda-flow-title">From Q/K/V inputs to chunk outputs</div>
-<div class="kda-inputs"><span class="kda-label">Inputs</span><span>Q, K, V</span><span>per-token log gates</span><span>write gate β</span><span>state from earlier chunks</span></div>
-<ol class="kda-flow">
-<li class="kda-node"><span class="kda-label">01 · gates</span><strong>Prepare decay</strong>Accumulate log gates within each chunk and convert to base 2.</li>
-<li class="kda-node kda-node--focus"><span class="kda-label">02 · local terms</span><strong>Build pairwise factors</strong>Compute Aqk and gated K/K interactions. <b>The reference choice enters here.</b></li>
-<li class="kda-node"><span class="kda-label">03 · local solve</span><strong>Build W and U</strong>Use the lower-triangular system to express the local delta-rule updates.</li>
-<li class="kda-node"><span class="kda-label">04 · recurrence</span><strong>Propagate state</strong>Combine local factors with the incoming state; produce corrected values and the next state.</li>
-<li class="kda-node"><span class="kda-label">05 · outputs</span><strong>Compose token outputs</strong>Add the history contribution to Aqk times the corrected values.</li>
-</ol>
-<div class="kda-bypass"><strong>Two paths meet at the output:</strong> Aqk from stage 2 goes directly to output composition. The state path carries information from earlier chunks.</div>
-<div class="kda-label">Inside one 64-token chunk: four 16-token diagonal subchunks</div>
-<div class="kda-chunks"><span>0–15</span><span>16–31</span><span>32–47</span><span>48–63</span></div>
-<figcaption>The experiment changes the gate reference used to build local factors. The causal mask, triangular solve, and state propagation are still present; a numerical dependency introduced upstream can survive them.</figcaption>
-</figure>
+Let's call this weight $A_{qk}[i,j]$. How much does query i read from token j's correction? That depends on how the query and key line up, and how much each channel has decayed between the two tokens.
 
-The key distinction is between **local interactions within a chunk** and the **state inherited from previous chunks**. The output uses both. This map follows Attention Gym's [composed forward path](https://github.com/meta-pytorch/attention-gym/blob/52c9eaa31e87a28dc0d3d9464af2088e6384a483/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd.py); it is an implementation map, not a record of the exact launch schedule of every training run.
+From here on, $g_{i,d}=\sum_{t=0}^{i}\delta_{t,d}$ is the <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-gate-units-note">cumulative log-base-2 gate</span> at token $i$, <span class="sidenote-ref" tabindex="0" aria-describedby="kda-channel-gate-note">channel $d$</span>, measured within the chunk.<span class="sidenote" role="note"><span id="kda-gate-units-note">Attention Gym's KDA API uses natural-log gates. The lower bound is currently capped at $-5,$ that means means the strongest decay =  $e^{-5}\approx0.006738$: or in other words only about 0.67% of the previous state is retained before the other update terms.</span><br><br><span id="kda-channel-gate-note">Notice that extra $d$ index. GDN uses one decay per token per head; KDA gives every key channel its own. Seems like a small change, but as we'll see it makes a big difference to how we implement the chunkwise kernel.</span></span></span> The increments $\delta_{t,d}$ are the per-token log2 gates called $g$ in the recurrence above.
 
-## The Aqk step
-
-This is not a derivation of all of KDA. I want to isolate the query/key interaction inside a chunk, which I'll call $A_{qk}$.
-
-Let $q_i$ and $k_j$ be query and key vectors with $D$ channels. Let $g_{i,d}$ be the <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-gate-units-note">cumulative log-base-2 gate</span> at token $i$, channel $d$, measured within the chunk.<span id="kda-gate-units-note" class="sidenote" role="note">Attention Gym's KDA API uses natural-log gates. At the $-5$ floor—the strongest decay allowed by the tested gate transform—the multiplier is $e^{-5}\approx0.006738$: only about 0.67% of the previous state is retained before the other update terms.</span></span> Ignoring the usual query scaling, the causal entries are:
+A write at token $j$ picks up the decays at tokens $j+1$ through $i$. Not $j$ itself: step (4) writes *after* that token's decay. For query and key vectors with $D$ channels, leaving out the usual query scale $s$:
 
 $$
 A_{qk}[i,j] = \sum_{d=1}^{D} q_{i,d} k_{j,d} 2^{g_{i,d}-g_{j,d}}, \qquad j \leq i.
@@ -167,11 +150,31 @@ $$
 
 Entries with $j>i$ are masked to zero. Because the per-token log gates are nonpositive, the cumulative gates decrease: for $j\leq i$, the decay factor is at most one.
 
-The awkward part for a fast kernel is that the decay depends on the channel $d$. It lives **inside** the reduction. This is not a plain $QK^T$ followed by one scalar decay per matrix entry.
+<details>
+<summary>Where did this matrix come from?</summary>
+
+Unroll step (5) back to the chunk boundary. With $H_c$ as the incoming state, the output has two pieces:
+
+$$
+\begin{aligned}
+o_i &= s(q_i\odot 2^{g_i})^\top H_c\\
+&\quad + s\sum_{j\leq i}A_{qk}[i,j]z_j.
+\end{aligned}
+$$
+
+The first reads history from earlier chunks. The second reads completed writes inside this chunk, including the current token's own write. The $s$ is outside Aqk here because we left it out of its definition above.
+
+The lower-triangular system comes from steps (2)–(3): each key reads earlier writes to determine its new correction. That is a key/key dependency, separate from this query/key read. Attention Gym's [composed forward path](https://github.com/meta-pytorch/attention-gym/blob/52c9eaa31e87a28dc0d3d9464af2088e6384a483/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd.py) puts those pieces together.
+
+</details>
 
 ## The rebasing trick
 
-Pick a reference gate $r_d$ for each channel and split the decay:
+The awkward part for a fast kernel is that the decay depends on the channel $d$. It lives **inside** the reduction. This is not a plain $QK^T$ followed by one scalar decay per matrix entry.
+
+Luckily it separates: $2^{g_{i,d}-g_{j,d}}=2^{g_{i,d}}2^{-g_{j,d}}$. One factor belongs to the query, the other to the key. That is enough to make GEMM operands! But those factors can get very small and very large.
+
+So we pick a common reference gate $r_d$ for each channel in the block to keep those factors in range, and split the decay around it:
 
 $$
 2^{g_{i,d}-g_{j,d}} = 2^{g_{i,d}-r_d}\,2^{r_d-g_{j,d}}.
@@ -185,11 +188,15 @@ $$
 \widetilde K_{j,d}=k_{j,d}2^{r_d-g_{j,d}}.
 $$
 
-The block can be computed as $\widetilde Q\widetilde K^T$, then causally masked. We have turned a channel-dependent decay into operand preparation plus a matrix multiplication.
+The left operand depends only on $(i,d)$; the right only on $(j,d)$, with the reference held fixed. So the block is $\widetilde Q\widetilde K^T$, then causally masked. There are our tensorcores.
 
 In real arithmetic, the reference cancels. Pick the first row, pick the midpoint: same answer.
 
-On the GPU, we materialize those operands separately. Exponent evaluation, multiplication, conversion, and the matrix multiplication all have finite precision. The cancellation is no longer an identity between the computed values. <span class="sidenote-pair"><strong class="sidenote-ref" tabindex="0" aria-describedby="kda-rounding-note">The reference becomes part of the numerical result.</strong><span id="kda-rounding-note" class="sidenote" role="note">The BF16 CuTe engine casts the rescaled operands to BF16 before its matrix multiplication, with FP32 accumulation. The Triton diagonal kernel passes FP32 products to <code>tl.dot</code>; its effective dot precision needs to be checked separately. BF16 inputs do not imply identical rounding paths.</span></span>
+On the GPU, we materialize those operands separately. Exponent evaluation, multiplication, conversion, and the matrix multiplication all have finite precision. The cancellation is no longer an identity between the computed values. <span class="sidenote-pair"><strong class="sidenote-ref" tabindex="0" aria-describedby="kda-rounding-note">The reference can become part of the numerical result.</strong><span id="kda-rounding-note" class="sidenote" role="note">The BF16 CuTe engine casts the rescaled operands to BF16 before its matrix multiplication, with FP32 accumulation. The Triton diagonal kernel passes FP32 products to <code>tl.dot</code>; its effective dot precision needs to be checked separately. BF16 inputs do not imply identical rounding paths.</span></span>
+
+And if that reference comes from a future token, an otherwise allowed Aqk entry can change when future gates change. No future values need to get through the mask.
+
+<iframe class="doc-widget widget-frame" src="./media/kda/aqk-rescale.html" title="Following one retained causal Aqk entry, query 5 reading the write from token 2, through relative decay, operand rebasing, a midpoint reference, and separately rounded operands." loading="lazy" style="height: 900px;"></iframe>
 
 ## How a midpoint breaks causality
 
