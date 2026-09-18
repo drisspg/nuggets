@@ -1,6 +1,6 @@
-# KDA evaluation figures
+# KDA figures
 
-These figures replot selected W&B evaluation metrics; they are not screenshots of the W&B UI. The snapshot includes no credentials, private dashboard URLs, hostnames, or run metadata.
+These figures replot W&B training and evaluation metrics; they are not screenshots of the W&B UI. The snapshot includes no credentials, private dashboard URLs, hostnames, or run metadata.
 
 Regenerate the native chart data from the repository root:
 
@@ -8,12 +8,13 @@ Regenerate the native chart data from the repository root:
 cd source && npm run charts:kda
 ```
 
+- `training-loss.json`: full training history for both scaled arms, exported with `scan_history` rather than sampled history. Each arm has all 7,600 steps (1–7,600), with no duplicates or missing steps. `loss_metrics/global_avg_loss` is training cross-entropy averaged over valid tokens across ranks, in nats/token—not evaluation NLL. No smoothing or downsampling.
 - `metrics.json`: exported checkpoint metrics at their logged precision. Series names distinguish the model/arm, paired evaluation size, or pilot seed.
-- `native-charts.ts`: offline adapter from the snapshot to the shared versioned chart schema. It preserves logged values and SEs, computes the same ±1.96-SE intervals, and validates all four specifications before writing.
+- `native-charts.ts`: offline adapter from the snapshot to the shared versioned chart schema. It preserves logged values and SEs, computes the same ±1.96-SE intervals, and validates all five specifications before writing.
 - `native-charts.test.ts`: exact snapshot/asset parity, independent final interval checks, checkpoint alignment, and preservation of modes, colors, markers, and category order. Runs in `npm test`.
-- Outputs under `source/content/media/kda/`: `scaled-loss.json`, `scaled-gap.json`, `paired-checkpoints.json`, and `paired-seeds.json`.
+- Outputs under `source/content/media/kda/`: `training-loss.json`, `scaled-loss.json`, `scaled-gap.json`, `paired-checkpoints.json`, and `paired-seeds.json`.
 
-The article uses the reusable `chart` fenced embed described in `source/content/Native Charts.md`. Charts render directly in the page with D3/SVG and site CSS, without iframes or a Plotly CDN request. Hover, touch, and keyboard inspection update the legend; its tooltips and the data table expose full-precision values and uncertainty metadata. Ordinary wheel gestures scroll the article without forwarding messages between frames.
+The article uses the reusable `chart` fenced embed described in `source/content/Native Charts.md`. Charts render directly in the page with D3/SVG and site CSS, without iframes or a Plotly CDN request. Hover, touch, and keyboard inspection update both-axis dashed guides and the legend; its tooltips expose full-precision values and uncertainty metadata. Ordinary wheel gestures scroll the article without forwarding messages between frames.
 
 The old Plotly `.html` exports, `render.py`, and `frame.html` remain available for comparison and existing embeds. Regenerate those separately with `uv run --with plotly==7.0.0 python source/visuals/kda/render.py`. Their iframe-height, theme synchronization, and wheel-forwarding machinery are not used by the new native charts.
 

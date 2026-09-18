@@ -5,7 +5,7 @@ draft: true
 
 # Widget Embeds
 
-For line plots, points, and uncertainty intervals, prefer the shared native `chart` embed documented in `Native Charts.md`. It inherits the blog theme and supports live legend values, keyboard/touch inspection, and a data table without an iframe. Keep standalone widgets for interactions beyond that chart contract.
+For line plots, points, and uncertainty intervals, prefer the shared native `chart` embed documented in `Native Charts.md`. It inherits the blog theme and supports live legend values and keyboard/touch inspection without an iframe. Keep standalone widgets for interactions beyond that chart contract.
 
 Author widgets as standalone HTML files under `content/widgets/`, then embed them from a note with Obsidian wikilink syntax. Keep this note as the reference; do not put widget demos on the homepage.
 

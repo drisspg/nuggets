@@ -23,6 +23,8 @@
 
 ## Playwright Blog QA Workflow
 
+- Self-contained transformer `externalResources()` bundles execute as classic scripts, outside the component `joinScripts` scope isolation. Wrap their compiled bodies in an IIFE and test that execution adds no globals (see the native-chart and code-annotation tests); otherwise independently minified helper names can collide across widgets.
+
 - Use Playwright for rendered-blog checks when editing Quartz layout/components, CSS, navigation, search, graph/sidebar behavior, media embeds, or any note where Markdown rendering matters more than source text.
 - Start the local Quartz preview from `source/` with `npm run dev -- --port 8080` or `npx quartz build --serve --port 8080`; the site should be at `http://localhost:8080/`. If port 8080 is busy, pass a different `--port` and use that URL in Playwright.
 - This repo does not keep Playwright as a checked-in dependency by default. Prefer ephemeral commands such as `cd source && npx -y playwright@latest screenshot http://localhost:8080/ /tmp/nuggets-home.png` for one-off inspection, or `npx -y playwright@latest codegen http://localhost:8080/` when discovering selectors. Do not add Playwright dependencies or generated config unless the user asks for persistent browser tests.

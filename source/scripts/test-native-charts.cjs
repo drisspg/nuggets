@@ -7,6 +7,7 @@ const http = require("node:http")
 const { execFileSync } = require("node:child_process")
 const { chromium } = require("playwright")
 const serve = require("serve-handler")
+const checkChartViewport = require("./check-chart-viewport.cjs")
 
 const root = path.resolve(__dirname, "..")
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "nuggets-native-charts-"))
@@ -68,11 +69,57 @@ fs.writeFileSync(
   path.join(content, "widget-check.md"),
   '---\ntitle: Widget interaction checks\ndate: 2026-09-17\n---\n<div style="height:100vh"></div>\n\n![[widgets/scrollable.html|Scroll test widget]]\n\n<div style="height:100vh"></div>\n',
 )
+const trainingSpec = JSON.parse(
+  fs.readFileSync(path.join(root, "content/media/kda/training-loss.json"), "utf8"),
+)
+fs.copyFileSync(
+  path.join(root, "content/media/kda/training-loss.json"),
+  path.join(content, "media/kda/training-loss.json"),
+)
+fs.writeFileSync(
+  path.join(content, "training.md"),
+  `---\ntitle: Training loss\n---\n${embed("media/kda/training-loss.json", "Training loss")}`,
+)
 execFileSync(
   process.execPath,
   ["quartz/bootstrap-cli.mjs", "build", "--directory", content, "--output", output],
   { cwd: root, stdio: "inherit", timeout: 60000 },
 )
+
+async function assertCrosshairs(chart) {
+  const { points, guides } = await chart.locator(".native-chart-inspection").evaluate((node) => ({
+    points: Array.from(node.querySelectorAll("circle"), (point) => [
+      Number(point.getAttribute("cx")),
+      Number(point.getAttribute("cy")),
+    ]),
+    guides: Array.from(node.querySelectorAll(".native-chart-crosshair"), (guide) => ({
+      axis: guide.getAttribute("data-axis"),
+      x1: Number(guide.getAttribute("x1")),
+      x2: Number(guide.getAttribute("x2")),
+      y1: Number(guide.getAttribute("y1")),
+      y2: Number(guide.getAttribute("y2")),
+      dash: getComputedStyle(guide).strokeDasharray,
+    })),
+  }))
+  assert(points.length > 0)
+  assert.equal(
+    guides.length,
+    new Set(points.map(([x]) => x)).size + new Set(points.map(([, y]) => y)).size,
+  )
+  for (const [x, y] of points) {
+    assert(
+      guides.some(
+        (line) => line.axis === "x" && line.x1 === x && line.x2 === x && line.y1 !== line.y2,
+      ),
+    )
+    assert(
+      guides.some(
+        (line) => line.axis === "y" && line.y1 === y && line.y2 === y && line.x1 !== line.x2,
+      ),
+    )
+  }
+  assert(guides.every((line) => line.dash !== "none"))
+}
 
 async function main() {
   const server = http.createServer((req, res) => {
@@ -100,6 +147,12 @@ async function main() {
       await page.addStyleTag({ content: "html { scroll-behavior: auto !important; }" })
       const charts = page.locator(".native-chart")
       assert.equal(await charts.count(), 4)
+      assert.deepEqual(await page.locator(".native-chart-coordinate-value").allTextContents(), [
+        "",
+        "",
+        "",
+        "",
+      ])
       assert.equal(await page.locator(".plotly-chart__frame").count(), 0)
       for (let i = 0; i < 4; i++) {
         const chart = charts.nth(i)
@@ -107,7 +160,10 @@ async function main() {
         assert.equal(await chart.locator(".native-chart-line").count(), [4, 2, 1, 0][i])
         assert.equal(await chart.locator(".native-chart-error-y").count(), [0, 16, 10, 0][i])
         assert.equal(await chart.locator(".native-chart-error-x").count(), [0, 0, 0, 4][i])
-        assert.equal(await chart.locator("tbody tr").count(), [32, 16, 10, 4][i])
+        assert.equal(
+          await chart.locator(".native-chart-data, table, .native-chart-download").count(),
+          0,
+        )
         const expected = specs[i].series.flatMap((series) =>
           series.points.map((point) => [String(point.x), String(point.y)]),
         )
@@ -117,25 +173,26 @@ async function main() {
             .evaluateAll((nodes) => nodes.map((node) => [node.dataset.x, node.dataset.y])),
           expected,
         )
-        await chart.locator("svg").scrollIntoViewIfNeeded()
+        await chart.locator(".native-chart-plot > svg").scrollIntoViewIfNeeded()
         await page.mouse.move(0, 0)
-        const idlePlotBox = await chart.locator("svg").boundingBox()
+        const idlePlotBox = await chart.locator(".native-chart-plot > svg").boundingBox()
         const hoverPoint = await chart.locator(".native-chart-point").first().boundingBox()
         await page.mouse.move(
           hoverPoint.x + hoverPoint.width / 2,
           hoverPoint.y + hoverPoint.height / 2,
         )
-        const livePlotBox = await chart.locator("svg").boundingBox()
+        const livePlotBox = await chart.locator(".native-chart-plot > svg").boundingBox()
         assert(
           Math.abs(idlePlotBox.y - livePlotBox.y) < 1,
           `chart ${i} legend must not rewrap on hover`,
         )
-        await chart.locator("svg").focus()
+        await chart.locator(".native-chart-plot > svg").focus()
         await page.keyboard.press("End")
         assert.equal(
           await chart.locator(".native-chart-inspection circle").count(),
           [4, 2, 2, 1][i],
         )
+        await assertCrosshairs(chart)
         assert(
           (await chart.locator(".native-chart-legend-value").allTextContents()).every(
             (text) => text !== "—",
@@ -155,7 +212,9 @@ async function main() {
           "Escape must not jump to the closed search button",
         )
         assert(
-          await chart.locator("svg").evaluate((node) => document.activeElement !== node),
+          await chart
+            .locator(".native-chart-plot > svg")
+            .evaluate((node) => document.activeElement !== node),
           "Escape releases chart keyboard focus",
         )
         await page.keyboard.press("Escape")
@@ -164,7 +223,7 @@ async function main() {
           "Escape outside an interaction must not move the page",
         )
       }
-      const searchOpener = charts.first().locator("svg")
+      const searchOpener = charts.first().locator(".native-chart-plot > svg")
       await searchOpener.focus()
       const beforeSearch = await page.evaluate(() => scrollY)
       await page.keyboard.press("Control+k")
@@ -187,7 +246,7 @@ async function main() {
           .evaluate((node) => !node.disabled && document.activeElement === node),
         "single-series legend remains keyboard-accessible",
       )
-      await forest.locator("svg").focus()
+      await forest.locator(".native-chart-plot > svg").focus()
       await page.keyboard.press("End")
       const finalPoint = specs[3].series[0].points.at(-1)
       const readout = await forest.locator(".native-chart-legend-item").getAttribute("title")
@@ -200,8 +259,8 @@ async function main() {
       ])
         assert(readout.includes(String(value)))
       const loss = charts.first()
-      await loss.locator("svg").scrollIntoViewIfNeeded()
-      const beforeHover = await loss.locator("svg").boundingBox()
+      await loss.locator(".native-chart-plot > svg").scrollIntoViewIfNeeded()
+      const beforeHover = await loss.locator(".native-chart-plot > svg").boundingBox()
       // Curves overlap: inspect a coordinate, not whichever marker happens to be on top.
       const firstPoint = await loss
         .locator('.native-chart-point[data-x="1000"]')
@@ -216,7 +275,7 @@ async function main() {
           String(specs[0].series[0].points[0].y),
         ),
       )
-      const afterHover = await loss.locator("svg").boundingBox()
+      const afterHover = await loss.locator(".native-chart-plot > svg").boundingBox()
       assert(
         Math.abs(beforeHover.y - afterHover.y) < 1,
         `legend updates moved the plot: before=${JSON.stringify(beforeHover)}, after=${JSON.stringify(afterHover)}`,
@@ -227,7 +286,9 @@ async function main() {
       )
       assert.equal(await loss.getAttribute("data-pinned"), "true")
       const pinnedValues = await loss.locator(".native-chart-legend-value").allTextContents()
-      const pinnedCrosshair = await loss.locator(".native-chart-crosshair").getAttribute("x1")
+      const pinnedCrosshair = await loss
+        .locator('.native-chart-crosshair[data-axis="x"]')
+        .getAttribute("x1")
       const lastPoint = await loss
         .locator('.native-chart-point[data-x="7600"]')
         .first()
@@ -238,7 +299,7 @@ async function main() {
         pinnedValues,
       )
       assert.equal(
-        await loss.locator(".native-chart-crosshair").getAttribute("x1"),
+        await loss.locator('.native-chart-crosshair[data-axis="x"]').getAttribute("x1"),
         pinnedCrosshair,
       )
       await page.mouse.click(lastPoint.x + lastPoint.width / 2, lastPoint.y + lastPoint.height / 2)
@@ -256,7 +317,6 @@ async function main() {
       await buttons.nth(0).click()
       assert.equal(await loss.locator(".native-chart-line").count(), 3)
       assert.deepEqual(await loss.locator(".native-chart-axis").allTextContents(), beforeAxes)
-      assert.equal(await loss.locator("tbody tr").count(), 32)
       await buttons.nth(1).click()
       await buttons.nth(2).click()
       assert(await buttons.nth(3).isDisabled())
@@ -265,7 +325,7 @@ async function main() {
       await buttons.nth(2).click()
       assert.equal(await loss.locator(".native-chart-line").count(), 4)
       const sweep = charts.nth(2)
-      await sweep.locator("svg").focus()
+      await sweep.locator(".native-chart-plot > svg").focus()
       await page.keyboard.press("Home")
       await page.keyboard.press("Enter")
       assert.equal(await sweep.getAttribute("data-pinned"), "true")
@@ -276,7 +336,7 @@ async function main() {
         "hiding the only observation at a pinned coordinate releases it",
       )
       await sweep.locator(".native-chart-legend-item").first().click()
-      await loss.locator("svg").focus()
+      await loss.locator(".native-chart-plot > svg").focus()
       await page.keyboard.press("End")
       await page.keyboard.press("Enter")
       const themedValues = await loss.locator(".native-chart-legend-value").allTextContents()
@@ -299,12 +359,15 @@ async function main() {
         await loss.screenshot({ path: path.join(work, `loss-${width}-${theme}.png`) })
         await forest.screenshot({ path: path.join(work, `forest-${width}-${theme}.png`) })
       }
-      await loss.locator("svg").scrollIntoViewIfNeeded()
-      const box = await loss.locator("svg").boundingBox()
+      await loss.locator(".native-chart-plot > svg").scrollIntoViewIfNeeded()
+      const box = await loss.locator(".native-chart-plot > svg").boundingBox()
       await page.mouse.move(box.x + box.width * 0.6, box.y + 100)
       const scroll = await page.evaluate(() => scrollY)
       await page.mouse.wheel(0, 300)
       await page.waitForFunction((before) => scrollY > before, scroll)
+      await checkChartViewport(page, charts.first())
+      await checkChartViewport(page, charts.nth(3), true)
+      if (width === 1440) await checkChartViewport(page, charts.nth(2))
       // Repeated SPA returns should not duplicate SVGs or toggle listeners.
       for (let visit = 0; visit < 2; visit++) {
         await page.getByRole("link", { name: "Open nested charts" }).click()
@@ -313,7 +376,9 @@ async function main() {
           () => document.querySelectorAll(".native-chart-point").length === 16,
         )
         assert.equal(
-          await page.locator(".native-chart-download").evaluate((node) => node.href),
+          await page
+            .locator(".native-chart")
+            .evaluate((node) => new URL(node.dataset.chartSrc, document.baseURI).href),
           `${base}/media/kda/scaled-gap.json`,
         )
         await page.getByRole("link", { name: "Return to chart checks" }).click()
@@ -328,7 +393,7 @@ async function main() {
         3,
       )
       const resizedChart = page.locator(".native-chart").first()
-      await resizedChart.locator("svg").focus()
+      await resizedChart.locator(".native-chart-plot > svg").focus()
       await page.keyboard.press("Home")
       await page.keyboard.press("Enter")
       const beforeResize = await resizedChart
@@ -348,6 +413,71 @@ async function main() {
       )
       await page.close()
     }
+    const dense = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
+    await dense.goto(`${base}/training`)
+    await dense.waitForSelector(".native-chart-line")
+    await dense.addStyleTag({ content: "html { scroll-behavior: auto !important; }" })
+    const denseChart = dense.locator(".native-chart")
+    const densePlot = denseChart.locator(".native-chart-plot > svg")
+    assert.equal(
+      await denseChart.locator(".native-chart-point").count(),
+      0,
+      "dense lines omit overlapping marker glyphs",
+    )
+    const paths = await denseChart
+      .locator(".native-chart-line")
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("d")))
+    assert.deepEqual(
+      paths.map((path) => path.match(/[ML]/g).length),
+      [7600, 7600],
+      "every logged value remains a line vertex",
+    )
+    await densePlot.focus()
+    for (const [key, index] of [
+      ["Home", 0],
+      ["ArrowRight", 1],
+      ["End", 7599],
+    ]) {
+      await dense.keyboard.press(key)
+      const titles = await denseChart
+        .locator(".native-chart-legend-item")
+        .evaluateAll((nodes) => nodes.map((node) => node.title))
+      for (let arm = 0; arm < 2; arm++)
+        assert(titles[arm].includes(String(trainingSpec.series[arm].points[index].y)))
+      await assertCrosshairs(denseChart)
+    }
+    await denseChart.screenshot({ path: path.join(work, "training-loss-full.png") })
+    // An x-only drag reveals individual markers without reducing the underlying line data.
+    await densePlot.scrollIntoViewIfNeeded()
+    const denseBox = await densePlot.boundingBox()
+    const xDomain = JSON.parse(await densePlot.getAttribute("data-x-domain"))
+    const px = (step) =>
+      denseBox.x + 64 + ((step - xDomain[0]) / (xDomain[1] - xDomain[0])) * (denseBox.width - 82)
+    await dense.mouse.move(px(2000), denseBox.y + denseBox.height / 2)
+    await dense.mouse.down()
+    await dense.mouse.move(px(2100), denseBox.y + denseBox.height / 2, { steps: 8 })
+    await dense.mouse.up()
+    assert.equal(await denseChart.getAttribute("data-zoomed"), "true")
+    const zoomMarkers = await denseChart.locator(".native-chart-point").count()
+    assert(zoomMarkers > 0 && zoomMarkers < 300)
+    await dense.keyboard.press("Home")
+    await assertCrosshairs(denseChart)
+    await denseChart.screenshot({ path: path.join(work, "training-loss-zoom.png") })
+    await dense.keyboard.press("0")
+    assert.equal(await denseChart.locator(".native-chart-point").count(), 0)
+    await dense.setViewportSize({ width: 390, height: 1000 })
+    await dense.waitForFunction(
+      () => document.querySelector(".native-chart-plot > svg").viewBox.baseVal.width < 390,
+    )
+    assert(await dense.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    await dense.keyboard.press("End")
+    await assertCrosshairs(denseChart)
+    await denseChart.screenshot({ path: path.join(work, "training-loss-mobile.png") })
+    await dense.close()
+    console.log(
+      "Dense training loss: all 15,200 vertices, exact inspection, two-axis guides, zoom markers and mobile passed",
+    )
+
     const widgetPage = await browser.newPage({ viewport: { width: 960, height: 1000 } })
     await widgetPage.goto(`${base}/widget-check`)
     await widgetPage.addStyleTag({ content: "html { scroll-behavior: auto !important; }" })
@@ -446,6 +576,61 @@ async function main() {
     assert.equal(await touch.locator(".native-chart").first().getAttribute("data-pinned"), "true")
     await touchPlot.tap({ position: { x: 220, y: 120 } })
     assert.equal(await touch.locator(".native-chart").first().getAttribute("data-pinned"), "false")
+    const touchChart = touch.locator(".native-chart").first()
+    await touch.addStyleTag({ content: "html { scroll-behavior: auto !important; }" })
+    await touchChart.locator(".native-chart-zoom-toggle").tap()
+    assert.equal(await touchPlot.evaluate((node) => getComputedStyle(node).touchAction), "none")
+    const touchGeometry = await touchPlot.evaluate((node) => {
+      const box = node.getBoundingClientRect(),
+        view = node.viewBox.baseVal,
+        clip = node.querySelector("clipPath rect")
+      return {
+        x: box.x + (Number(clip.getAttribute("x")) * box.width) / view.width,
+        y: box.y + (Number(clip.getAttribute("y")) * box.height) / view.height,
+        width: (Number(clip.getAttribute("width")) * box.width) / view.width,
+        height: (Number(clip.getAttribute("height")) * box.height) / view.height,
+      }
+    })
+    const zoomScroll = await touch.evaluate(() => scrollY)
+    const zoomSession = await touch.context().newCDPSession(touch)
+    const zoomPoint = (fraction) => ({
+      x: touchGeometry.x + touchGeometry.width * fraction,
+      y: touchGeometry.y + touchGeometry.height * fraction,
+    })
+    await zoomSession.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [zoomPoint(0.2)],
+    })
+    await zoomSession.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: zoomPoint(0.2).x + 5, y: zoomPoint(0.2).y + 5 }],
+    })
+    await zoomSession.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+    assert.equal(
+      await touchChart.getAttribute("data-zoomed"),
+      "false",
+      "finger jitter must not zoom",
+    )
+    assert.equal(await touchChart.getAttribute("data-zoom-armed"), "true")
+    await zoomSession.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [zoomPoint(0.2)],
+    })
+    for (let step = 1; step <= 6; step++) {
+      await zoomSession.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [zoomPoint(0.2 + step * 0.1)],
+      })
+      await touch.waitForTimeout(20)
+    }
+    await zoomSession.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+    assert.equal(await touchChart.getAttribute("data-zoomed"), "true")
+    assert.equal(await touchChart.getAttribute("data-pinned"), "false")
+    assert.equal(await touchPlot.evaluate((node) => getComputedStyle(node).touchAction), "pan-y")
+    assert(Math.abs((await touch.evaluate(() => scrollY)) - zoomScroll) < 1)
+    await zoomSession.detach()
+    await touchChart.locator(".native-chart-reset").tap()
+    assert.equal(await touchChart.getAttribute("data-zoomed"), "false")
     await touch.close()
 
     const edge = await browser.newPage()
@@ -460,7 +645,6 @@ async function main() {
     assert.equal((await edge.locator(".native-chart-line").getAttribute("d")).match(/M/g).length, 2)
     assert.equal(await edge.locator(".native-chart img").count(), 0)
     assert.equal(await edge.locator(".plotly-chart__frame").count(), 1)
-    assert((await edge.locator(".native-chart-data").textContent()).includes("Missing"))
     await edge.locator(".native-chart-plot svg").focus()
     await edge.keyboard.press("End")
     assert(
@@ -472,11 +656,6 @@ async function main() {
     await edge.keyboard.press("ArrowRight")
     assert.equal(await edge.locator(".native-chart-legend-value").innerText(), "Missing")
     assert.equal(await edge.locator(".native-chart-inspection circle").count(), 0)
-    assert.equal(
-      await edge.locator("tbody tr").nth(2).locator("td").nth(3).textContent(),
-      "—",
-      "no interval is distinct from a missing observation",
-    )
     assert.deepEqual(dialogs, [])
     await edge.close()
 
@@ -497,7 +676,7 @@ async function main() {
     await reduced.goto(`${base}/`)
     await reduced.waitForSelector(".native-chart-point")
     const reducedChart = reduced.locator(".native-chart").first()
-    await reducedChart.locator("svg").focus()
+    await reducedChart.locator(".native-chart-plot > svg").focus()
     await reduced.keyboard.press("End")
     await reduced.keyboard.press("Enter")
     assert.equal(await reducedChart.getAttribute("data-pinned"), "true")

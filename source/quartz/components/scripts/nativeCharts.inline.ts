@@ -1,9 +1,16 @@
 import { axisBottom, axisLeft, format, line, pointer, scaleLinear, select } from "d3"
 import { ChartPoint, ChartSpec, numericDomain, parseChart } from "../../util/chart"
+import {
+  panChartRange,
+  scaleChartRange,
+  selectChartRange,
+  type ChartRange,
+} from "../../util/chartViewport"
 
 const palette = ["blue", "amber", "green", "red", "gold", "purple"] as const
 const tickNumber = format(",~g")
 const tickScientific = format(".1e")
+let nextClipId = 0
 
 function element<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -16,6 +23,16 @@ function element<K extends keyof HTMLElementTagNameMap>(
   return node
 }
 
+function toolButton(label: string, icon: string): HTMLButtonElement {
+  const button = element("button", "native-chart-tool")
+  button.type = "button"
+  button.title = label
+  button.setAttribute("aria-label", label)
+  // Icons are static markup owned by this module, never chart data.
+  button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>`
+  return button
+}
+
 function valueText(value: number | string | null): string {
   return value === null ? "Missing" : String(value)
 }
@@ -24,54 +41,6 @@ function pointDetails(point: ChartPoint): string {
   return Object.entries(point.details ?? {})
     .map(([label, value]) => `${label}: ${value}`)
     .join(" · ")
-}
-
-/** The table retains all observations, including gaps and hidden series. */
-function dataTable(spec: ChartSpec): HTMLDetailsElement {
-  const details = element("details", "native-chart-data")
-  details.append(element("summary", "", "View data table"))
-  const scroll = element("div", "native-chart-table-wrap")
-  scroll.tabIndex = 0
-  scroll.setAttribute("role", "region")
-  scroll.setAttribute("aria-label", "Chart data table")
-  const table = element("table", "")
-  const hasXBounds = spec.series.some((series) => series.points.some((p) => p.xLow !== undefined))
-  const hasYBounds = spec.series.some((series) => series.points.some((p) => p.yLow !== undefined))
-  const caption = element("caption", "", "All observations, including hidden series")
-  table.append(caption)
-  const header = table.createTHead().insertRow()
-  const labels = ["Series", spec.x.label, spec.y.label]
-  if (hasXBounds) labels.push("X lower", "X upper")
-  if (hasYBounds) labels.push("Y lower", "Y upper")
-  labels.push("Details")
-  for (const label of labels) {
-    const cell = document.createElement("th")
-    cell.scope = "col"
-    cell.textContent = label
-    header.append(cell)
-  }
-  const body = table.createTBody()
-  for (const series of spec.series) {
-    for (const point of series.points) {
-      const row = body.insertRow()
-      const cells = [series.name, valueText(point.x), valueText(point.y)]
-      if (hasXBounds)
-        cells.push(
-          point.xLow === undefined ? "—" : String(point.xLow),
-          point.xHigh === undefined ? "—" : String(point.xHigh),
-        )
-      if (hasYBounds)
-        cells.push(
-          point.yLow === undefined ? "—" : String(point.yLow),
-          point.yHigh === undefined ? "—" : String(point.yHigh),
-        )
-      cells.push(pointDetails(point))
-      for (const text of cells) row.insertCell().textContent = text
-    }
-  }
-  scroll.append(table)
-  details.append(scroll)
-  return details
 }
 
 function drawChart(
@@ -127,18 +96,32 @@ function drawChart(
   svgNode.setAttribute("aria-label", title)
   svgNode.setAttribute(
     "aria-description",
-    "Hover to inspect observations. Click or tap to pin a point; click again to release it. Arrow keys move between observations; Home and End jump to the first and last. Enter or Space toggles pinning. Escape releases the pin and exits chart interaction without scrolling the page. The data table below contains all values.",
+    "Hover to inspect. Click or tap to pin; click again to release. Drag a region to zoom; Shift-drag to pan. On touch, activate the zoom tool before dragging. Plus and minus zoom, Shift-arrow keys pan, and zero resets the view. Arrow keys inspect points; Enter or Space toggles pinning. Escape cancels a drag or exits interaction without scrolling. Full-precision values remain in legend tooltips and keyboard inspection.",
   )
   const svg = select(svgNode)
   plot.append(svgNode)
+  const tools = element("div", "native-chart-tools")
+  const pinButton = toolButton(
+    "Pin inspected point",
+    '<g class="native-chart-cursor-icon"><circle cx="12" cy="12" r="4"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></g><g class="native-chart-pin-icon"><path d="M8 3h8m-7 0v5l-3 5v2h12v-2l-3-5V3m-3 12v7"/></g>',
+  )
+  pinButton.classList.add("native-chart-pin-toggle")
+  const zoomButton = toolButton(
+    "Drag to zoom; Shift-drag to pan. On touch, activate this tool first.",
+    '<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6M7 10h6m-3-3v6"/>',
+  )
+  zoomButton.classList.add("native-chart-zoom-toggle")
+  const resetButton = toolButton("Reset zoom (0)", '<path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"/>')
+  resetButton.classList.add("native-chart-reset")
+  tools.append(pinButton, zoomButton, resetButton)
   const coordinate = element("div", "native-chart-coordinate")
-  const modeBadge = element("span", "native-chart-mode", "Explore")
   const coordinateValue = element("span", "native-chart-coordinate-value")
-  coordinate.append(modeBadge, coordinateValue)
+  coordinate.append(coordinateValue)
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)")
   const announcement = element("span", "native-chart-status")
   announcement.setAttribute("role", "status")
   content.append(
+    tools,
     legend,
     coordinate,
     element("div", "native-chart-axis-label native-chart-y-label", spec.y.label),
@@ -148,14 +131,41 @@ function drawChart(
   )
   if (spec.intervalLabel)
     content.append(element("p", "native-chart-interval-label", spec.intervalLabel))
-  content.append(dataTable(spec))
 
   let width = 0
   let activeKey: number | null = null
   let pinned = false
-  const prompt = "Hover to inspect · click to pin"
+  const full = {
+    x: numericDomain(spec, "x"),
+    y: categories ? ([-0.5, categories.length - 0.5] as ChartRange) : numericDomain(spec, "y"),
+  }
+  let view = full
+  let zoomArmed = false
+  let suppressClick = false
+  type Drag = {
+    id: number
+    start: [number, number]
+    view: typeof full
+    pan: boolean
+    moved: boolean
+    threshold: number
+    bounds: [number, number, number, number]
+  }
+  let drag: Drag | null = null
+  const clipId = `native-chart-clip-${++nextClipId}`
+  const prompt = "Hover to inspect · drag to zoom"
   const valueFormat = categories ? spec.x.format : "format" in spec.y ? spec.y.format : undefined
   const legendNumber = format(valueFormat === "scientific" ? ".6e" : ".7~g")
+
+  function endCapture(cancel = false) {
+    const id = drag?.id
+    if (drag) {
+      if (cancel) view = drag.view
+      if (drag.moved || cancel) suppressClick = true
+    }
+    drag = null
+    if (id !== undefined && svgNode.hasPointerCapture(id)) svgNode.releasePointerCapture(id)
+  }
 
   function render() {
     if (!width) return
@@ -168,17 +178,23 @@ function drawChart(
     const right = Math.max(left + 1, width - 18)
     const top = 10
     const bottom = height - 30
-    const x = scaleLinear().domain(numericDomain(spec, "x")).range([left, right])
+    const x = scaleLinear().domain(view.x).range([left, right])
     const y = scaleLinear()
-      .domain(categories ? [-0.5, categories.length - 0.5] : numericDomain(spec, "y"))
+      .domain(view.y)
       .range(categories ? [top, bottom] : [bottom, top])
     const visible = observations.filter((item) => !hidden.has(item.series))
+    const inView = (point: ChartPoint) =>
+      point.x >= view.x[0] &&
+      point.x <= view.x[1] &&
+      (point.y === null ||
+        categories !== null ||
+        (yValue(point) >= view.y[0] && yValue(point) <= view.y[1]))
     const keys = [
       ...new Set(
         spec.series.flatMap((series, index) =>
           hidden.has(index)
             ? []
-            : series.points.map((point) => (categories ? yValue(point) : point.x)),
+            : series.points.filter(inView).map((point) => (categories ? yValue(point) : point.x)),
         ),
       ),
     ].sort((a, b) => a - b)
@@ -193,9 +209,31 @@ function drawChart(
         String(!hidden.has(index) && hidden.size === spec.series.length - 1),
       )
     })
-    svg.attr("viewBox", `0 0 ${width} ${height}`).attr("height", height)
+    const zoomed =
+      view.x.some((value, i) => value !== full.x[i]) ||
+      view.y.some((value, i) => value !== full.y[i])
+    figure.dataset.zoomed = String(zoomed)
+    figure.dataset.zoomArmed = String(zoomArmed)
+    figure.dataset.dragging = drag?.moved ? (drag.pan ? "pan" : "zoom") : ""
+    zoomButton.setAttribute("aria-pressed", String(zoomArmed))
+    resetButton.hidden = !zoomed
+    svgNode.style.touchAction = zoomArmed ? "none" : "pan-y"
+    svg
+      .attr("viewBox", `0 0 ${width} ${height}`)
+      .attr("height", height)
+      .attr("data-x-domain", JSON.stringify(view.x))
+      .attr("data-y-domain", JSON.stringify(view.y))
     svg.selectAll("*").remove()
     svg.append("title").text(title)
+    svg
+      .append("defs")
+      .append("clipPath")
+      .attr("id", clipId)
+      .append("rect")
+      .attr("x", left)
+      .attr("y", top)
+      .attr("width", right - left)
+      .attr("height", bottom - top)
     const xTicks = Math.max(3, Math.floor((right - left) / 95))
     const yTicks = Math.max(2, Math.floor((bottom - top) / 55))
     const xFormat = spec.x.format === "scientific" ? tickScientific : tickNumber
@@ -244,7 +282,7 @@ function drawChart(
         .selectAll<SVGTextElement, number>(".tick text")
         .append("title")
         .text((value) => categories[value])
-    if (spec.x.includeZero) {
+    if (spec.x.includeZero && view.x[0] <= 0 && view.x[1] >= 0) {
       svg
         .append("line")
         .attr("class", "native-chart-zero")
@@ -253,7 +291,13 @@ function drawChart(
         .attr("y1", top)
         .attr("y2", bottom)
     }
-    if (!categories && "includeZero" in spec.y && spec.y.includeZero) {
+    if (
+      !categories &&
+      "includeZero" in spec.y &&
+      spec.y.includeZero &&
+      view.y[0] <= 0 &&
+      view.y[1] >= 0
+    ) {
       svg
         .append("line")
         .attr("class", "native-chart-zero")
@@ -262,9 +306,13 @@ function drawChart(
         .attr("y1", y(0))
         .attr("y2", y(0))
     }
+    const dataLayer = svg
+      .append("g")
+      .attr("class", "native-chart-data-layer")
+      .attr("clip-path", `url(#${clipId})`)
     spec.series.forEach((series, index) => {
       if (hidden.has(index)) return
-      const group = svg
+      const group = dataLayer
         .append("g")
         .attr("class", "native-chart-series")
         .attr("data-series", index)
@@ -282,6 +330,16 @@ function drawChart(
               .y((p) => y(yValue(p)))(series.points),
           )
       }
+      // Keep every line vertex and inspection point, but don't stack dense marker glyphs.
+      const markerDiameter = series.marker === "diamond" ? 9 : 6
+      const denseLine =
+        series.mode === "line" &&
+        series.points.filter((point) => point.y !== null).length * markerDiameter > right - left
+      const showMarkers =
+        !denseLine ||
+        series.points.filter((point) => point.y !== null && inView(point)).length *
+          markerDiameter <=
+          right - left
       for (const point of series.points) {
         if (point.y === null) continue
         const px = x(point.x)
@@ -302,6 +360,7 @@ function drawChart(
             .attr("class", "native-chart-error native-chart-error-y")
             .attr("d", `M${px},${low}V${high}M${px - 3},${low}h6M${px - 3},${high}h6`)
         }
+        if (!showMarkers || (denseLine && !inView(point))) continue
         group
           .append("path")
           .attr("class", "native-chart-point")
@@ -316,7 +375,7 @@ function drawChart(
           )
       }
     })
-    const inspection = svg
+    const inspection = dataLayer
       .append("g")
       .attr("class", "native-chart-inspection")
       .attr("pointer-events", "none")
@@ -326,15 +385,20 @@ function drawChart(
       inspection.selectAll("*").remove()
       const matches = visible.filter((item) => item.key === key)
       const label =
-        key === null ? prompt : categories ? categories[key] : `${spec.x.label}: ${valueText(key)}`
+        key === null
+          ? keys.length
+            ? ""
+            : "No point centers in this view · reset zoom"
+          : categories
+            ? categories[key]
+            : `${spec.x.label}: ${valueText(key)}`
       coordinateValue.textContent = label
       coordinateValue.title = label
       figure.dataset.pinned = String(pinned)
-      modeBadge.textContent = pinned ? "Pinned" : key === null ? "Explore" : "Live"
-      modeBadge.dataset.mode = pinned ? "pinned" : key === null ? "idle" : "live"
-      modeBadge.title = pinned
-        ? "Click the plot again or press Escape to release"
-        : "Click the plot or press Enter to pin"
+      pinButton.setAttribute("aria-pressed", String(pinned))
+      pinButton.setAttribute("aria-disabled", String(keys.length === 0))
+      pinButton.title = pinned ? "Release pinned point (Escape)" : "Follow cursor · click to pin"
+      pinButton.setAttribute("aria-label", pinned ? "Release pinned point" : "Pin inspected point")
       controls.forEach(({ button, value }, index) => {
         const points = matches.filter((item) => item.series === index).map((item) => item.point)
         const missing =
@@ -385,7 +449,7 @@ function drawChart(
       })
       if (announce)
         announcement.textContent = [
-          `${modeBadge.textContent}. ${label}`,
+          `${pinned ? "Pinned" : "Following cursor"}. ${label}`,
           ...controls.map(({ button }) => button.getAttribute("aria-label")),
         ].join(". ")
       if (key === null) return
@@ -393,6 +457,7 @@ function drawChart(
         inspection
           .append("line")
           .attr("class", "native-chart-crosshair")
+          .attr("data-axis", "y")
           .attr("x1", left)
           .attr("x2", right)
           .attr("y1", y(key))
@@ -401,10 +466,25 @@ function drawChart(
         inspection
           .append("line")
           .attr("class", "native-chart-crosshair")
+          .attr("data-axis", "x")
           .attr("x1", x(key))
           .attr("x2", x(key))
           .attr("y1", top)
           .attr("y2", bottom)
+      }
+      // Share one guide per distinct value when several series coincide.
+      const otherValues = new Set(
+        matches.map(({ point }) => (categories ? point.x : yValue(point))),
+      )
+      for (const value of otherValues) {
+        inspection
+          .append("line")
+          .attr("class", "native-chart-crosshair")
+          .attr("data-axis", categories ? "x" : "y")
+          .attr("x1", categories ? x(value) : left)
+          .attr("x2", categories ? x(value) : right)
+          .attr("y1", categories ? top : y(value))
+          .attr("y2", categories ? bottom : y(value))
       }
       for (const { point, series } of matches) {
         inspection
@@ -417,7 +497,55 @@ function drawChart(
       }
     }
 
+    const selection = svg
+      .append("rect")
+      .attr("class", "native-chart-selection")
+      .attr("pointer-events", "none")
+      .attr("display", "none")
+
+    function resetView() {
+      endCapture(true)
+      zoomArmed = false
+      view = full
+      render()
+      announcement.textContent = "Full chart view restored."
+    }
+
+    function exitInteraction(event: KeyboardEvent) {
+      event.preventDefault()
+      endCapture(true)
+      zoomArmed = false
+      pinned = false
+      activeKey = null
+      render()
+      announcement.textContent = "Chart interaction ended."
+      if (
+        document.activeElement instanceof HTMLElement ||
+        document.activeElement instanceof SVGSVGElement
+      )
+        document.activeElement.blur()
+    }
+
+    select(pinButton).on("click.nativeChart", () => {
+      if (!keys.length) return
+      pinned = !pinned
+      inspect(activeKey ?? keys[0], true)
+    })
+    select(zoomButton).on("click.nativeChart", () => {
+      zoomArmed = !zoomArmed
+      render()
+      svgNode.focus({ preventScroll: true })
+    })
+    select(resetButton).on("click.nativeChart", () => {
+      resetView()
+      svgNode.focus({ preventScroll: true })
+    })
+    select(content).on("keydown.nativeChart", (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) exitInteraction(event)
+    })
+
     function pointerKey(event: MouseEvent): number | undefined {
+      if (!keys.length) return
       const [px, py] = pointer(event, svgNode)
       if (px < left || px > right || py < top || py > bottom) return
       const position = categories ? y.invert(py) : x.invert(px)
@@ -425,24 +553,188 @@ function drawChart(
         Math.abs(key - position) < Math.abs(best - position) ? key : best,
       )
     }
+
+    function cancelDrag() {
+      if (!drag) return
+      endCapture(true)
+      zoomArmed = false
+      render()
+    }
+
     svg
+      .on("pointerdown.nativeChart", (event: PointerEvent) => {
+        suppressClick = false
+        if (
+          event.button !== 0 ||
+          !event.isPrimary ||
+          drag ||
+          (event.pointerType === "touch" && !zoomArmed)
+        )
+          return
+        const [px, py] = pointer(event, svgNode)
+        if (px < left || px > right || py < top || py > bottom) return
+        drag = {
+          id: event.pointerId,
+          start: [px, py],
+          view,
+          pan: event.shiftKey,
+          moved: false,
+          threshold: event.pointerType === "touch" ? 12 : 6,
+          bounds: [left, top, right, bottom],
+        }
+        svgNode.setPointerCapture(event.pointerId)
+        event.preventDefault()
+        svgNode.focus({ preventScroll: true })
+      })
       .on("pointermove.nativeChart", (event: PointerEvent) => {
-        if (pinned || event.pointerType === "touch") return
+        if (drag && event.pointerId === drag.id) {
+          const [px, py] = pointer(event, svgNode)
+          if (!drag.moved && Math.hypot(px - drag.start[0], py - drag.start[1]) < drag.threshold)
+            return
+          drag.moved = true
+          figure.dataset.dragging = drag.pan ? "pan" : "zoom"
+          const [l, t, r, b] = drag.bounds
+          if (drag.pan) {
+            pinned = false
+            activeKey = null
+            view = {
+              x: panChartRange(drag.view.x, full.x, (drag.start[0] - px) / (r - l)),
+              y: categories
+                ? full.y
+                : panChartRange(drag.view.y, full.y, (py - drag.start[1]) / (b - t)),
+            }
+            render()
+          } else {
+            const cx = Math.max(l, Math.min(r, px)),
+              cy = Math.max(t, Math.min(b, py))
+            const horizontal = Math.abs(cx - drag.start[0]) >= drag.threshold
+            const vertical = !categories && Math.abs(cy - drag.start[1]) >= drag.threshold
+            if (!horizontal && !vertical) {
+              selection.attr("display", "none")
+              return
+            }
+            pinned = false
+            inspect(null)
+            selection
+              .attr("display", null)
+              .attr("x", horizontal ? Math.min(cx, drag.start[0]) : l)
+              .attr("y", vertical ? Math.min(cy, drag.start[1]) : t)
+              .attr("width", horizontal ? Math.abs(cx - drag.start[0]) : r - l)
+              .attr("height", vertical ? Math.abs(cy - drag.start[1]) : b - t)
+          }
+          return
+        }
+        if (pinned || zoomArmed || event.pointerType === "touch") return
         const key = pointerKey(event)
         if (key !== undefined && key !== activeKey) inspect(key)
       })
+      .on("pointerup.nativeChart", (event: PointerEvent) => {
+        if (!drag || event.pointerId !== drag.id) return
+        const gesture = drag
+        const [px, py] = pointer(event, svgNode)
+        endCapture()
+        if (!gesture.moved) return
+        const [l, t, r, b] = gesture.bounds
+        const cx = Math.max(l, Math.min(r, px)),
+          cy = Math.max(t, Math.min(b, py))
+        if (!gesture.pan) {
+          const selectedX =
+            Math.abs(cx - gesture.start[0]) >= gesture.threshold
+              ? selectChartRange(
+                  gesture.view.x,
+                  full.x,
+                  (gesture.start[0] - l) / (r - l),
+                  (cx - l) / (r - l),
+                )
+              : null
+          const selectedY =
+            !categories && Math.abs(cy - gesture.start[1]) >= gesture.threshold
+              ? selectChartRange(
+                  gesture.view.y,
+                  full.y,
+                  (b - gesture.start[1]) / (b - t),
+                  (b - cy) / (b - t),
+                )
+              : null
+          view = { x: selectedX ?? gesture.view.x, y: selectedY ?? gesture.view.y }
+        }
+        zoomArmed = false
+        render()
+        const changed =
+          view.x.some((value, i) => value !== gesture.view.x[i]) ||
+          view.y.some((value, i) => value !== gesture.view.y[i])
+        announcement.textContent = changed
+          ? gesture.pan
+            ? "Chart view panned."
+            : "Chart view zoomed. Press zero to reset."
+          : "View unchanged."
+      })
+      .on("pointercancel.nativeChart", (event: PointerEvent) => {
+        if (drag?.id === event.pointerId) cancelDrag()
+      })
+      .on("lostpointercapture.nativeChart", (event: PointerEvent) => {
+        if (drag?.id === event.pointerId) cancelDrag()
+      })
       .on("click.nativeChart", (event: MouseEvent) => {
+        if (suppressClick) {
+          suppressClick = false
+          return
+        }
+        if (zoomArmed) return
         const key = pointerKey(event)
         if (key === undefined) return
         pinned = !pinned
         inspect(key, true)
         svgNode.focus({ preventScroll: true })
       })
+      .on("dblclick.nativeChart", (event: MouseEvent) => {
+        event.preventDefault()
+        pinned = false
+        activeKey = null
+        resetView()
+      })
       .on("focus.nativeChart", () => {
-        if (activeKey === null) inspect(keys[0], true)
+        if (activeKey === null && keys.length && !drag && !zoomArmed) inspect(keys[0], true)
       })
       .on("keydown.nativeChart", (event: KeyboardEvent) => {
         if (event.ctrlKey || event.metaKey || event.altKey) return
+        if (event.key === "Escape") {
+          exitInteraction(event)
+          return
+        }
+        if (event.key === "0") {
+          event.preventDefault()
+          resetView()
+          return
+        }
+        if (drag) {
+          event.preventDefault()
+          return
+        }
+        if (["+", "=", "-", "_"].includes(event.key)) {
+          event.preventDefault()
+          const factor = event.key === "+" || event.key === "=" ? 0.5 : 2
+          view = {
+            x: scaleChartRange(view.x, full.x, factor),
+            y: categories ? full.y : scaleChartRange(view.y, full.y, factor),
+          }
+          render()
+          announcement.textContent = factor < 1 ? "Chart view zoomed in." : "Chart view zoomed out."
+          return
+        }
+        if (event.shiftKey && event.key.startsWith("Arrow")) {
+          event.preventDefault()
+          const dx = event.key === "ArrowRight" ? 0.1 : event.key === "ArrowLeft" ? -0.1 : 0
+          const dy = event.key === "ArrowUp" ? 0.1 : event.key === "ArrowDown" ? -0.1 : 0
+          view = {
+            x: panChartRange(view.x, full.x, dx),
+            y: categories ? full.y : panChartRange(view.y, full.y, dy),
+          }
+          render()
+          announcement.textContent = "Chart view panned."
+          return
+        }
+        if (!keys.length) return
         let index = activeKey === null ? -1 : keys.indexOf(activeKey)
         switch (event.key) {
           case "Enter":
@@ -466,12 +758,6 @@ function drawChart(
           case "End":
             index = keys.length - 1
             break
-          case "Escape":
-            event.preventDefault()
-            pinned = false
-            inspect(null, true)
-            svgNode.blur()
-            return
           default:
             return
         }
@@ -484,6 +770,8 @@ function drawChart(
   const resize = new ResizeObserver(([entry]) => {
     const next = Math.floor(entry.contentRect.width)
     if (next > 0 && next !== width) {
+      endCapture(true)
+      zoomArmed = false
       width = next
       render()
     }
@@ -491,7 +779,11 @@ function drawChart(
   resize.observe(plot)
   cleanups.push(() => {
     resize.disconnect()
+    endCapture(true)
     svg.on(".nativeChart", null)
+    select(content).on(".nativeChart", null)
+    for (const button of [pinButton, zoomButton, resetButton])
+      select(button).on(".nativeChart", null)
     controls.forEach(({ value }) =>
       value.getAnimations().forEach((animation) => animation.cancel()),
     )
@@ -507,6 +799,7 @@ document.addEventListener("nav", () => {
   })
   for (const figure of document.querySelectorAll<HTMLElement>(".native-chart")) {
     const content = figure.querySelector<HTMLElement>(".native-chart-content")!
+    const fallback = content.querySelector<HTMLAnchorElement>(".native-chart-download")!
     content.replaceChildren(element("p", "native-chart-hint", "Loading chart…"))
     void (async () => {
       try {
@@ -524,7 +817,7 @@ document.addEventListener("nav", () => {
           "Chart unavailable. You can still download its data below.",
         )
         message.setAttribute("role", "alert")
-        content.replaceChildren(message)
+        content.replaceChildren(message, fallback)
         console.warn("Unable to load native chart", figure.dataset.chartSrc, error)
       }
     })()

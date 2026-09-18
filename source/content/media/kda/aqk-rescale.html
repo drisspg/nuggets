@@ -332,10 +332,8 @@
   <body>
     <main class="aqk">
       <p class="aqk-summary">
-        <b>A<sub>qk</sub>[5,2]</b> is fully causal: query 5 reads the write from token 2. Rebasing
-        around the row-8 gate cancels exactly, yet separately rounded GEMM operands let
-        <span class="r">δ₆, δ₇, δ₈</span> — gates <em>after</em> query 5 — change the retained
-        value.
+        <b>A<sub>qk</sub>[5,2]</b> should depend only on tokens 0–5. Separately rounding the
+        rescaled operands to BF16 can make it depend on future gates.
       </p>
       <div class="aqk-tabs" role="tablist" aria-label="Stages">
         <button class="aqk-tab" role="tab" id="tab-1" aria-controls="panel-1" aria-selected="true">
@@ -359,7 +357,7 @@
           aria-selected="false"
           tabindex="-1"
         >
-          <span class="n" data-short="r = g₈">3</span><span>Midpoint reference</span>
+          <span class="n" data-short="r = G₈">3</span><span>Midpoint reference</span>
         </button>
         <button
           class="aqk-tab"
@@ -374,21 +372,18 @@
       </div>
       <div class="aqk-panels">
         <div class="aqk-panel" role="tabpanel" id="panel-1" aria-labelledby="tab-1" tabindex="0">
-          <h2>Token 2 writes; query 5 reads it through three decays</h2>
+          <h2>Write at 2, decay, read at 5</h2>
           <div class="math">
             A<sub>qk</sub>[5,2] = Σ<sub>d</sub> q<sub>5,d</sub> k<sub>2,d</sub> 2<sup
-              >g<sub>5,d</sub> − g<sub>2,d</sub></sup
-            >,&nbsp; g<sub>5</sub> − g<sub>2</sub> = <span class="g">δ₃ + δ₄ + δ₅</span>
+              >G<sub>5,d</sub> − G<sub>2,d</sub></sup
+            >,&nbsp; G<sub>5</sub> − G<sub>2</sub> = <span class="g">δ₃ + δ₄ + δ₅</span>
           </div>
           <p>
-            Token 2 decays the state, then writes its correction <b>z₂</b>. The write picks up the
-            per-channel decays at tokens 3, 4, 5 — not δ₂, and nothing later. That weight multiplies
-            z₂ (not the raw v₂); there is no softmax.
+            Token 2 decays the state, then writes <b>z₂</b>. Query 5 reads that correction after
+            per-channel decays δ₃, δ₄, δ₅ — not δ₂. This weight multiplies z₂, not raw v₂; no
+            softmax.
           </p>
-          <p>
-            Row 5, column 2 sits below the diagonal, so the causal mask keeps it. Everything above
-            the diagonal is dropped.
-          </p>
+          <p>The mask keeps [5,2]; only j &gt; i is dropped.</p>
         </div>
         <div
           class="aqk-panel"
@@ -398,23 +393,22 @@
           tabindex="0"
           hidden
         >
-          <h2>Split the decay so a plain GEMM can do the sum</h2>
+          <h2>Split the decay for GEMM</h2>
           <div class="math">
-            2<sup>g<sub>5</sub> − g<sub>2</sub></sup> = 2<sup>g<sub>5</sub> − r</sup> · 2<sup
-              >r − g<sub>2</sub></sup
-            ><br />Q̃<sub>5,d</sub> = q<sub>5,d</sub> 2<sup>g<sub>5,d</sub> − r<sub>d</sub></sup
-            >,&nbsp; K̃<sub>2,d</sub> = k<sub>2,d</sub> 2<sup>r<sub>d</sub> − g<sub>2,d</sub></sup
+            2<sup>G<sub>5</sub> − G<sub>2</sub></sup> = 2<sup>G<sub>5</sub> − r</sup> · 2<sup
+              >r − G<sub>2</sub></sup
+            ><br />Q̃<sub>5,d</sub> = q<sub>5,d</sub> 2<sup>G<sub>5,d</sub> − r<sub>d</sub></sup
+            >,&nbsp; K̃<sub>2,d</sub> = k<sub>2,d</sub> 2<sup>r<sub>d</sub> − G<sub>2,d</sub></sup
             ><br />A<sub>qk</sub> = mask(Q̃ K̃<sup>⊤</sup>)
           </div>
           <p>
-            The decay lives inside the channel reduction, so it cannot be a scalar applied after
-            QK<sup>⊤</sup>. But 2<sup>g₅−g₂</sup> factors into a query-only and a key-only part, so
-            each operand row is prepared once and the tensor cores take it from there.
+            The per-channel decay belongs inside the sum, not after QK<sup>⊤</sup>. Splitting it
+            into query-only and key-only factors lets us prepare each row once and use a GEMM.
           </p>
           <p>
-            Any reference r<sub>d</sub> separates the decay — r = 0 would too. The reference is for
-            <b>range</b>: it reduces the exponent magnitudes of both factors. One r<sub>d</sub> per
-            channel is shared by the whole block.
+            Any r<sub>d</sub> cancels algebraically, including zero. We choose a reference to keep
+            the factors in <b>range</b>, not to make the decay separable. Each channel shares one
+            r<sub>d</sub> across the block.
           </p>
         </div>
         <div
@@ -425,27 +419,25 @@
           tabindex="0"
           hidden
         >
-          <h2>r = g₈ cancels exactly — but it is the future for row 5</h2>
+          <h2>G₈ cancels exactly, but looks ahead of row 5</h2>
           <div class="math">
-            g<sub>5</sub> − g<sub>8</sub> = <span class="r">−(δ₆ + δ₇ + δ₈)</span> ≥ 0<br />g<sub
+            G<sub>5</sub> − G<sub>8</sub> = <span class="r">−(δ₆ + δ₇ + δ₈)</span> ≥ 0<br />G<sub
               >8</sub
             >
-            − g<sub>2</sub> = <span class="g">δ₃ + δ₄ + δ₅</span>
+            − G<sub>2</sub> = <span class="g">δ₃ + δ₄ + δ₅</span>
             <span class="r">+ δ₆ + δ₇ + δ₈</span> ≤ 0<br />sum = <span class="g">δ₃ + δ₄ + δ₅</span>
-            <span class="strike">− δ₆ − δ₇ − δ₈ + δ₆ + δ₇ + δ₈</span> = g<sub>5</sub> − g<sub
+            <span class="strike">− δ₆ − δ₇ − δ₈ + δ₆ + δ₇ + δ₈</span> = G<sub>5</sub> − G<sub
               >2</sub
             >
             ✓
           </div>
           <p>
-            The midpoint of the 16-row block is row 8. In exact arithmetic the red terms cancel
-            symbol for symbol, so the entry is unchanged: same decay, just written as a factor ≥ 1
-            times a factor ≤ 1.
+            Row 8 supplies the reference for this 16-row block. In exact arithmetic the red terms
+            cancel: multiplying a factor ≥ 1 by one ≤ 1 gives the original decay.
           </p>
           <p>
-            Rows 8–15 already have δ₆–δ₈ in their past. Row 5 has none of them, and every row before
-            8 is missing at least the increments after itself — yet its rescaled query row is built
-            from g₈. The mask never sees this; it only removes columns j &gt; i.
+            For row 5, δ₆–δ₈ are future increments. Every row i &lt; 8 uses a reference that looks
+            ahead; rows 8–15 do not. The mask only removes j &gt; i, not this operand dependence.
           </p>
         </div>
         <div
@@ -456,10 +448,10 @@
           tabindex="0"
           hidden
         >
-          <h2>Round each operand to BF16, then change only the gates after query 5</h2>
+          <h2>Round operands to BF16; vary future gates</h2>
           <div class="cols">
             <p class="status legend-line">
-              Pick h₆, h₇, h₈ in nats/token (δ<sub>t,d</sub> = h<sub>t</sub>·w<sub>d</sub>·log₂e).
+              Pick h₆, h₇, h₈ in nats/token (δ<sub>t,d</sub> = h<sub>t</sub>·w<sub>d</sub>·loG₂e).
               <span class="dot none"></span> no change · <span class="dot sum"></span> accumulator
               moves · <span class="dot bf16"></span> stored BF16 moves
             </p>
@@ -481,7 +473,7 @@
               >
                 <thead>
                   <tr>
-                    <th>r = g₈, channel d</th>
+                    <th>r = G₈, channel d</th>
                     <th>Q̃<sub>5,d</sub></th>
                     <th>K̃<sub>2,d</sub></th>
                     <th>Q̃·K̃</th>
@@ -494,8 +486,8 @@
             <p class="status" id="verdict"></p>
             <p class="fine long" id="fine"></p>
             <p class="fine short">
-              Toy with exactly emulated BF16 operand rounding, not a GPU measurement. Measured
-              gate-only probe: 11 of 512 BF16 Aqk values changed, max |Δ| 1.526e-5
+              Toy, not a GPU measurement: BF16 operand rounding is emulated exactly. Separate
+              gate-only measurement: 11/512 BF16 Aqk values changed, max |Δ| 1.526e-5
               (workload-specific).
             </p>
           </div>
@@ -752,7 +744,7 @@
         return g
       }
       const decayBracket = bracket(3, 5, "var(--green)", "δ₃…δ₅", "middle")
-      const futureBracket = bracket(6, 8, "var(--red)", "δ₆…δ₈ · after query 5 · r = g₈", "start")
+      const futureBracket = bracket(6, 8, "var(--red)", "δ₆…δ₈ · after query 5 · r = G₈", "start")
       const belowLabel = el(
         "text",
         {
@@ -766,7 +758,7 @@
         },
         svg,
       )
-      belowLabel.textContent = "rows 0–7: reference gate g₈ is in their future"
+      belowLabel.textContent = "rows 0–7: G₈ includes future gates"
       const operandLabels = el("g", { class: "bracket", opacity: 0 }, svg)
       el(
         "text",
@@ -1005,8 +997,8 @@
         const cls = (x, y) => (x === y ? "same" : "moved")
         totals.innerHTML = `
           <tr><td><span class="long">no operand rounding (FP64)</span><span class="short">FP64 reference</span></td><td>${fmt(r.exact)}</td><td class="same">${fmtDelta(r.exact - base.exact)}</td></tr>
-          <tr><td><span class="long">r = g₀ (first row), BF16 operands</span><span class="short">r = g₀, BF16</span></td><td class="${cls(r.causal, base.causal)}">${fmt(r.causal)}</td><td class="${cls(r.causal, base.causal)}">${fmtDelta(r.causal - base.causal)}</td></tr>
-          <tr class="hot"><td><span class="long">r = g₈ (midpoint), BF16 operands</span><span class="short">r = g₈, BF16</span></td><td class="${cls(r.mid, base.mid)}">${fmt(r.mid)}</td><td class="${cls(r.mid, base.mid)}">${fmtDelta(r.mid - base.mid)}</td></tr>
+          <tr><td><span class="long">r = G₀ (first row), BF16 operands</span><span class="short">r = G₀, BF16</span></td><td class="${cls(r.causal, base.causal)}">${fmt(r.causal)}</td><td class="${cls(r.causal, base.causal)}">${fmtDelta(r.causal - base.causal)}</td></tr>
+          <tr class="hot"><td><span class="long">r = G₈ (midpoint), BF16 operands</span><span class="short">r = G₈, BF16</span></td><td class="${cls(r.mid, base.mid)}">${fmt(r.mid)}</td><td class="${cls(r.mid, base.mid)}">${fmtDelta(r.mid - base.mid)}</td></tr>
           <tr class="hot"><td><span class="long">… stored as BF16</span><span class="short">→ stored BF16</span></td><td class="${cls(r.midStored, base.midStored)}">${fmt(r.midStored, 6)}</td><td class="${cls(r.midStored, base.midStored)}">${fmtDelta(r.midStored - base.midStored)}</td></tr>`
         channelBody.innerHTML = r.channels
           .map((c, d) => {
@@ -1017,21 +1009,21 @@
         let msg
         const lead = `h₆, h₇, h₈ = ${fmtNats(s.suffix)} nats: `
         if (k === 0)
-          msg = `Baseline, ${lead.slice(0, -2)}. Pick another suffix; the top two rows never move.`
+          msg = `Baseline, ${lead.slice(0, -2)}. FP64 and r = G₀ stay fixed across all suffixes.`
         else if (r.mid === base.mid)
           msg =
             lead +
-            `same total as baseline, so g₈ and every operand are identical. Only the cumulative gate matters, not how it is split across tokens.`
+            `same total, so G₈ and the operands stay fixed. Only the cumulative gate matters here.`
         else if (r.midStored !== base.midStored)
           msg =
             lead +
-            `the midpoint entry and its stored BF16 both moved — a retained causal entry changed because of gates after query 5.`
+            `both the accumulator and stored BF16 changed. Gates after query 5 changed an entry the mask keeps.`
         else
           msg =
             lead +
-            `the midpoint accumulator moved but rounds to the same stored BF16; not every suffix change survives output rounding.`
+            `the accumulator changed, but stored BF16 did not. Not every suffix change survives output rounding.`
         verdict.textContent = msg
-        fine.textContent = `Toy, not a GPU measurement: 4 channels, exact-BF16 q₅, k₂; per-channel gates δ = h·w_d·log₂e with w = [1, 0.55, 0.3, 0.8]; operands rounded to BF16 (round-to-nearest-even, emulated exactly); products and the 4-term sum are exact in FP32. Real kernels also round exp2 and reduce 128 channels. Measured gate-only probe: 11 of 512 BF16 Aqk values changed, max |Δ| 1.526e-5 — workload-specific.`
+        fine.textContent = `Toy, not a GPU measurement: 4 channels; exact-BF16 q₅, k₂; δ = h·w_d·loG₂e, w = [1, 0.55, 0.3, 0.8]. BF16 operands use exactly emulated round-to-nearest-even; products and sum are exact in FP32. Real kernels also round exp2 and sum 128 channels. Separate gate-only measurement: 11/512 BF16 Aqk values changed, max |Δ| 1.526e-5 (workload-specific).`
       }
       select(0)
 

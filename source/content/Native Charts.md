@@ -51,13 +51,13 @@ These example numbers are illustrative. The renderer draws supplied interval end
 
 - `version` must be `1`. Unknown fields are errors, so misspelled options do not silently disappear.
 - Axes have a nonempty `label`. Numeric axes optionally accept `format: "number" | "scientific"`, `includeZero`, and `domain: [minimum, maximum]`.
-- Automatic domains include **all series and interval endpoints**, with 5% padding. Hiding a series does not silently rescale the chart. An explicit domain must contain all values, intervals, and any requested zero; clipping data requires an explicit future feature, not an accidental range setting.
+- Automatic domains include **all series and interval endpoints**, with 5% padding. Hiding a series does not silently rescale the chart. An explicit initial domain must contain all values, intervals, and any requested zero. Interactive zoom changes only the viewport: data and interval endpoints remain untouched.
 - Each series has a unique `name`, a `mode` (`"line"` or `"points"`), and a nonempty `points` array. A series must contain at least one observation.
 - Optional series styling: `color` is `blue`, `amber`, `green`, `red`, `gold`, or `purple`; `dash` is `solid` or `dash`; `marker` is `circle` or `diamond`. Colors adapt to the site theme. Use dashes/markers as well as color when comparing related series.
 - Points have numeric `x` and numeric `y`. A numeric `y: null` is an explicit missing observation: it gets no marker and **breaks** a line instead of becoming zero or being interpolated across. Do not simply omit a missing point if the line must show a gap. Missing observations cannot carry interval bounds.
 - Line-series x values must be strictly increasing. Points-only series can be unordered. Curves use straight segments, with no smoothing or resampling.
 - Intervals use `xLow`/`xHigh` or `yLow`/`yHigh`. Both endpoints are required, must be finite, and must enclose the estimate. Any interval requires an `intervalLabel` explaining its meaning. Numeric strings, `NaN`, and infinity are rejected.
-- Optional per-point `details` is a map of plain strings or finite numbers. It appears in inspection and the table; it is never interpreted as HTML.
+- Optional per-point `details` is a map of plain strings or finite numbers. It appears in inspection; it is never interpreted as HTML.
 
 ### Categorical rows / forest plots
 
@@ -85,24 +85,36 @@ Give the y axis a `categories` array instead of numeric options. The order is to
 
 ## Interaction and accessibility
 
-- Hover over the plot to inspect the nearest x coordinate, or the nearest categorical row. A shared crosshair updates larger tabular numbers **directly in the legend**, with subtle series-colored underlines rather than boxes. An unsampled coordinate is shown as `—`; an explicit null observation is shown as `Missing`. Neither is interpolated.
-- Legend values use seven significant digits for compact display. Legend tooltips and accessible names retain the full-precision estimates, interval endpoints, and details; the data table and download retain the original numbers.
-- Click or tap to **pin** the selection: moving the pointer no longer changes the crosshair or values. Click again to release it. The badge shows Explore, Live, or Pinned. Pins survive resize and theme changes; hiding all observations at the pinned coordinate clears the pin.
+- Hover over the plot to inspect the nearest x coordinate, or the nearest categorical row. Dashed guides mark both coordinates of each inspected point (shared values reuse one guide). Inspection updates larger tabular numbers **directly in the legend**, with subtle series-colored underlines rather than boxes. An unsampled coordinate is shown as `—`; an explicit null observation is shown as `Missing`. Neither is interpolated.
+- Dense line charts retain every vertex and inspectable value, but omit overlapping point markers. Markers reappear when the visible points have enough horizontal space; points-only series always retain their markers.
+- Legend values use seven significant digits for compact display. Legend tooltips and accessible names retain the full-precision estimates, interval endpoints, and details. The source JSON retains the original numbers.
+- Click or tap to **pin** the selection: moving the pointer no longer changes the crosshair or values. Click again to release it. A small top-right icon switches between cursor-following and pinned states; clicking it also toggles the pin. Pins survive resize and theme changes; hiding all observations at the pinned coordinate clears the pin.
 - Focus the plot and use arrow keys, Home, or End to inspect observations, including while pinned. Enter or Space toggles pinning. Escape releases the pin, clears inspection, and returns keyboard scrolling to the page without changing its scroll position.
 - Legend buttons toggle series and expose their state through `aria-pressed`. At least one series stays visible.
-- **View data table** exposes all original rows, including hidden series and missing observations. It is a standard HTML table, not a canvas-only alternative. Long category labels are abbreviated on the axis but remain complete in the table and inspection.
-- **Download chart data** provides the source JSON. It remains available if JavaScript is disabled or a runtime load fails. Invalid data fails the build; runtime failures display an error rather than an empty, apparently valid plot.
-- The plot never captures wheel scrolling, even when pinned, or animates/interpolates the data. Updated legend values have a brief opacity accent; reduced-motion preferences disable it and the underline/status transitions. Only the optional data table can scroll horizontally on a narrow screen.
+- Charts have no table or download controls in their normal view. Long category labels are abbreviated on the axis but remain complete in inspection.
+- A source-data link appears only as a fallback if JavaScript is disabled or a runtime load fails. Invalid data fails the build; runtime failures display an error rather than an empty, apparently valid plot.
+- The plot never captures wheel scrolling, even when pinned, or animates/interpolates the data. Updated legend values have a brief opacity accent; reduced-motion preferences disable it and the underline/status transitions.
 
-Version 1 intentionally has no logarithmic/date axes, stacking, smoothing, animated data, pan/zoom, or Plotly toolbar. Use the existing Plotly embed when those capabilities are needed. Do not add per-post rendering code for a feature that belongs in the shared renderer.
+### Zoom and pan
+
+- **Drag a box** to zoom into that region. A nearly horizontal drag changes only X; a nearly vertical drag changes only Y. Categorical/forest charts zoom horizontally while preserving row order.
+- **Shift-drag** to pan the selected window. Panning stays within the chart's initial full extent.
+- **Double-click**, press **`0`**, or use the top-right reset icon to restore the full view. With the plot focused, **`+` / `-`** zoom around the view center and **Shift + arrow keys** pan.
+- On touchscreens, activate the magnifier tool before dragging a selection. It returns to normal page scrolling after the selection; Escape or toggling the tool cancels it. Ordinary touch swipes and wheel gestures never zoom implicitly.
+- A drag releases point pinning, and Escape cancels an in-progress drag without scrolling the article. View ranges survive resize and theme changes, but reset on page navigation.
+- Lines and uncertainty bars are clipped at the viewport boundary, not discarded or recomputed. Inspection uses point centers in view (and explicit gaps). A region without point centers remains resettable rather than snapping to an off-screen point. Zoom is capped at one-millionth of the full span to keep projections numerically bounded.
+
+Version 1 intentionally has no logarithmic/date axes, stacking, smoothing, animated data, or Plotly toolbar. Use the existing Plotly embed when those capabilities are needed. Do not add per-post rendering code for a feature that belongs in the shared renderer.
 
 ## KDA data and regeneration
 
-The KDA article's four JSON files are derived from its existing metadata-free `source/visuals/kda/metrics.json` snapshot:
+The KDA article's five JSON files are derived from two metadata-free snapshots under `source/visuals/kda/`: `metrics.json` for checkpoint evaluations and `training-loss.json` for the full training history:
 
 ```sh
 cd source && npm run charts:kda
 ```
+
+The training-loss chart includes all 7,600 logged steps per arm, without smoothing or downsampling. These are training cross-entropies, not held-out evaluation losses.
 
 The adapter preserves the logged values, paired versus sequence-level standard errors, and intervals computed as estimate ± 1.96 × logged SE. The two 1,024-sequence observations stay points-only; the four final-checkpoint categories keep their original order. Old Plotly exports and their Python renderer remain available for comparison, but KDA now embeds the native JSON files.
 
@@ -127,4 +139,4 @@ pw_dir=$(mktemp -d) && npm install --prefix "$pw_dir" --no-save playwright@1.57.
 
 Screenshots and fixture output are retained in the printed temporary directory. Re-run both behavioral suites when changing the schema, renderer, or generation logic; a successful build alone does not check interaction or scientific fidelity.
 
-Implementation: `quartz/util/chart.ts` (contract/domains), `quartz/plugins/transformers/nativeCharts.ts` (Markdown/build validation), `quartz/components/scripts/nativeCharts.inline.ts` (D3 and lifecycle), and `quartz/components/styles/nativeCharts.scss` (scoped theme styling).
+Implementation: `quartz/util/chart.ts` (contract/domains), `quartz/util/chartViewport.ts` (bounded viewport arithmetic), `quartz/plugins/transformers/nativeCharts.ts` (Markdown/build validation), `quartz/components/scripts/nativeCharts.inline.ts` (D3 and lifecycle), and `quartz/components/styles/nativeCharts.scss` (scoped theme styling).

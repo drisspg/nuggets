@@ -16,6 +16,7 @@ import {
   CHART_NAMES,
   FINAL_CHECKPOINTS,
   loadMetrics,
+  loadTrainingMetrics,
   METRICS_PATH,
   OUTPUT_DIR,
   Z_95,
@@ -23,7 +24,8 @@ import {
 } from "./native-charts"
 
 const metrics = loadMetrics()
-const charts = buildKdaCharts(metrics)
+const training = loadTrainingMetrics()
+const charts = buildKdaCharts(metrics, training)
 const SCALED_STEPS = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 7600]
 
 const seriesByName = (spec: ChartSpec, name: string): ChartSeries => {
@@ -38,12 +40,37 @@ const numericY = (point: ChartPoint): number => {
 }
 
 test("builder is pure and stable", () => {
-  const before = JSON.stringify(metrics)
-  const again = buildKdaCharts(metrics)
-  assert.equal(JSON.stringify(metrics), before)
+  const before = JSON.stringify([metrics, training])
+  const again = buildKdaCharts(metrics, training)
+  assert.equal(JSON.stringify([metrics, training]), before)
   assert.deepEqual(again, charts)
   assert.deepEqual(Object.keys(charts), [...CHART_NAMES])
   for (const name of CHART_NAMES) assert.equal(charts[name].version, 1)
+})
+
+test("training loss retains every logged step at full precision without evaluation intervals", () => {
+  const spec = charts["training-loss"]
+  assert.equal(spec.intervalLabel, undefined)
+  assert.equal(spec.series.length, 2)
+  for (const [index, key] of (["scaled_causal", "scaled_midpoint"] as const).entries()) {
+    const rows = training.series[key].rows
+    const series = spec.series[index]
+    assert.equal(series.mode, "line")
+    assert.equal(series.color, index === 0 ? "blue" : "amber")
+    assert.equal(series.points.length, 7600)
+    assert.deepEqual(
+      series.points.map((point) => point.x),
+      Array.from({ length: 7600 }, (_, i) => i + 1),
+    )
+    assert.deepEqual(
+      series.points,
+      rows.map(({ step, loss }) => ({ x: step, y: loss })),
+    )
+  }
+  assert.equal(spec.series[0].points[0].y, 12.441706657409668)
+  assert.equal(spec.series[0].points.at(-1)!.y, 3.1887118816375732)
+  assert.equal(spec.series[1].points[0].y, 12.44172191619873)
+  assert.equal(spec.series[1].points.at(-1)!.y, 3.1853528022766113)
 })
 
 test("scaled loss: four curves copy logged NLLs with the old color/dash distinctions", () => {
@@ -264,7 +291,7 @@ test("generated JSON assets match the builder output exactly", () => {
   assert(existsSync(METRICS_PATH))
 })
 
-test("the KDA article uses all four native embeds rather than stale Plotly fences", () => {
+test("the KDA article uses all five native embeds rather than stale Plotly fences", () => {
   const markdown = readFileSync(resolve(OUTPUT_DIR, "../../KDA Future Token Leakage.md"), "utf8")
   const tree = unified().use(remarkParse).parse(markdown)
   const embeds: Array<{ language: string; src: string }> = []
@@ -290,14 +317,14 @@ test("the KDA article uses all four native embeds rather than stale Plotly fence
 test("builder rejects misaligned checkpoints", () => {
   const broken = JSON.parse(JSON.stringify(metrics)) as typeof metrics
   broken.series.scaled_paired_64.rows.pop()
-  assert.throws(() => buildKdaCharts(broken), /scaled_paired_64 checkpoints/)
+  assert.throws(() => buildKdaCharts(broken, training), /scaled_paired_64 checkpoints/)
 })
 
 test("builder rejects invalid logged standard errors without coercion", () => {
   for (const value of [-0.1, NaN, Infinity, "0.001"]) {
     const broken = structuredClone(metrics)
     broken.series.scaled_paired_1024.rows[0]["paired/gap_did_se"] = value as number
-    assert.throws(() => buildKdaCharts(broken), /finite, nonnegative logged SE/)
+    assert.throws(() => buildKdaCharts(broken, training), /finite, nonnegative logged SE/)
   }
 })
 

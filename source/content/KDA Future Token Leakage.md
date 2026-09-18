@@ -140,14 +140,14 @@ The math is really fun but im hesitant to dive super deep here cause it can be d
 
 Let's call this weight $A_{qk}[i,j]$. How much does query i read from token j's correction? That depends on how the query and key line up, and how much each channel has decayed between the two tokens.
 
-From here on, $g_{i,d}=\sum_{t=0}^{i}\delta_{t,d}$ is the <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-gate-units-note">cumulative log-base-2 gate</span> at token $i$, <span class="sidenote-ref" tabindex="0" aria-describedby="kda-channel-gate-note">channel $d$</span>, measured within the chunk.<span class="sidenote" role="note"><span id="kda-gate-units-note">Attention Gym's KDA API uses natural-log gates. The lower bound is currently capped at $-5,$ that means means the strongest decay =  $e^{-5}\approx0.006738$: or in other words only about 0.67% of the previous state is retained before the other update terms.</span><br><br><span id="kda-channel-gate-note">Notice that extra $d$ index. GDN uses one decay per token per head; KDA gives every key channel its own. Seems like a small change, but as we'll see it makes a big difference to how we implement the chunkwise kernel.</span></span></span> The increments $\delta_{t,d}$ are the per-token log2 gates called $g$ in the recurrence above.
+From here on, $G_{i,d}=\sum_{t=0}^{i}\delta_{t,d}$ is the <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-gate-units-note">cumulative log-base-2 gate</span> at token $i$, <span class="sidenote-ref" tabindex="0" aria-describedby="kda-channel-gate-note">channel $d$</span>, measured within the chunk.<span class="sidenote" role="note"><span id="kda-gate-units-note">Attention Gym's KDA API uses natural-log gates. The lower bound is currently capped at $-5,$ that means means the strongest decay =  $e^{-5}\approx0.006738$: or in other words only about 0.67% of the previous state is retained before the other update terms.</span><br><br><span id="kda-channel-gate-note">Notice that extra $d$ index. GDN uses one decay per token per head; KDA gives every key channel its own. Seems like a small change, but as we'll see it makes a big difference to how we implement the chunkwise kernel.</span></span></span> The increments $\delta_{t,d}$ are the per-token log2 gates called $g$ in the recurrence above.
 
 Suppose $j<i$. Token $j$ writes a correction into the state. By the time query $i$ reads it, that correction has been decayed at every step from $j+1$ through $i$. We start at $j+1$ because each token decays the existing state *before* adding its own correction.
 
 With $D$ channels, and leaving out the usual query scale $s$, the weight on that correction is:
 
 $$
-A_{qk}[i,j] = \sum_{d=1}^{D} q_{i,d} k_{j,d} 2^{g_{i,d}-g_{j,d}}, \qquad j \leq i.
+A_{qk}[i,j] = \sum_{d=1}^{D} q_{i,d} k_{j,d} 2^{G_{i,d}-G_{j,d}}, \qquad j \leq i.
 $$
 
 Entries with $j>i$ are masked to zero. Because the per-token log gates are nonpositive, the cumulative gates decrease: for $j\leq i$, the decay factor is at most one.
@@ -155,16 +155,16 @@ Entries with $j>i$ are masked to zero. Because the per-token log gates are nonpo
 <details>
 <summary>Where did this matrix come from?</summary>
 
-Unroll step (5) back to the chunk boundary. With $H_c$ as the incoming state, the output has two pieces:
+Unroll step (5) to the chunk boundary. Call the incoming state $H_c$:
 
 $$
 \begin{aligned}
-o_i &= s(q_i\odot 2^{g_i})^\top H_c\\
+o_i &= s(q_i\odot 2^{G_i})^\top H_c\\
 &\quad + s\sum_{j\leq i}A_{qk}[i,j]z_j.
 \end{aligned}
 $$
 
-The first reads history from earlier chunks. The second reads completed writes inside this chunk, including the current token's own write. The $s$ is outside Aqk here because we left it out of its definition above.
+The first term reads earlier chunks. The second reads writes from this chunk, including the current write. We keep $s$ outside Aqk, as in its definition above.
 
 The lower-triangular system comes from steps (2)–(3): each key reads earlier writes to determine its new correction. That is a key/key dependency, separate from this query/key read. Attention Gym's [composed forward path](https://github.com/meta-pytorch/attention-gym/blob/52c9eaa31e87a28dc0d3d9464af2088e6384a483/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd.py) puts those pieces together.
 
@@ -172,37 +172,37 @@ The lower-triangular system comes from steps (2)–(3): each key reads earlier w
 
 ## The rebasing trick
 
-The awkward part for a fast kernel is that the decay depends on the channel $d$. It lives **inside** the reduction. This is not a plain $QK^T$ followed by one scalar decay per matrix entry.
+Each channel $d$ has its own decay **inside** the sum. We cannot compute $QK^T$ first and apply one scalar decay per entry.
 
-Luckily it separates: $2^{g_{i,d}-g_{j,d}}=2^{g_{i,d}}2^{-g_{j,d}}$. One factor belongs to the query, the other to the key. That is enough to make GEMM operands! But those factors can get very small and very large.
+Luckily, the decay separates: $2^{G_{i,d}-G_{j,d}}=2^{G_{i,d}}2^{-G_{j,d}}$. Put one factor on the query, the other on the key, and we can use GEMM. But those factors can get tiny and huge.
 
-So we pick a common reference gate $r_d$ for each channel in the block to keep those factors in range, and split the decay around it:
+So we pick a reference gate $r_d$ per channel, shared across the block, to keep the factors in range:
 
 $$
-2^{g_{i,d}-g_{j,d}} = 2^{g_{i,d}-r_d}\,2^{r_d-g_{j,d}}.
+2^{G_{i,d}-G_{j,d}} = 2^{G_{i,d}-r_d}\,2^{r_d-G_{j,d}}.
 $$
 
 Now define rescaled operands:
 
 $$
-\widetilde Q_{i,d}=q_{i,d}2^{g_{i,d}-r_d},
+\widetilde Q_{i,d}=q_{i,d}2^{G_{i,d}-r_d},
 \qquad
-\widetilde K_{j,d}=k_{j,d}2^{r_d-g_{j,d}}.
+\widetilde K_{j,d}=k_{j,d}2^{r_d-G_{j,d}}.
 $$
 
-The left operand depends only on $(i,d)$; the right only on $(j,d)$, with the reference held fixed. So the block is $\widetilde Q\widetilde K^T$, then causally masked. There are our tensorcores.
+With that reference fixed, the left operand uses only $(i,d)$ and the right only $(j,d)$. Multiply $\widetilde Q\widetilde K^T$, then mask future entries. There are our tensorcores.
 
-In real arithmetic, the reference cancels. Pick the first row, pick the midpoint: same answer.
+In real arithmetic, the reference cancels. First row or midpoint: same answer.
 
-On the GPU, we materialize those operands separately. Exponent evaluation, multiplication, conversion, and the matrix multiplication all have finite precision. The cancellation is no longer an identity between the computed values. <span class="sidenote-pair"><strong class="sidenote-ref" tabindex="0" aria-describedby="kda-rounding-note">The reference can become part of the numerical result.</strong><span id="kda-rounding-note" class="sidenote" role="note">The BF16 CuTe engine casts the rescaled operands to BF16 before its matrix multiplication, with FP32 accumulation. The Triton diagonal kernel passes FP32 products to <code>tl.dot</code>; its effective dot precision needs to be checked separately. BF16 inputs do not imply identical rounding paths.</span></span>
+On the GPU, we compute each operand separately. Exponent evaluation, multiplication, conversion, and matrix multiplication all use finite precision. <span class="sidenote-pair"><strong class="sidenote-ref" tabindex="0" aria-describedby="kda-rounding-note">The reference can become part of the numerical result.</strong><span id="kda-rounding-note" class="sidenote" role="note">The BF16 CuTe engine casts the rescaled operands to BF16 before its matrix multiplication, with FP32 accumulation. The Triton diagonal kernel passes FP32 products to <code>tl.dot</code>; its effective dot precision needs to be checked separately. BF16 inputs do not imply identical rounding paths.</span></span>
 
-And if that reference comes from a future token, an otherwise allowed Aqk entry can change when future gates change. No future values need to get through the mask.
+If that reference comes from a future token, changing future gates can change a retained Aqk entry. No future values have to get through the mask.
 
 <iframe class="doc-widget widget-frame" src="./media/kda/aqk-rescale.html" title="Following one retained causal Aqk entry, query 5 reading the write from token 2, through relative decay, operand rebasing, a midpoint reference, and separately rounded operands." loading="lazy" style="height: 900px;"></iframe>
 
 ## How a midpoint breaks causality
 
-For a full 16-token diagonal subchunk, the midpoint reference is the gate at local row 8, using zero-based indexing:
+For a full 16-token diagonal subchunk, the midpoint reference is the gate at local row 8, counting from zero:
 
 <figure class="kda-figure" aria-labelledby="kda-pivot-title">
 <div class="kda-figure-title" id="kda-pivot-title">One subchunk: row 8 supplies the midpoint reference</div>
@@ -210,34 +210,32 @@ For a full 16-token diagonal subchunk, the midpoint reference is the gate at loc
 <li class="kda-token--early">0</li><li class="kda-token--early">1</li><li class="kda-token--early">2</li><li class="kda-token--early">3</li><li class="kda-token--early">4</li><li class="kda-token--early">5</li><li class="kda-token--early">6</li><li class="kda-token--early">7</li><li class="kda-token--pivot">8</li><li>9</li><li>10</li><li>11</li><li>12</li><li>13</li><li>14</li><li>15</li>
 </ol>
 <div class="kda-forbidden"><strong>Rows 0–7:</strong> operand scaling reads the cumulative gate at row 8, which includes future gate increments.</div>
-<figcaption>Row 8 is highlighted as the reference. It is already available to rows 8–15, but is in the future for rows 0–7. The gate changes the rounding of retained causal entries; this is not an unmasked read of future values.</figcaption>
+<figcaption>Row 8 is already available to rows 8–15, but is in the future for rows 0–7. It can change how retained causal entries round, without unmasking future values.</figcaption>
 </figure>
 
-For query rows 0–7, that reference depends on future gate increments. Changing those increments changes the scale factors, which can change the rounding of an otherwise causal dot product.
+<span class="sidenote-hover"><button type="button" class="sidenote-trigger" aria-describedby="kda-mask-reaction">The mask does not fix this.</button><span id="kda-mask-reaction" class="sidenote sidenote--hover-media" role="note"><img src="./media/kda/doc-brown-future.png" alt="Doc Brown staring in disbelief." width="640" height="360" loading="lazy"><span class="sidenote-hover-caption">The causal mask was there the whole time.</span></span></span> It masks future key indices, not a future-dependent scale already used in a retained entry.
 
-<span class="sidenote-hover"><button type="button" class="sidenote-trigger" aria-describedby="kda-mask-reaction">The mask does not fix this.</button><span id="kda-mask-reaction" class="sidenote sidenote--hover-media" role="note"><img src="./media/kda/doc-brown-future.png" alt="Doc Brown staring in disbelief." width="640" height="360" loading="lazy"><span class="sidenote-hover-caption">The causal mask was there the whole time.</span></span></span> It removes matrix entries with future key indices. It does not remove a future-dependent scale already used to compute a retained entry.
-
-The test is simple: keep the tensor shape and a prefix fixed, change only suffix gate increments, and compare the prefix outputs. Keeping the shape fixed matters: shortening a sequence can also change dispatch, tiling, or reduction order.
+To test this, keep the shape and prefix fixed, change only suffix gate increments, and compare prefix outputs. Shortening the sequence could also change dispatch, tiling, or reduction order.
 
 An early isolated probe changed future gates in rows 8–15 while holding rows 0–7 fixed. It changed **11 of 512 BF16 Aqk values**, with a maximum absolute difference of **1.526e-5**. A later GB200 regression through the public `chunk_kda` path, perturbing future Q/K/V and gates together, recorded **851 of 9472 prefix output elements** changing, with maximum absolute difference **2.44e-4**. The causal-reference variant passed the bitwise prefix check.
 
-These are different probes, not two measurements of the same tensor. Their magnitudes are workload-specific. The important result is that the numerical dependence exists, and the isolated gate probe identifies a route for it.
+These probes measure different tensors, and their magnitudes are workload-specific. Both show numerical dependence on future inputs; the gate-only probe shows one way it happens.
 
-Using the **first row of each subchunk** as the reference removes that future read for the queries in the subchunk. But why use subchunks at all?
+Using the **first row of each subchunk** removes that future reference read. But why subchunks?
 
 ## Why 16 tokens, not one reference for all 64?
 
-In the chunked path used for this experiment, the outer chunk is **64 tokens**. The diagonal rebasing subchunks are **16 tokens**. These are two different sizes.
+This experiment used **64-token outer chunks**, with **16-token diagonal rebasing subchunks**.
 
-Rebasing is also a dynamic-range problem. Even when the true pairwise decay is bounded by one, its split factors can be enormous and tiny:
+Even though the true pairwise decay is at most one, its split factors can be tiny and huge:
 
 $$
 \text{small finite decay} = \text{tiny factor}\times\text{huge factor}.
 $$
 
-If we materialize them outside the available exponent range, that can become zero times infinity. A finite true answer does not save the computation.
+Materialize factors outside the exponent range, and we can get zero times infinity—even when the true answer is finite.
 
-The tested gate activation has a lower bound of $-5$ nats per token, equivalent to about $-7.2135$ log-base-2 units per token. At that bound, the largest absolute gate displacement from the reference is:
+The tested activation allows gates as low as $-5$ nats per token, about $-7.2135$ log-base-2 units per token. At that bound, the largest absolute displacement from the reference is:
 
 | Rebasing window | Reference | Maximum displacement, log-base-2 units |
 | --- | --- | ---: |
@@ -245,25 +243,25 @@ The tested gate activation has a lower bound of $-5$ nats per token, equivalent 
 | 16 tokens | Midpoint, row 8 | $8\times7.2135\approx57.7$ |
 | 64 tokens | First row | $63\times7.2135\approx454.4$ |
 
-FP32 and BF16 have an upper exponent limit near 128. The 16-token first-row choice keeps the gate factors within that upper range under this bound; the 64-token choice does not. This is a factor-range calculation, not a blanket guarantee about arbitrary Q/K magnitudes, underflow, or every intermediate.
+FP32 and BF16 have an upper exponent limit near 128. Under this gate bound, 16-token first-row factors fit below that limit; 64-token factors do not. That only bounds the gate factors—not arbitrary Q/K magnitudes, underflow, or every intermediate.
 
-This was not just an extreme synthetic input. In the earlier kernel campaign, the training module initialized near **−2.5 nats/token**, rather than at the −5 bound. Even then, **64-token chunk-wide rebasing** exceeded the available exponent range for every measured chunk/head/channel triple. A 16-token window at the same per-token decay spans only about 54 base-2 log units, so this was not a failure of the bounded 16-token choice. The mild random gates in my optimization harness had missed the chunk-wide failure.
+In the earlier kernel campaign, the training module initialized near **−2.5 nats/token**, not the −5 bound. Yet **64-token chunk-wide rebasing** exceeded the exponent range for every measured chunk/head/channel triple. A 16-token window at that decay spans only about 54 base-2 log units, so this was not a failure of the bounded 16-token choice. My optimization harness used mild random gates and had missed the chunk-wide failure.
 
-The midpoint buys extra exponent headroom, not extra mantissa bits. In a later comparison against an FP64 recurrent reference on the same BF16 inputs, the midpoint did not show a systematic accuracy advantage over the first-row reference across the tested gate ranges.
+The midpoint buys exponent headroom, not mantissa bits. In a later comparison against an FP64 recurrent reference on the same BF16 inputs, it showed no systematic accuracy advantage over first-row rebasing across the gate ranges tested.
 
-So there are two constraints to satisfy together: **do not read a future reference, and do not make the rebasing window too wide.**
+So we need both: **no future reference, and a short enough rebasing window.**
 
 ## Does the model learn to use it?
 
 A failed bitwise test is not evidence that a language model has learned to cheat.
 
-I trained paired causal-reference and midpoint-reference variants, keeping the model configuration, initialization seed, data order, and other settings matched within each pair. The reference switch also followed forward recomputation.
+I trained paired causal-reference and midpoint-reference variants with the same model configuration, initialization seed, data order, and other settings within each pair. The reference choice also applied during forward recomputation.
 
-Here, “causal” names the **forward reference choice**. Both arms retained the same backward intra kernel, which itself used a midpoint reference. Gradients can legitimately depend on future losses, so that is not evidence of forward leakage. It does mean this A/B isolates the forward reference under a shared backward policy; it is not a comparison of two entirely different forward-and-backward rebasing schemes.
+Here, “causal” means the **forward reference choice**. Both arms used the same backward intra kernel, with a midpoint reference. Gradients can legitimately depend on future losses, so this is not evidence of forward leakage. This A/B tests the forward reference under a shared backward policy, not two different forward-and-backward rebasing schemes.
 
-For evaluation, I compared parallel evaluation with autoregressive evaluation. If the midpoint model learned to use a future-dependent signal available only in parallel, removing that signal should hurt it more than it hurts the causal control.
+I evaluated each model in parallel and autoregressively. If the midpoint model learned to use a future signal available only in parallel, removing it should hurt that model more than the causal control.
 
-Loss uses the same log-base convention, but measures something different from a gate: a target token assigned probability $p$ has negative log-likelihood $-\ln p$, in **nats**. Averaging that over target tokens gives NLL in nats/token. Divide by $\ln 2$ to express the loss in bits/token instead; this changes the units, not the model or its predictions.
+A target token assigned probability $p$ has negative log-likelihood $-\ln p$, in **nats**. Averaging over target tokens gives NLL in nats/token. Dividing by $\ln 2$ converts it to bits/token without changing the predictions. These are loss units, not gate values.
 
 Define the evaluation gap, in nats per token:
 
@@ -277,7 +275,7 @@ $$
 \Delta G = G_{\mathrm{midpoint}} - G_{\mathrm{causal}}.
 $$
 
-A positive $\Delta G$ would mean the midpoint arm has a larger autoregressive penalty. Subtracting the causal arm matters: parallel and autoregressive implementations can differ numerically even without a future-dependent reference. I checked the recurrent-KDA evaluator against repeated prefix-only evaluation on trained pilot checkpoints rather than assuming the two were interchangeable.
+A positive $\Delta G$ means the midpoint arm has a larger autoregressive penalty. I subtract the causal arm because parallel and autoregressive implementations can differ numerically without a future-dependent reference. I also checked the recurrent-KDA evaluator against repeated prefix-only evaluation on trained pilot checkpoints.
 
 ### What the runs showed
 
@@ -286,49 +284,55 @@ A positive $\Delta G$ would mean the midpoint arm has a larger autoregressive pe
 | Pilot, seeds 42, 11, 23 | 520M total / 208M non-embedding parameters | About 1.05B C4 tokens | No learned exploitation detected in any seed |
 | Scaled pair, seed 42 | 1.45B total / about 830M non-embedding parameters | About 4.0B C4 tokens | No learned exploitation detected |
 
-For the scaled pair's final checkpoint, evaluation on **1024 matched held-out sequences, with 256 evaluated positions per sequence**, using recurrent KDA for the autoregressive mode, gave $\Delta G$ of **+0.0000088 nats/token**, with a logged paired standard error of **0.0000512 nats/token**. An approximate 95% interval, computed as the estimate ± 1.96 standard errors, is **[-0.000092, +0.000109] nats/token**. That is a pointwise interval for this checkpoint and evaluation—not uncertainty across training seeds or a bound on all possible models.
+At the scaled pair’s final checkpoint, I evaluated **1024 matched held-out sequences, with 256 evaluated positions per sequence**, using recurrent KDA for the autoregressive mode. $\Delta G$ was **+0.0000088 nats/token**, with a logged paired standard error of **0.0000512 nats/token**. The approximate 95% interval (estimate ± 1.96 standard errors) is **[-0.000092, +0.000109] nats/token**. This is a pointwise interval for this checkpoint and evaluation, not uncertainty across training seeds or a bound on all possible models.
 
-I also separated positions before the midpoint from the remaining positions in each 16-token subchunk. The earlier rows, which can directly read a future reference, did not develop a distinct exploitation signal.
+I also split each 16-token subchunk into positions before the midpoint and the remaining positions. The earlier rows can directly read a future reference, but showed no distinct exploitation signal.
 
-As a positive control, I explicitly added a scaled copy of the next token's value vector, $0.5\,v_{t+1}$, to the parallel KDA output. That model did learn to exploit the future, and the evaluator reported a large autoregressive penalty. This checks that the evaluation can detect an obvious leak; it does not guarantee sensitivity to every small channel.
+As a positive control, I added $0.5\,v_{t+1}$, a scaled copy of the next token’s value vector, to the parallel KDA output. That model learned to exploit the future and showed a large autoregressive penalty. The evaluator could detect this obvious leak; that does not guarantee sensitivity to every small channel.
 
-The pilot replications also helped interpret small quality differences. Midpoint-versus-causal loss differences changed sign across seeds and metrics. A slightly better loss in one pair was not enough to conclude that midpoint rebasing helped.
+In the pilots, midpoint-versus-causal loss differences changed sign across seeds and metrics. A slightly better loss in one pair was not enough to conclude that midpoint rebasing helped.
 
 ```chart
-{"src":"media/kda/scaled-loss.json","title":"Scaled run: held-out NLL · 1.45B parameters · seed 42 · 64 sequences","height":300}
+{"src":"media/kda/training-loss.json","title":"Training loss","height":300}
 ```
 
-*Replotted from the logged W&B evaluation metrics, without smoothing. AR means autoregressive. The four curves nearly overlap; hover to update the legend, or click a legend entry to hide a trace. Full-precision values are in the data table. Lower NLL is better.*
+*Scaled pair, all 7,600 logged steps per arm, without smoothing. This is training cross-entropy averaged over valid tokens, not held-out evaluation.*
 
 ```chart
-{"src":"media/kda/scaled-gap.json","title":"Zoom in: autoregressive minus parallel NLL · 64 sequences","height":300}
+{"src":"media/kda/scaled-loss.json","title":"Held-out loss","height":300}
 ```
 
-*Positive values mean an autoregressive penalty. Bars are estimate ± 1.96 times the logged sequence standard error. Separating the gap from the full loss curve makes the small differences visible.*
+*Scaled pair, 64 held-out sequences. Replotted from the logged W&B evaluation metrics, without smoothing. AR means autoregressive. The four curves nearly overlap; hover to update the legend, or click a legend entry to hide a trace. Hover over a legend entry for full-precision values. Lower NLL is better.*
 
 ```chart
-{"src":"media/kda/paired-checkpoints.json","title":"Paired excess autoregressive penalty, ΔG · scaled run","height":300}
+{"src":"media/kda/scaled-gap.json","title":"Autoregressive gap","height":300}
+```
+
+*Scaled pair, 64 held-out sequences. Positive values mean an autoregressive penalty. Bars are estimate ± 1.96 times the logged sequence standard error. Separating the gap from the full loss curve makes the small differences visible.*
+
+```chart
+{"src":"media/kda/paired-checkpoints.json","title":"Excess autoregressive gap","height":300}
 ```
 
 *The 64-sequence sweep and the two 1024-sequence evaluations are separate traces; the latter are not a full checkpoint sweep. Positive ΔG means a larger autoregressive penalty under midpoint rebasing.*
 
 ```chart
-{"src":"media/kda/paired-seeds.json","title":"Final checkpoints · 1,024 matched sequences per comparison","height":300}
+{"src":"media/kda/paired-seeds.json","title":"Final checkpoints","height":300}
 ```
 
-*Pilot comparisons are at step 4000; the scaled comparison is at step 7600. Bars on both paired charts use the logged **paired** standard errors, not independently combined arm errors. Every displayed pointwise **ΔG interval** includes zero; this is consistent with no detected excess autoregressive penalty, not proof of exact equivalence.*
+*1,024 matched sequences per comparison. Pilot comparisons are at step 4000; the scaled comparison is at step 7600. Bars on both paired charts use the logged **paired** standard errors, not independently combined arm errors. Every displayed pointwise **ΔG interval** includes zero; this is consistent with no detected excess autoregressive penalty, not proof of exact equivalence.*
 
 ## Why is it hard to extract the future signal?
 
-It is tempting to say “the perturbation is tiny, so the model cannot use it.” That is not a sufficient explanation. A tiny but reliable bit can carry useful information, and a model can sometimes amplify it. What matters is whether the perturbation contains **predictive structure beyond what the causal features already provide**, and whether training can discover that structure.
+A tiny, reliable bit can carry useful information, and a model can sometimes amplify it. The question is whether this perturbation adds **predictive structure beyond the causal features**, and whether training can find it.
 
-Here is a useful first-order model, not a claim that GPU errors are random. For one retained matrix entry, define the exact contribution of channel $d$ as:
+For a first-order model—not an assumption that GPU errors are random—define channel $d$’s exact contribution to one retained matrix entry:
 
 $$
-c_d = q_{i,d}k_{j,d}2^{g_{i,d}-g_{j,d}}.
+c_d = q_{i,d}k_{j,d}2^{G_{i,d}-G_{j,d}}.
 $$
 
-Away from overflow and underflow, write the computed rescaled operands as their exact values times $(1+\epsilon^Q_d(r))$ and $(1+\epsilon^K_d(r))$. The errors include operand preparation; their values depend on the reference and the actual inputs. To first order:
+Away from overflow and underflow, write the computed rescaled operands as their exact values times $(1+\epsilon^Q_d(r))$ and $(1+\epsilon^K_d(r))$. These errors include operand preparation and depend on the reference and inputs. To first order:
 
 $$
 \widehat A_{qk}(r)-A_{qk}
@@ -337,26 +341,26 @@ $$
 +\epsilon_{\mathrm{dot}}(r),
 $$
 
-where $\epsilon_{\mathrm{dot}}$ is an additive error term for the dot product and output rounding. The future reference cancels out of each exact $c_d$. What remains is its influence on the errors.
+Here, $\epsilon_{\mathrm{dot}}$ is the additive dot-product and output-rounding error. The future reference cancels out of each exact $c_d$; it affects only the errors.
 
 That is very different from handing the model a future value vector:
 
-- **The reference is not the next token.** It is a per-channel cumulative gate that may combine several future gate increments. Recovering a useful next-token feature from it is already a separate problem.
-- **A changed output is not necessarily a predictive change.** The rounding pattern also depends on the queries, keys, decay regime, and where the operands lie relative to representable numbers. A large count of changed elements does not measure future information.
-- **Channel contributions are mixed.** Signed contributions can cancel, reinforce, or be attenuated by later computation. Assuming independent, zero-mean rounding would make a simple noise model, but I did not establish that assumption here.
-- **The backward pass is not an exact derivative of the rounding channel.** The ideal expression has zero derivative with respect to the cancelling reference. Ordinary kernel gradients do not explicitly model every rounding boundary. This makes “training will find the leak” less automatic, but does not prove that training cannot exploit or amplify it indirectly.
+- **The reference is not the next token.** It is a per-channel cumulative gate that may combine several future increments. The model would still have to recover a useful next-token feature from it.
+- **A changed output is not necessarily a predictive change.** Rounding also depends on the queries, keys, decay regime, and proximity to representable numbers. Counting changed elements does not measure future information.
+- **Channel contributions are mixed.** Signed contributions can cancel, reinforce, or be attenuated by later computation. I did not establish that the rounding errors are independent or zero-mean.
+- **The backward pass is not an exact derivative of the rounding channel.** The ideal expression has zero derivative with respect to the cancelling reference. Ordinary kernel gradients do not model every rounding boundary, though training might still exploit or amplify the signal indirectly.
 
 ### Probe the residual, not just the loss
 
-To investigate this, I captured exact KDA inputs from layers 0 and 1 of the trained causal 1.45B model on 1024 held-out sequences. I ran those same inputs through both reference variants and formed:
+I captured exact KDA inputs from layers 0 and 1 of the trained causal 1.45B model on 1024 held-out sequences, ran those same inputs through both reference variants, and formed:
 
 $$
 R = O_{\mathrm{midpoint}} - O_{\mathrm{causal}}.
 $$
 
-This residual is a **reference-choice difference**, not a pure measurement of future information. Both variants round; changing references can change outputs even at rows whose reference is already available. The state can also carry differences into later strips.
+This residual is a **reference-choice difference**, not a pure measurement of future information. Changing references can change rounding even where both references are already available, and the state can carry those differences into later strips.
 
-About **45–49% of output elements** differed in this capture, and about **60% of those differences were exactly one BF16 ULP**. So there was plenty of measurable residual. The question was what could be read from it.
+About **45–49% of output elements** differed in this capture, and about **60% of those differences were exactly one BF16 ULP**.
 
 | Probe | Recorded result | What it checks |
 | --- | --- | --- |
@@ -364,69 +368,65 @@ About **45–49% of output elements** differed in this capture, and about **60% 
 | MLP regression for the future gate | $R^2$ about 0.001, comparable to the current-gate control | A weak decay-regime signal is not necessarily future-specific |
 | Next-token prediction with real versus shuffled residuals | Paired cross-entropy difference about zero | No detected incremental predictive benefit from the residual |
 
-The next-token probe used the top-1024-token task and sequence-separated splits. The recorded paired cross-entropy difference was **0.000 ± 0.005 nats**; the uncertainty convention needs to be checked against the original report before publication. The same probe family extracted **0.4–0.7 nats** of predictive information from the ordinary causal features, so the probes were not simply incapable of learning anything.
+The next-token probe used the top-1024-token task and sequence-separated splits. Its recorded paired cross-entropy difference was **0.000 ± 0.005 nats**; the uncertainty convention still needs checking against the original report before publication. The same probe family extracted **0.4–0.7 nats** of predictive information from ordinary causal features, so it could learn useful signals.
 
-Taken together, the experiments say more than “the training curves look similar”: the reference changes outputs, bounded readouts did not recover useful extra future information from those changes, and the training A/B did not show exploitation.
-
-But this is not a proof of zero channel capacity. The probes covered two layers of one trained causal model with particular readouts. They do not exhaust nonlinear decoders, midpoint-trained representations, or changes the model might learn under another precision or training regime.
+These probes do not prove zero channel capacity. They covered two layers of one trained causal model with particular readouts, not every nonlinear decoder, midpoint-trained representation, or precision and training regime.
 
 > [!todo] Residual figures
 > Add the worklog's residual/ULP distribution and the future-gate and next-token probe comparisons, if available. Caption them as reference-choice residuals, not “percent of elements leaking the future.”
 
 ## Could midpoint rounding still be better?
 
-There is another hypothesis worth separating from leakage: perhaps changing the pivot improves numerical behavior, and that changes training even if no future information is used.
+Could changing the reference improve training through better numerics, without using future information?
 
-**There is a clear range argument. There is not an automatic accuracy argument.**
-
-For a channel in a rebasing window, let $g_{\min}$ and $g_{\max}$ be the smallest and largest cumulative gates. If we ignore Q/K magnitudes and only minimize the worst gate-factor exponent displacement, the best unrestricted reference is:
+For one channel, let $G_{\min}$ and $G_{\max}$ be the smallest and largest cumulative gates in the rebasing window. Ignoring Q/K magnitudes, the unrestricted reference that minimizes the worst gate-factor exponent displacement is:
 
 $$
-r^* = \frac{g_{\max}+g_{\min}}{2}.
+r^* = \frac{G_{\max}+G_{\min}}{2}.
 $$
 
-It balances the two extreme distances. The first-row reference sits at $g_{\max}$ and uses the full gate span on one side; $r^*$ uses half on either side. This is a statement about factor headroom, not an optimal causal algorithm: computing these extrema over the whole window reads the future for early queries.
+The first-row reference sits at $G_{\max}$ and uses the full gate span on one side; $r^*$ uses half on either side. This buys factor headroom, but is not a causal algorithm: finding the extrema over the whole window reads the future for early queries.
 
-Also, **the midpoint token is not necessarily the midpoint gate value**. If per-token gate deltas are roughly constant, row 8 in a 16-token window is close to the halfway point in cumulative decay. If the deltas are bursty, most of the decay might occur before or after row 8. Different channels can have different patterns. Centering in token index then need not center the exponents.
+**The midpoint token is not necessarily the midpoint gate value.** With roughly constant per-token gate deltas, row 8 in a 16-token window is close to halfway through the cumulative decay. With bursty deltas, most decay might occur before or after row 8, differently in each channel. Centering the token index need not center the exponents.
 
 The Q/K magnitudes matter too. Ignoring exact zeros, the operand log-magnitudes are:
 
 $$
-\log_2|\widetilde Q_{i,d}| = \log_2|q_{i,d}|+g_{i,d}-r_d,
+\log_2|\widetilde Q_{i,d}| = \log_2|q_{i,d}|+G_{i,d}-r_d,
 \qquad
-\log_2|\widetilde K_{j,d}| = \log_2|k_{j,d}|+r_d-g_{j,d}.
+\log_2|\widetilde K_{j,d}| = \log_2|k_{j,d}|+r_d-G_{j,d}.
 $$
 
-So a reference that balances the gates alone need not balance the actual operands. Their joint distribution, proximity to underflow/overflow, and the conditioning of the final sum all affect numerical error.
+Balancing the gates need not balance the operands. Their joint distribution, proximity to underflow/overflow, and the final sum’s conditioning all affect numerical error.
 
-Inside the normal range, BF16 does not gain relative precision merely because an operand moves closer to one. It has the same significand width in each normal binade. Rescaling changes which values round up or down; that can improve or worsen a particular answer without producing a systematic improvement. Near a range boundary, however, avoiding underflow or overflow is a qualitatively different benefit.
+Inside the normal range, moving a BF16 operand closer to one does not add relative precision: every normal binade has the same significand width. Rescaling changes which values round up or down; it can improve or worsen an answer without giving a systematic gain. Avoiding underflow or overflow is a separate range benefit.
 
 ### What we measured for this hypothesis
 
-The precision sweep compared both references against an FP64 recurrent reference, holding the BF16 inputs fixed. It used sequence length 1024, four heads, and per-token gates uniform in $[-s,0]$ nats for $s$ in $\{0.5,1,2.5,4,5\}$. The ratio of midpoint to causal **mean error** stayed between **0.99 and 1.02**; below one favors midpoint. This did not show a systematic accuracy benefit on that sweep. It does not cover every distribution of gate deltas.
+I compared both references against an FP64 recurrent reference with fixed BF16 inputs: sequence length 1024, four heads, and per-token gates uniform in $[-s,0]$ nats for $s$ in $\{0.5,1,2.5,4,5\}$. The ratio of midpoint to causal **mean error** stayed between **0.99 and 1.02**; below one favors midpoint. This sweep showed no systematic accuracy benefit, but does not cover every distribution of gate deltas.
 
-The trained model's gates were not uniformly distributed: the recorded histograms were bimodal, near zero and near the $-5$ nats/token bound. In layers 0 and 1, respectively, **9.0% and 17.6%** of captured per-token gates were below $-4.9$ nats. Near-bound values are not necessarily exact point masses; the spread within each mode matters. I would not assume this distribution generates independent, uniformly distributed rounding errors.
+The trained model’s gate histograms were bimodal, near zero and the $-5$ nats/token bound. In layers 0 and 1, respectively, **9.0% and 17.6%** of captured per-token gates were below $-4.9$ nats. Near-bound values need not be exact point masses; the spread within each mode matters. I would not assume independent, uniformly distributed rounding errors.
 
-A separate audit on the trained model did find better range headroom under midpoint rebasing. The causal-reference query operands reached into the subnormal range very rarely; the midpoint operands had no subnormal exposure in that capture. That supports a range advantage on those inputs, not a measured model-quality advantage.
+In a separate trained-model audit, causal-reference query operands very rarely reached the subnormal range; midpoint operands had no subnormal exposure in that capture. This supports a range advantage on those inputs, not a measured model-quality advantage.
 
-This leaves a plausible, narrower hypothesis: **midpoint rebasing may help for distributions that put important operands near a range boundary, even though it did not improve accuracy or quality systematically in these runs.** To test it, vary the distribution of gate deltas and operand magnitudes separately, compare with the same high-precision reference, and measure boundary exposure alongside error. Keep the reference-choice experiment separate from changing the gate bound or subchunk size.
+**Midpoint rebasing may help when important operands approach a range boundary, though these runs showed no systematic accuracy or quality benefit.** To test that, vary gate-delta distributions and operand magnitudes separately, compare against the same high-precision reference, and measure boundary exposure alongside error. Do not also change the gate bound or subchunk size.
 
 > [!todo] Precision figures
 > Add the worklog's error-versus-gate-range and gate/operand-distribution plots, if available. Distinguish per-token deltas, cumulative gate spans, and actual rescaled operand exponents in the captions.
 
 ## What I take away
 
-The midpoint reference creates **numerical future dependence**. The experiments did **not detect learned exploitation** of it. I would not describe the result as either “the model learned to see the future” or “there is no leakage.” Each drops half of what happened.
+The midpoint reference creates **numerical future dependence**. These experiments **did not detect learned exploitation**—not the same as showing there is no leak.
 
-The implementation lesson is more general than KDA: a quantity that cancels in symbolic algebra can still carry information through finite-precision intermediates. Causal masking is not the whole causality contract. The provenance of normalization and scaling values matters too.
+A quantity that cancels in algebra can still carry information through finite-precision intermediates. The mask is only part of the causality contract; we also have to check where normalization and scaling values come from.
 
-For this path, I kept the first-row reference as the default, with bounded rebasing windows and a prefix-invariance regression. Midpoint rebasing offered more range headroom, but these experiments did not establish either a useful future-information channel or a systematic accuracy or model-quality benefit.
+For this path, I kept the first-row reference as the default, with bounded rebasing windows and a prefix-invariance regression.
 
-The distinction I want to keep is: **a causality violation, a learnable predictive signal, and a better numerical approximation are three different claims.** A test for one does not settle the other two.
+**A causality violation, a learnable predictive signal, and a better numerical approximation are three different claims.** A test for one does not settle the other two.
 
 ## Appendix: nats versus bits
 
-A **nat** is a logarithmic unit using the natural logarithm, $\ln$, whose base is $e$. A **bit** uses $\log_2$. They describe the same quantity on different scales:
+A **nat** uses the natural logarithm, $\ln$, with base $e$; a **bit** uses $\log_2$. They express the same quantity on different scales:
 
 $$
 \log_2 x = \frac{\ln x}{\ln 2} = \ln x\,\log_2 e.
@@ -442,7 +442,7 @@ $$
 
 That channel's decay step retains about **0.67%** of the previous state, before KDA's other update terms. It is not $2^{-5}=1/32$, which would retain 3.125%. More-negative log gates mean stronger decay.
 
-The bounded gate transform uses `lower_bound=-5` as its floor; it does not set every gate to $-5$. Attention Gym handles the cumulative sum and conversion to base-2 units internally, so the kernels can use `exp2`. In the equations above, $g$ denotes that **chunk-local cumulative base-2 log gate**, not the per-token natural-log value passed to the API.
+The bounded gate transform uses `lower_bound=-5` as its floor; it does not set every gate to $-5$. Attention Gym handles the cumulative sum and conversion to base-2 units internally, so the kernels can use `exp2`. In the equations above, $G_{i,d}$ denotes that **chunk-local cumulative base-2 log gate**, not the per-token natural-log value passed to the API.
 
 ## Still to add before publishing
 

@@ -161,6 +161,15 @@ export const CodeAnnotations: QuartzTransformerPlugin = () => ({
     ]
   },
   externalResources() {
-    return { js: [{ script, loadTime: "afterDOMReady", contentType: "inline" }] }
+    // Transformer resources are classic scripts, unlike the isolated component bundles.
+    return {
+      js: [
+        {
+          script: `(function () {${script}})();`,
+          loadTime: "afterDOMReady",
+          contentType: "inline",
+        },
+      ],
+    }
   },
 })
