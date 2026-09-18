@@ -141,7 +141,7 @@ The math is really fun but im hesitant to dive super deep here cause it can be d
 
 ## Chunkwise Aqk
 
-We will store these scalar weights in a matrix $A_{qk}[i,j]$. How do we calculate this? Well that depends on how the query and key line up (dot prod), and how much each channel has decayed between the two tokens.
+We will store these scalar weights in a matrix $A_{qk}[i,j].$ How do we calculate this? Well that depends on how the query and key line up (dot prod), and how much each channel has decayed between the two tokens.
 
 From here on, $G_{i,d}=\sum_{t=0}^{i}\delta_{t,d}$ is the <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-gate-units-note">cumulative log-base-2 gate</span> at token $i$, <span class="sidenote-ref" tabindex="0" aria-describedby="kda-channel-gate-note">channel $d$</span>, measured within the chunk.<span class="sidenote" role="note"><span id="kda-gate-units-note">Attention Gym's KDA API uses natural-log gates. The lower bound is currently capped at $-5,$ that means means the strongest decay =  $e^{-5}\approx0.006738$: or in other words only about 0.67% of the previous state is retained before the other update terms.</span><br><br><span id="kda-channel-gate-note">Notice that extra $d$ index. GDN uses one decay per token per head; KDA gives every key channel its own. Seems like a small change, but as we'll see it makes a big difference to how we implement the chunkwise kernel.</span></span></span> The increments $\delta_{t,d}$ are the per-token log2 gates called $g$ in the recurrence above.
 
@@ -158,9 +158,6 @@ $$
 </div>
 
 We can see a few things; entries with $j>i$ are masked to zero if not the decay would flip signs and suddenly we would have a Kimi Explosive attention! $G_{i,d}$ is nonincreasing with increasing $i$ starting from $0$ so the decay is at most $1$ or (kimi never forget attention)!
-
-
-And if you squint your eyes you might think.. hmm this kinda looks regular attention no?
 
 <details>
 <summary>Trace Aqk back to the base recurrence</summary>
@@ -180,7 +177,7 @@ $$
 
 </div>
 
-Apply token $i$'s decay and write to that [previous state](#kda-previous-state), using <span class="sidenote-hover"><a class="sidenote-ref sidenote-trigger" href="#kda-base-recurrence" aria-describedby="kda-decay-write-preview" data-no-popover>steps (1) and (4)</a><span id="kda-decay-write-preview" class="sidenote sidenote--hover-media" role="note">$\widetilde S_i=D_iS_{i-1}$<br>$S_i=\widetilde S_i+k_iz_i^\top$</span></span>. Since $G_i=G_{i-1}+\delta_i$:
+Apply token $i$'s decay and write to that previous state, using <span class="sidenote-hover"><button type="button" class="sidenote-ref sidenote-trigger" aria-describedby="kda-decay-write-preview">steps (1) and (4)</button><span id="kda-decay-write-preview" class="sidenote sidenote--hover-media" role="note">$\widetilde S_i=D_iS_{i-1}$<br>$S_i=\widetilde S_i+k_iz_i^\top$</span></span>. Since $G_i=G_{i-1}+\delta_i$:
 
 <div id="kda-postwrite-state">
 
@@ -195,9 +192,9 @@ $$
 
 </div>
 
-The new write is the $j=i$ term, with no relative decay yet: $2^{G_i-G_i}=1$.
+<span class="sidenote-hover"><button type="button" class="sidenote-ref sidenote-trigger" aria-describedby="kda-write-fold-preview">The new write is the $j=i$ term</button><span id="kda-write-fold-preview" class="sidenote sidenote--hover-media" role="note">The old sum stops at $j<i$. Extending it to $j\le i$ adds exactly:<br>$\begin{aligned}&\operatorname{diag}(2^{G_i-G_i})k_i z_i^\top\\&\quad=k_i z_i^\top.\end{aligned}$<br>This absorbs the separate $+k_i z_i^\top$ from the first line.</span></span>, with no relative decay yet: $2^{G_i-G_i}=1$.
 
-Substitute this [updated state](#kda-postwrite-state) into <span class="sidenote-hover"><a class="sidenote-ref sidenote-trigger" href="#kda-base-recurrence" aria-describedby="kda-read-preview" data-no-popover>step (5)</a><span id="kda-read-preview" class="sidenote sidenote--hover-media" role="note">$o_i=s q_i^\top S_i$</span></span>. Writing the output as a row gives:
+Substitute this updated state into <span class="sidenote-hover"><button type="button" class="sidenote-ref sidenote-trigger" aria-describedby="kda-read-preview">step (5):</button><span id="kda-read-preview" class="sidenote sidenote--hover-media" role="note">$o_i=s q_i^\top S_i$</span></span>
 
 $$
 \begin{aligned}
@@ -210,19 +207,31 @@ o_i
 \end{aligned}
 $$
 
-The first term reads incoming history. The underbraced sum is $A_{qk}[i,j]$: **the scalar weight on completed write $z_j$.** We keep $s$ outside it, matching the [definition above](#kda-aqk-definition).
+Et voilà, we have our $A_{qk}[i,j]$ weight: **how much query $i$ reads from completed write $z_j$.** The first term reads incoming history; the sum reads this chunk's writes. We keep $s$ outside the weight, as before.
 
-This is separate from the strictly lower-triangular **key/key** system in <span class="sidenote-hover"><a class="sidenote-ref sidenote-trigger" href="#kda-base-recurrence" aria-describedby="kda-write-solve-preview" data-no-popover>steps (2)–(3)</a><span id="kda-write-solve-preview" class="sidenote sidenote--hover-media" role="note">$\widehat v_i=k_i^\top\widetilde S_i$<br>$z_i=\beta_i(v_i-\widehat v_i)$</span></span>, which determines the writes; $A_{qk}$ reads them afterward. Attention Gym's [composed forward path](https://github.com/meta-pytorch/attention-gym/blob/52c9eaa31e87a28dc0d3d9464af2088e6384a483/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd.py) puts the pieces together.
+Attention Gym's [composed forward path](https://github.com/meta-pytorch/attention-gym/blob/52c9eaa31e87a28dc0d3d9464af2088e6384a483/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd.py) puts these pieces together.
 
 </details>
 
 ## The rebasing trick
 
-Each channel $d$ has its own decay **inside** the sum. We cannot compute $QK^T$ first and apply one scalar decay per entry.
+Now how do we feed this to tensorcores? A GEMM computes $\sum_d L_{i,d}R_{j,d}$: the left operand depends on $(i,d)$, and the right on $(j,d)$. But our decay $2^{G_{i,d}-G_{j,d}}$ mixes all three indices **inside** the sum. We cannot just compute $QK^T$ and scale each output, because the decay changes with $d$.
 
-Luckily, the decay separates: $2^{G_{i,d}-G_{j,d}}=2^{G_{i,d}}2^{-G_{j,d}}$. Put one factor on the query, the other on the key, and we can use GEMM. But those factors can get tiny and huge.
+The simple trick is that this mixed term can separate into the two operands we need:
 
-So we pick a reference gate $r_d$ per channel, shared across the block, to keep the factors in range:
+$$
+2^{G_{i,d}-G_{j,d}}
+=\underbrace{2^{G_{i,d}}}_{(i,d)}\,
+\underbrace{2^{-G_{j,d}}}_{(j,d)}.
+$$
+
+We then re-associate these terms -> the first factor on the query and the second on the key, and we have a GEMM!
+
+
+
+The catch is that the split factors can be <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-decay-range-note">tiny and huge even when their product is well behaved</span><span id="kda-decay-range-note" class="sidenote" role="note">Unsplit, $2^{G_{i,d}-G_{j,d}}$ measures decay only from $j+1$ to $i$. Split, $2^{G_{i,d}}\cdot2^{-G_{j,d}}$ uses two cumulative gates measured from the start of this chunk<br><br></span></span>.
+
+Rebasing keeps that separation but moves the reference from zero to a gate $r_d$ per channel, shared across the block:
 
 $$
 2^{G_{i,d}-G_{j,d}} = 2^{G_{i,d}-r_d}\,2^{r_d-G_{j,d}}.
