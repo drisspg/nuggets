@@ -105,6 +105,8 @@ MatX describes a really nice experimental process for finding this leak: train a
 
 KDA is a delta-rule linear attention variant. Like many other linear attention variants it stores info in a recurrent state that is calculated earlier tokens:
 
+<div id="kda-base-recurrence">
+
 $$
 \begin{alignedat}{3}
 \text{Definition:}\\
@@ -129,6 +131,7 @@ $$
 \end{alignedat}
 $$
 
+</div>
 
 This recurrent form is great when we are decoding 1 token at a time but for training it is not efficient. If only there was some way to turn this memory bound problem into one that can use our tensorcores.. <span class="sidenote-hover"><button type="button" class="sidenote-trigger" aria-describedby="kda-chunking-reaction">CHUNKING!</button><span id="kda-chunking-reaction" class="sidenote sidenote--hover-media" role="note"><img src="./media/kda/kool-aid-man.gif" alt="The Kool-Aid Man bursts through a wall. Oh yeah!" width="420" height="310" loading="lazy"></span></span>
 
@@ -138,7 +141,7 @@ The math is really fun but im hesitant to dive super deep here cause it can be d
 
 ## Chunkwise Aqk
 
-Let's call this weight $A_{qk}[i,j]$. How much does query i read from token j's correction? That depends on how the query and key line up, and how much each channel has decayed between the two tokens.
+We will store these scalar weights in a matrix $A_{qk}[i,j]$. How do we calculate this? Well that depends on how the query and key line up (dot prod), and how much each channel has decayed between the two tokens.
 
 From here on, $G_{i,d}=\sum_{t=0}^{i}\delta_{t,d}$ is the <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-gate-units-note">cumulative log-base-2 gate</span> at token $i$, <span class="sidenote-ref" tabindex="0" aria-describedby="kda-channel-gate-note">channel $d$</span>, measured within the chunk.<span class="sidenote" role="note"><span id="kda-gate-units-note">Attention Gym's KDA API uses natural-log gates. The lower bound is currently capped at $-5,$ that means means the strongest decay =  $e^{-5}\approx0.006738$: or in other words only about 0.67% of the previous state is retained before the other update terms.</span><br><br><span id="kda-channel-gate-note">Notice that extra $d$ index. GDN uses one decay per token per head; KDA gives every key channel its own. Seems like a small change, but as we'll see it makes a big difference to how we implement the chunkwise kernel.</span></span></span> The increments $\delta_{t,d}$ are the per-token log2 gates called $g$ in the recurrence above.
 
@@ -146,27 +149,70 @@ Suppose $j<i$. Token $j$ writes a correction into the state. By the time query $
 
 With $D$ channels, and leaving out the usual query scale $s$, the weight on that correction is:
 
+<div id="kda-aqk-definition">
+
 $$
 A_{qk}[i,j] = \sum_{d=1}^{D} q_{i,d} k_{j,d} 2^{G_{i,d}-G_{j,d}}, \qquad j \leq i.
 $$
 
-Entries with $j>i$ are masked to zero. Because the per-token log gates are nonpositive, the cumulative gates decrease: for $j\leq i$, the decay factor is at most one.
+</div>
+
+We can see a few things; entries with $j>i$ are masked to zero if not the decay would flip signs and suddenly we would have a Kimi Explosive attention! $G_{i,d}$ is nonincreasing with increasing $i$ starting from $0$ so the decay is at most $1$ or (kimi never forget attention)!
+
+
+And if you squint your eyes you might think.. hmm this kinda looks regular attention no?
 
 <details>
-<summary>Where did this matrix come from?</summary>
+<summary>Trace Aqk back to the base recurrence</summary>
 
-Unroll step (5) to the chunk boundary. Call the incoming state $H_c$:
+Call the incoming state $H_c$, with chunk-local boundaries $S_{-1}=H_c$ and $G_{-1}=0$. After token $i-1$, the state is:
+
+<div id="kda-previous-state">
 
 $$
 \begin{aligned}
-o_i &= s(q_i\odot 2^{G_i})^\top H_c\\
-&\quad + s\sum_{j\leq i}A_{qk}[i,j]z_j.
+S_{i-1}
+&=\operatorname{diag}(2^{G_{i-1}})H_c\\
+&\quad+\sum_{0\le j<i}
+\operatorname{diag}(2^{G_{i-1}-G_j})k_jz_j^\top.
 \end{aligned}
 $$
 
-The first term reads earlier chunks. The second reads writes from this chunk, including the current write. We keep $s$ outside Aqk, as in its definition above.
+</div>
 
-The lower-triangular system comes from steps (2)–(3): each key reads earlier writes to determine its new correction. That is a key/key dependency, separate from this query/key read. Attention Gym's [composed forward path](https://github.com/meta-pytorch/attention-gym/blob/52c9eaa31e87a28dc0d3d9464af2088e6384a483/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd.py) puts those pieces together.
+Apply token $i$'s decay and write to that [previous state](#kda-previous-state), using <span class="sidenote-hover"><a class="sidenote-ref sidenote-trigger" href="#kda-base-recurrence" aria-describedby="kda-decay-write-preview" data-no-popover>steps (1) and (4)</a><span id="kda-decay-write-preview" class="sidenote sidenote--hover-media" role="note">$\widetilde S_i=D_iS_{i-1}$<br>$S_i=\widetilde S_i+k_iz_i^\top$</span></span>. Since $G_i=G_{i-1}+\delta_i$:
+
+<div id="kda-postwrite-state">
+
+$$
+\begin{aligned}
+S_i
+&=D_iS_{i-1}+k_iz_i^\top\\
+&=\operatorname{diag}(2^{G_i})H_c\\
+&\quad+\sum_{0\le j\le i}\operatorname{diag}(2^{G_i-G_j})k_jz_j^\top.
+\end{aligned}
+$$
+
+</div>
+
+The new write is the $j=i$ term, with no relative decay yet: $2^{G_i-G_i}=1$.
+
+Substitute this [updated state](#kda-postwrite-state) into <span class="sidenote-hover"><a class="sidenote-ref sidenote-trigger" href="#kda-base-recurrence" aria-describedby="kda-read-preview" data-no-popover>step (5)</a><span id="kda-read-preview" class="sidenote sidenote--hover-media" role="note">$o_i=s q_i^\top S_i$</span></span>. Writing the output as a row gives:
+
+$$
+\begin{aligned}
+o_i
+&=s q_i^\top S_i\\
+&=s(q_i\odot2^{G_i})^\top H_c\\
+&\quad+s\sum_{j\le i}
+\underbrace{\left(\sum_d q_{i,d}k_{j,d}2^{G_{i,d}-G_{j,d}}\right)}_{A_{qk}[i,j]}
+ z_j^\top.
+\end{aligned}
+$$
+
+The first term reads incoming history. The underbraced sum is $A_{qk}[i,j]$: **the scalar weight on completed write $z_j$.** We keep $s$ outside it, matching the [definition above](#kda-aqk-definition).
+
+This is separate from the strictly lower-triangular **key/key** system in <span class="sidenote-hover"><a class="sidenote-ref sidenote-trigger" href="#kda-base-recurrence" aria-describedby="kda-write-solve-preview" data-no-popover>steps (2)–(3)</a><span id="kda-write-solve-preview" class="sidenote sidenote--hover-media" role="note">$\widehat v_i=k_i^\top\widetilde S_i$<br>$z_i=\beta_i(v_i-\widehat v_i)$</span></span>, which determines the writes; $A_{qk}$ reads them afterward. Attention Gym's [composed forward path](https://github.com/meta-pytorch/attention-gym/blob/52c9eaa31e87a28dc0d3d9464af2088e6384a483/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd.py) puts the pieces together.
 
 </details>
 
