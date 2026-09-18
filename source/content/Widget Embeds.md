@@ -15,4 +15,8 @@ Author widgets as standalone HTML files under `content/widgets/`, then embed the
 
 ![[widgets/sm-roofline.html|A compact interactive model embedded in the post]]
 
+Widgets start passive: wheel/touch scrolling stays with the article, and keyboard focus goes to the activation button rather than into the iframe. Click the pane (or activate the button with the keyboard) to give the widget its own input handling. Click outside to release it. For same-origin widgets, an unhandled Escape key inside the iframe also releases it and returns focus to the activation button without moving the page. Cross-origin viewers must provide their own Escape behavior; clicking outside still releases them.
+
+Native charts continue passing wheel scrolling to the page even when pinned, since they have no wheel-driven zoom.
+
 Keep widget assets beside the HTML file when possible. Relative links such as `./data.json` or `./script.js` should stay in the same widget folder.
