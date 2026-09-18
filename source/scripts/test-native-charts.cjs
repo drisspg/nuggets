@@ -121,9 +121,15 @@ async function main() {
         await page.mouse.move(0, 0)
         const idlePlotBox = await chart.locator("svg").boundingBox()
         const hoverPoint = await chart.locator(".native-chart-point").first().boundingBox()
-        await page.mouse.move(hoverPoint.x + hoverPoint.width / 2, hoverPoint.y + hoverPoint.height / 2)
+        await page.mouse.move(
+          hoverPoint.x + hoverPoint.width / 2,
+          hoverPoint.y + hoverPoint.height / 2,
+        )
         const livePlotBox = await chart.locator("svg").boundingBox()
-        assert(Math.abs(idlePlotBox.y - livePlotBox.y) < 1, `chart ${i} legend must not rewrap on hover`)
+        assert(
+          Math.abs(idlePlotBox.y - livePlotBox.y) < 1,
+          `chart ${i} legend must not rewrap on hover`,
+        )
         await chart.locator("svg").focus()
         await page.keyboard.press("End")
         assert.equal(
