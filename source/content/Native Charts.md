@@ -54,7 +54,7 @@ These example numbers are illustrative. The renderer draws supplied interval end
 - Automatic domains include **all series and interval endpoints**, with 5% padding. Hiding a series does not silently rescale the chart. An explicit domain must contain all values, intervals, and any requested zero; clipping data requires an explicit future feature, not an accidental range setting.
 - Each series has a unique `name`, a `mode` (`"line"` or `"points"`), and a nonempty `points` array. A series must contain at least one observation.
 - Optional series styling: `color` is `blue`, `amber`, `green`, `red`, `gold`, or `purple`; `dash` is `solid` or `dash`; `marker` is `circle` or `diamond`. Colors adapt to the site theme. Use dashes/markers as well as color when comparing related series.
-- Points have numeric `x` and numeric `y`. A numeric `y: null` is an explicit missing observation: it gets no marker and **breaks** a line instead of becoming zero or being interpolated across. Do not simply omit a missing point if the line must show a gap.
+- Points have numeric `x` and numeric `y`. A numeric `y: null` is an explicit missing observation: it gets no marker and **breaks** a line instead of becoming zero or being interpolated across. Do not simply omit a missing point if the line must show a gap. Missing observations cannot carry interval bounds.
 - Line-series x values must be strictly increasing. Points-only series can be unordered. Curves use straight segments, with no smoothing or resampling.
 - Intervals use `xLow`/`xHigh` or `yLow`/`yHigh`. Both endpoints are required, must be finite, and must enclose the estimate. Any interval requires an `intervalLabel` explaining its meaning. Numeric strings, `NaN`, and infinity are rejected.
 - Optional per-point `details` is a map of plain strings or finite numbers. It appears in inspection and the table; it is never interpreted as HTML.
@@ -85,14 +85,16 @@ Give the y axis a `categories` array instead of numeric options. The order is to
 
 ## Interaction and accessibility
 
-- Hover or tap the plot to inspect the nearest x coordinate, or the nearest categorical row. Inspection shows all visible observations there, their full-precision numbers, intervals, and details.
-- Focus the plot and use arrow keys, Home, or End to inspect observations. Escape clears inspection.
+- Hover over the plot to inspect the nearest x coordinate, or the nearest categorical row. A shared crosshair updates series-colored value chips **directly in the legend**, without a floating panel. An unsampled coordinate is shown as `—`; an explicit null observation is shown as `Missing`. Neither is interpolated.
+- Legend values use seven significant digits for compact display. Legend tooltips and accessible names retain the full-precision estimates, interval endpoints, and details; the data table and download retain the original numbers.
+- Click or tap to **pin** the selection: moving the pointer no longer changes the crosshair or values. Click again to release it. The badge shows Explore, Live, or Pinned. Pins survive resize and theme changes; hiding all observations at the pinned coordinate clears the pin.
+- Focus the plot and use arrow keys, Home, or End to inspect observations, including while pinned. Enter or Space toggles pinning. Escape releases the pin and clears inspection.
 - Legend buttons toggle series and expose their state through `aria-pressed`. At least one series stays visible.
 - **View data table** exposes all original rows, including hidden series and missing observations. It is a standard HTML table, not a canvas-only alternative. Long category labels are abbreviated on the axis but remain complete in the table and inspection.
 - **Download chart data** provides the source JSON. It remains available if JavaScript is disabled or a runtime load fails. Invalid data fails the build; runtime failures display an error rather than an empty, apparently valid plot.
-- The plot never captures wheel scrolling or starts animated transitions. Only the optional data table can scroll horizontally on a narrow screen.
+- The plot never captures wheel scrolling or animates/interpolates the data. Updated legend values have a brief opacity accent; reduced-motion preferences disable it and the chip transitions. Only the optional data table can scroll horizontally on a narrow screen.
 
-Version 1 intentionally has no logarithmic/date axes, stacking, smoothing, animation, pan/zoom, or Plotly toolbar. Use the existing Plotly embed when those capabilities are needed. Do not add per-post rendering code for a feature that belongs in the shared renderer.
+Version 1 intentionally has no logarithmic/date axes, stacking, smoothing, animated data, pan/zoom, or Plotly toolbar. Use the existing Plotly embed when those capabilities are needed. Do not add per-post rendering code for a feature that belongs in the shared renderer.
 
 ## KDA data and regeneration
 

@@ -37,7 +37,7 @@ function dataTable(spec: ChartSpec): HTMLDetailsElement {
   const table = element("table", "")
   const hasXBounds = spec.series.some((series) => series.points.some((p) => p.xLow !== undefined))
   const hasYBounds = spec.series.some((series) => series.points.some((p) => p.yLow !== undefined))
-  const caption = element("caption", "", spec.intervalLabel ?? "Original chart observations")
+  const caption = element("caption", "", "All observations, including hidden series")
   table.append(caption)
   const header = table.createTHead().insertRow()
   const labels = ["Series", spec.x.label, spec.y.label]
@@ -55,8 +55,16 @@ function dataTable(spec: ChartSpec): HTMLDetailsElement {
     for (const point of series.points) {
       const row = body.insertRow()
       const cells = [series.name, valueText(point.x), valueText(point.y)]
-      if (hasXBounds) cells.push(valueText(point.xLow ?? null), valueText(point.xHigh ?? null))
-      if (hasYBounds) cells.push(valueText(point.yLow ?? null), valueText(point.yHigh ?? null))
+      if (hasXBounds)
+        cells.push(
+          point.xLow === undefined ? "—" : String(point.xLow),
+          point.xHigh === undefined ? "—" : String(point.xHigh),
+        )
+      if (hasYBounds)
+        cells.push(
+          point.yLow === undefined ? "—" : String(point.yLow),
+          point.yHigh === undefined ? "—" : String(point.yHigh),
+        )
       cells.push(pointDetails(point))
       for (const text of cells) row.insertCell().textContent = text
     }
@@ -88,7 +96,7 @@ function drawChart(
   )
   const legend = element("div", "native-chart-legend")
   legend.setAttribute("aria-label", "Visible chart series")
-  const buttons = spec.series.map((series, index) => {
+  const controls = spec.series.map((series, index) => {
     const button = element("button", "native-chart-legend-item")
     button.type = "button"
     button.style.setProperty("--series-color", `var(--chart-${seriesColor(index)})`)
@@ -97,7 +105,8 @@ function drawChart(
     swatch.dataset.mode = series.mode
     swatch.dataset.marker = series.marker ?? "circle"
     swatch.setAttribute("aria-hidden", "true")
-    button.append(swatch, element("span", "", series.name))
+    const value = element("span", "native-chart-legend-value", "—")
+    button.append(swatch, element("span", "native-chart-legend-name", series.name), value)
     button.addEventListener(
       "click",
       () => {
@@ -108,28 +117,34 @@ function drawChart(
       { signal },
     )
     legend.append(button)
-    return button
+    return { button, value }
   })
   const plot = element("div", "native-chart-plot")
   const svgNode = document.createElementNS("http://www.w3.org/2000/svg", "svg")
-  svgNode.setAttribute("role", "img")
+  svgNode.setAttribute("role", "group")
+  svgNode.setAttribute("aria-roledescription", "interactive chart")
   svgNode.setAttribute("tabindex", "0")
   svgNode.setAttribute("aria-label", title)
   svgNode.setAttribute(
     "aria-description",
-    "Hover or tap to inspect observations. Arrow keys move between observations; Home and End jump to the first and last. Escape clears inspection. The data table below contains all values.",
+    "Hover to inspect observations. Click or tap to pin a point; click again to release it. Arrow keys move between observations; Home and End jump to the first and last. Enter or Space toggles pinning. Escape releases the pin and clears inspection. The data table below contains all values.",
   )
   const svg = select(svgNode)
   plot.append(svgNode)
-  const readout = element("div", "native-chart-readout")
-  readout.setAttribute("role", "status")
-  readout.setAttribute("aria-live", "off")
-  if (spec.series.length > 1) content.append(legend)
+  const coordinate = element("div", "native-chart-coordinate")
+  const modeBadge = element("span", "native-chart-mode", "Explore")
+  const coordinateValue = element("span", "native-chart-coordinate-value")
+  coordinate.append(modeBadge, coordinateValue)
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)")
+  const announcement = element("span", "native-chart-status")
+  announcement.setAttribute("role", "status")
   content.append(
+    legend,
+    coordinate,
     element("div", "native-chart-axis-label native-chart-y-label", spec.y.label),
     plot,
     element("div", "native-chart-axis-label native-chart-x-label", spec.x.label),
-    readout,
+    announcement,
   )
   if (spec.intervalLabel)
     content.append(element("p", "native-chart-interval-label", spec.intervalLabel))
@@ -137,7 +152,10 @@ function drawChart(
 
   let width = 0
   let activeKey: number | null = null
-  const prompt = "Hover, tap, or focus the plot and use arrow keys to inspect values."
+  let pinned = false
+  const prompt = "Hover to inspect · click to pin"
+  const valueFormat = categories ? spec.x.format : "format" in spec.y ? spec.y.format : undefined
+  const legendNumber = format(valueFormat === "scientific" ? ".6e" : ".7~g")
 
   function render() {
     if (!width) return
@@ -155,11 +173,25 @@ function drawChart(
       .domain(categories ? [-0.5, categories.length - 0.5] : numericDomain(spec, "y"))
       .range(categories ? [top, bottom] : [bottom, top])
     const visible = observations.filter((item) => !hidden.has(item.series))
-    const keys = [...new Set(visible.map((item) => item.key))].sort((a, b) => a - b)
-    if (activeKey !== null && !keys.includes(activeKey)) activeKey = null
-    buttons.forEach((button, index) => {
+    const keys = [
+      ...new Set(
+        spec.series.flatMap((series, index) =>
+          hidden.has(index)
+            ? []
+            : series.points.map((point) => (categories ? yValue(point) : point.x)),
+        ),
+      ),
+    ].sort((a, b) => a - b)
+    if (activeKey !== null && !keys.includes(activeKey)) {
+      activeKey = null
+      pinned = false
+    }
+    controls.forEach(({ button }, index) => {
       button.setAttribute("aria-pressed", String(!hidden.has(index)))
-      button.disabled = !hidden.has(index) && hidden.size === spec.series.length - 1
+      button.setAttribute(
+        "aria-disabled",
+        String(!hidden.has(index) && hidden.size === spec.series.length - 1),
+      )
     })
     svg.attr("viewBox", `0 0 ${width} ${height}`).attr("height", height)
     svg.selectAll("*").remove()
@@ -292,16 +324,71 @@ function drawChart(
     function inspect(key: number | null, announce = false) {
       activeKey = key
       inspection.selectAll("*").remove()
-      readout.setAttribute("aria-live", announce ? "polite" : "off")
-      readout.replaceChildren()
-      if (key === null) {
-        readout.append(element("p", "native-chart-hint", prompt))
-        return
-      }
       const matches = visible.filter((item) => item.key === key)
-      const label = categories ? categories[key] : `${spec.x.label}: ${valueText(key)}`
-      readout.append(element("div", "native-chart-readout-coordinate", label))
-      const values = element("div", "native-chart-readout-values")
+      const label =
+        key === null ? prompt : categories ? categories[key] : `${spec.x.label}: ${valueText(key)}`
+      coordinateValue.textContent = label
+      coordinateValue.title = label
+      figure.dataset.pinned = String(pinned)
+      modeBadge.textContent = pinned ? "Pinned" : key === null ? "Explore" : "Live"
+      modeBadge.dataset.mode = pinned ? "pinned" : key === null ? "idle" : "live"
+      modeBadge.title = pinned
+        ? "Click the plot again or press Escape to release"
+        : "Click the plot or press Enter to pin"
+      controls.forEach(({ button, value }, index) => {
+        const points = matches.filter((item) => item.series === index).map((item) => item.point)
+        const missing =
+          !hidden.has(index) &&
+          !categories &&
+          spec.series[index].points.some((point) => point.x === key && point.y === null)
+        const nextValue =
+          points
+            .map((point) => legendNumber((categories ? point.x : point.y) as number))
+            .join(", ") || (missing ? "Missing" : "—")
+        const changed = nextValue !== value.textContent
+        value.textContent = nextValue
+        button.dataset.inspecting = String(points.length > 0 || missing)
+        if (changed) {
+          value.getAnimations().forEach((animation) => animation.cancel())
+          if (key !== null && !reduceMotion.matches) {
+            value.animate([{ opacity: 0.72 }, { opacity: 1 }], {
+              duration: 160,
+              easing: "ease-out",
+            })
+          }
+        }
+        const description =
+          points
+            .map((point) => {
+              const parts = [
+                `${categories ? spec.x.label : spec.y.label}: ${valueText(categories ? point.x : point.y)}`,
+              ]
+              if (point.xLow !== undefined)
+                parts.push(`X interval: [${point.xLow}, ${point.xHigh}]`)
+              if (point.yLow !== undefined)
+                parts.push(`Y interval: [${point.yLow}, ${point.yHigh}]`)
+              const metadata = pointDetails(point)
+              if (metadata) parts.push(metadata)
+              return parts.join("; ")
+            })
+            .join("\n") ||
+          (hidden.has(index)
+            ? "Hidden series"
+            : missing
+              ? "Missing observation"
+              : key === null
+                ? prompt
+                : "No observation at this position")
+        button.title = description
+        button.setAttribute("aria-label", `${spec.series[index].name}. ${description}`)
+        value.title = description
+      })
+      if (announce)
+        announcement.textContent = [
+          `${modeBadge.textContent}. ${label}`,
+          ...controls.map(({ button }) => button.getAttribute("aria-label")),
+        ].join(". ")
+      if (key === null) return
       if (categories) {
         inspection
           .append("line")
@@ -320,23 +407,6 @@ function drawChart(
           .attr("y2", bottom)
       }
       for (const { point, series } of matches) {
-        const row = element("div", "native-chart-readout-value")
-        row.style.setProperty("--series-color", `var(--chart-${seriesColor(series)})`)
-        row.append(element("strong", "", spec.series[series].name))
-        row.append(
-          element(
-            "span",
-            "",
-            `${categories ? spec.x.label : spec.y.label}: ${valueText(categories ? point.x : point.y)}`,
-          ),
-        )
-        if (point.xLow !== undefined)
-          row.append(element("span", "", `X interval: [${point.xLow}, ${point.xHigh}]`))
-        if (point.yLow !== undefined)
-          row.append(element("span", "", `Y interval: [${point.yLow}, ${point.yHigh}]`))
-        const metadata = pointDetails(point)
-        if (metadata) row.append(element("span", "", metadata))
-        values.append(row)
         inspection
           .append("circle")
           .attr("class", "native-chart-active-point")
@@ -345,21 +415,29 @@ function drawChart(
           .attr("r", 5)
           .style("stroke", `var(--chart-${seriesColor(series)})`)
       }
-      readout.append(values)
     }
 
-    function inspectPointer(event: PointerEvent) {
+    function pointerKey(event: MouseEvent): number | undefined {
       const [px, py] = pointer(event, svgNode)
       if (px < left || px > right || py < top || py > bottom) return
       const position = categories ? y.invert(py) : x.invert(px)
-      const nearest = keys.reduce((best, key) =>
+      return keys.reduce((best, key) =>
         Math.abs(key - position) < Math.abs(best - position) ? key : best,
       )
-      if (nearest !== activeKey) inspect(nearest)
     }
     svg
-      .on("pointermove.nativeChart", inspectPointer)
-      .on("pointerdown.nativeChart", inspectPointer)
+      .on("pointermove.nativeChart", (event: PointerEvent) => {
+        if (pinned || event.pointerType === "touch") return
+        const key = pointerKey(event)
+        if (key !== undefined && key !== activeKey) inspect(key)
+      })
+      .on("click.nativeChart", (event: MouseEvent) => {
+        const key = pointerKey(event)
+        if (key === undefined) return
+        pinned = !pinned
+        inspect(key, true)
+        svgNode.focus({ preventScroll: true })
+      })
       .on("focus.nativeChart", () => {
         if (activeKey === null) inspect(keys[0], true)
       })
@@ -367,6 +445,13 @@ function drawChart(
         if (event.ctrlKey || event.metaKey || event.altKey) return
         let index = activeKey === null ? -1 : keys.indexOf(activeKey)
         switch (event.key) {
+          case "Enter":
+          case " ":
+            event.preventDefault()
+            if (event.repeat) return
+            pinned = !pinned
+            inspect(activeKey ?? keys[0], true)
+            return
           case "ArrowRight":
           case "ArrowDown":
             index = Math.min(keys.length - 1, index + 1)
@@ -383,6 +468,7 @@ function drawChart(
             break
           case "Escape":
             event.preventDefault()
+            pinned = false
             inspect(null, true)
             return
           default:
@@ -405,6 +491,9 @@ function drawChart(
   cleanups.push(() => {
     resize.disconnect()
     svg.on(".nativeChart", null)
+    controls.forEach(({ value }) =>
+      value.getAnimations().forEach((animation) => animation.cancel()),
+    )
   })
 }
 

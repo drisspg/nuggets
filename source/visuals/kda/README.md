@@ -2,20 +2,20 @@
 
 These figures replot selected W&B evaluation metrics; they are not screenshots of the W&B UI. The snapshot includes no credentials, private dashboard URLs, hostnames, or run metadata.
 
-Regenerate from the repository root:
+Regenerate the native chart data from the repository root:
 
 ```sh
-uv run --with plotly==7.0.0 python source/visuals/kda/render.py
+cd source && npm run charts:kda
 ```
 
 - `metrics.json`: exported checkpoint metrics at their logged precision. Series names distinguish the model/arm, paired evaluation size, or pilot seed.
-- `render.py`: offline figure generation plus checks for checkpoint alignment, finite values, nonnegative standard errors, and agreement between logged gaps and differences of logged NLLs.
-- `frame.html`: IBM Plex typography, Attention Gym docs' light/slate palettes, and hover-only modebar styling. Quartz's existing Plotly embed helper themes the chart chrome; the frame themes trace colors.
-- Outputs under `source/content/media/kda/`: `scaled-loss.html`, `scaled-gap.html`, `paired-checkpoints.html`, and `paired-seeds.html`.
+- `native-charts.ts`: offline adapter from the snapshot to the shared versioned chart schema. It preserves logged values and SEs, computes the same ±1.96-SE intervals, and validates all four specifications before writing.
+- `native-charts.test.ts`: exact snapshot/asset parity, independent final interval checks, checkpoint alignment, and preservation of modes, colors, markers, and category order. Runs in `npm test`.
+- Outputs under `source/content/media/kda/`: `scaled-loss.json`, `scaled-gap.json`, `paired-checkpoints.json`, and `paired-seeds.json`.
 
-The article uses Quartz's existing `plotly` fenced embeds. Generation does not access W&B; viewing the HTML loads the versioned Plotly bundle and IBM Plex fonts from CDNs.
+The article uses the reusable `chart` fenced embed described in `source/content/Native Charts.md`. Charts render directly in the page with D3/SVG and site CSS, without iframes or a Plotly CDN request. Hover, touch, and keyboard inspection update the legend; its tooltips and the data table expose full-precision values and uncertainty metadata. Ordinary wheel gestures scroll the article without forwarding messages between frames.
 
-The embed owns the outer height. The exported plot fills the frame's usable height instead of fixing a second pixel height, which would overflow by the iframe border thickness. Ordinary wheel gestures use the existing `nuggets-widget-wheel` message to scroll the article; Ctrl/Cmd-wheel is left alone. Browser checks should compare both frame scroll dimensions with its viewport, not just check page-level horizontal overflow.
+The old Plotly `.html` exports, `render.py`, and `frame.html` remain available for comparison and existing embeds. Regenerate those separately with `uv run --with plotly==7.0.0 python source/visuals/kda/render.py`. Their iframe-height, theme synchronization, and wheel-forwarding machinery are not used by the new native charts.
 
 ## Training versus inference
 

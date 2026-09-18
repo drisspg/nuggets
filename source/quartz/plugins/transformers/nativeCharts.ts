@@ -67,7 +67,7 @@ export const NativeCharts: QuartzTransformerPlugin = () => ({
               `${pathToRoot(file.data.slug!)}/${emitted.split("/").map(encodeURIComponent).join("/")}`,
             )
             const title = escapeHTML(input.title)
-            const html = `<figure class="native-chart" data-chart-src="${src}" data-chart-height="${height}" aria-label="${title}"><figcaption>${title}</figcaption><div class="native-chart-content"><p role="status">Loading chart…</p></div><noscript>Interactive chart requires JavaScript.</noscript><a class="native-chart-download" href="${src}" download data-router-ignore>Download chart data</a></figure>`
+            const html = `<figure class="native-chart" data-chart-src="${src}" data-chart-height="${height}" aria-label="${title}"><figcaption>${title}</figcaption><div class="native-chart-content"><p role="status">Chart data is available below.</p></div><noscript>Interactive chart requires JavaScript.</noscript><a class="native-chart-download" href="${src}" download data-router-ignore>Download chart data</a></figure>`
             parent!.children.splice(position!, 1, { type: "html", value: html })
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error)

@@ -187,7 +187,7 @@ export function parseChart(value: unknown): ChartSpec {
           fail(pointLocation, `${lowKey} and ${highKey} must be provided together`)
         }
         const estimate = point[axis]
-        if (typeof estimate !== "number") {
+        if (y === null || typeof estimate !== "number") {
           fail(
             `${pointLocation}.${lowKey}`,
             "bounds require a numeric estimate (not a gap or category)",

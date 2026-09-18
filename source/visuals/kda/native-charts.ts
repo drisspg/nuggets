@@ -78,6 +78,9 @@ export function loadMetrics(path = METRICS_PATH): KdaMetrics {
 }
 
 function interval(estimate: number, se: number): [number, number] {
+  if (!Number.isFinite(estimate) || !Number.isFinite(se) || se < 0) {
+    throw new Error("Intervals require a finite estimate and a finite, nonnegative logged SE")
+  }
   return [estimate - Z_95 * se, estimate + Z_95 * se]
 }
 

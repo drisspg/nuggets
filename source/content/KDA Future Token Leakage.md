@@ -285,26 +285,26 @@ As a positive control, I explicitly added a scaled copy of the next token's valu
 
 The pilot replications also helped interpret small quality differences. Midpoint-versus-causal loss differences changed sign across seeds and metrics. A slightly better loss in one pair was not enough to conclude that midpoint rebasing helped.
 
-```plotly
-{"src":"media/kda/scaled-loss.html","title":"Scaled run: held-out NLL · 1.45B parameters · seed 42 · 64 sequences","height":460}
+```chart
+{"src":"media/kda/scaled-loss.json","title":"Scaled run: held-out NLL · 1.45B parameters · seed 42 · 64 sequences","height":300}
 ```
 
-*Replotted from the logged W&B evaluation metrics, without smoothing. AR means autoregressive. The four curves nearly overlap; hover for exact values or click a legend entry to hide a trace. Lower NLL is better.*
+*Replotted from the logged W&B evaluation metrics, without smoothing. AR means autoregressive. The four curves nearly overlap; hover to update the legend, or click a legend entry to hide a trace. Full-precision values are in the data table. Lower NLL is better.*
 
-```plotly
-{"src":"media/kda/scaled-gap.html","title":"Zoom in: autoregressive minus parallel NLL · 64 sequences","height":460}
+```chart
+{"src":"media/kda/scaled-gap.json","title":"Zoom in: autoregressive minus parallel NLL · 64 sequences","height":300}
 ```
 
 *Positive values mean an autoregressive penalty. Bars are estimate ± 1.96 times the logged sequence standard error. Separating the gap from the full loss curve makes the small differences visible.*
 
-```plotly
-{"src":"media/kda/paired-checkpoints.html","title":"Paired excess autoregressive penalty, ΔG · scaled run","height":460}
+```chart
+{"src":"media/kda/paired-checkpoints.json","title":"Paired excess autoregressive penalty, ΔG · scaled run","height":300}
 ```
 
 *The 64-sequence sweep and the two 1024-sequence evaluations are separate traces; the latter are not a full checkpoint sweep. Positive ΔG means a larger autoregressive penalty under midpoint rebasing.*
 
-```plotly
-{"src":"media/kda/paired-seeds.html","title":"Final checkpoints · 1,024 matched sequences per comparison","height":460}
+```chart
+{"src":"media/kda/paired-seeds.json","title":"Final checkpoints · 1,024 matched sequences per comparison","height":300}
 ```
 
 *Pilot comparisons are at step 4000; the scaled comparison is at step 7600. Bars on both paired charts use the logged **paired** standard errors, not independently combined arm errors. Every displayed pointwise **ΔG interval** includes zero; this is consistent with no detected excess autoregressive penalty, not proof of exact equivalence.*

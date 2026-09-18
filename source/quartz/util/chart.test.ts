@@ -49,7 +49,7 @@ test("parseChart preserves exact values, gaps, styling, metadata, and input owne
             yHigh: 0.13,
             details: { se: 0.0001, label: "<raw>", empty: "" },
           },
-          { x: 2, y: null, xLow: 1.5, xHigh: 2.5 },
+          { x: 2, y: null },
           { x: 3, y: 0.11 },
         ],
       },
@@ -214,6 +214,11 @@ test("intervals require a pair, a numeric estimate, ordered enclosing bounds, an
       "bounds on gap",
       { x: 1, y: null, yLow: 0, yHigh: 1 },
       /yLow: bounds require a numeric estimate/,
+    ],
+    [
+      "x bounds on gap",
+      { x: 1, y: null, xLow: 0, xHigh: 2 },
+      /xLow: bounds require a numeric estimate/,
     ],
     ["missing label", { x: 1, y: 2, yLow: 1, yHigh: 3 }, /chart\.intervalLabel: required/],
   ]
