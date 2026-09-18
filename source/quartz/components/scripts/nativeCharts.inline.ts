@@ -127,7 +127,7 @@ function drawChart(
   svgNode.setAttribute("aria-label", title)
   svgNode.setAttribute(
     "aria-description",
-    "Hover to inspect observations. Click or tap to pin a point; click again to release it. Arrow keys move between observations; Home and End jump to the first and last. Enter or Space toggles pinning. Escape releases the pin and clears inspection. The data table below contains all values.",
+    "Hover to inspect observations. Click or tap to pin a point; click again to release it. Arrow keys move between observations; Home and End jump to the first and last. Enter or Space toggles pinning. Escape releases the pin and exits chart interaction without scrolling the page. The data table below contains all values.",
   )
   const svg = select(svgNode)
   plot.append(svgNode)
@@ -470,6 +470,7 @@ function drawChart(
             event.preventDefault()
             pinned = false
             inspect(null, true)
+            svgNode.blur()
             return
           default:
             return

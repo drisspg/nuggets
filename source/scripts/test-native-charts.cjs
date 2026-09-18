@@ -59,6 +59,15 @@ fs.writeFileSync(
   path.join(content, "media/legacy.html"),
   "<!doctype html><title>Legacy</title><p>Legacy embed retained.</p>",
 )
+fs.mkdirSync(path.join(content, "widgets"))
+fs.writeFileSync(
+  path.join(content, "widgets/scrollable.html"),
+  '<!doctype html><style>html,body{margin:0}main{height:2400px;background:linear-gradient(#ddd,#888)}</style><main>Wheel-driven viewer</main><script>window.widgetWheelCount=0;document.addEventListener("wheel",event=>{event.preventDefault();window.widgetWheelCount++;window.scrollBy({top:event.deltaY,behavior:"instant"})},{passive:false})</script>',
+)
+fs.writeFileSync(
+  path.join(content, "widget-check.md"),
+  '---\ntitle: Widget interaction checks\ndate: 2026-09-17\n---\n<div style="height:100vh"></div>\n\n![[widgets/scrollable.html|Scroll test widget]]\n\n<div style="height:100vh"></div>\n',
+)
 execFileSync(
   process.execPath,
   ["quartz/bootstrap-cli.mjs", "build", "--directory", content, "--output", output],
@@ -108,6 +117,13 @@ async function main() {
             .evaluateAll((nodes) => nodes.map((node) => [node.dataset.x, node.dataset.y])),
           expected,
         )
+        await chart.locator("svg").scrollIntoViewIfNeeded()
+        await page.mouse.move(0, 0)
+        const idlePlotBox = await chart.locator("svg").boundingBox()
+        const hoverPoint = await chart.locator(".native-chart-point").first().boundingBox()
+        await page.mouse.move(hoverPoint.x + hoverPoint.width / 2, hoverPoint.y + hoverPoint.height / 2)
+        const livePlotBox = await chart.locator("svg").boundingBox()
+        assert(Math.abs(idlePlotBox.y - livePlotBox.y) < 1, `chart ${i} legend must not rewrap on hover`)
         await chart.locator("svg").focus()
         await page.keyboard.press("End")
         assert.equal(
@@ -125,9 +141,38 @@ async function main() {
         assert.equal(await chart.getAttribute("data-pinned"), "true")
         await page.keyboard.press("Space")
         assert.equal(await chart.getAttribute("data-pinned"), "false")
+        const escapeScroll = await page.evaluate(() => scrollY)
         await page.keyboard.press("Escape")
         assert.equal(await chart.locator(".native-chart-inspection circle").count(), 0)
+        assert(
+          Math.abs((await page.evaluate(() => scrollY)) - escapeScroll) < 1,
+          "Escape must not jump to the closed search button",
+        )
+        assert(
+          await chart.locator("svg").evaluate((node) => document.activeElement !== node),
+          "Escape releases chart keyboard focus",
+        )
+        await page.keyboard.press("Escape")
+        assert(
+          Math.abs((await page.evaluate(() => scrollY)) - escapeScroll) < 1,
+          "Escape outside an interaction must not move the page",
+        )
       }
+      const searchOpener = charts.first().locator("svg")
+      await searchOpener.focus()
+      const beforeSearch = await page.evaluate(() => scrollY)
+      await page.keyboard.press("Control+k")
+      await page.locator("#search-container.active").waitFor()
+      await page.keyboard.press("Escape")
+      assert.equal(await page.locator("#search-container.active").count(), 0)
+      assert(
+        await searchOpener.evaluate((node) => document.activeElement === node),
+        "search returns focus to its actual opener",
+      )
+      assert(Math.abs((await page.evaluate(() => scrollY)) - beforeSearch) < 1)
+      await page.keyboard.press("Escape")
+      await page.keyboard.press("ArrowDown")
+      await page.waitForFunction((before) => scrollY > before, beforeSearch)
       const forest = charts.nth(3)
       await forest.locator(".native-chart-legend-item").focus()
       assert(
@@ -297,6 +342,51 @@ async function main() {
       )
       await page.close()
     }
+    const widgetPage = await browser.newPage({ viewport: { width: 960, height: 1000 } })
+    await widgetPage.goto(`${base}/widget-check`)
+    await widgetPage.addStyleTag({ content: "html { scroll-behavior: auto !important; }" })
+    const shell = widgetPage.locator(".widget-shell")
+    const widget = shell.locator("iframe")
+    await shell.scrollIntoViewIfNeeded()
+    const widgetFrame = await (await widget.elementHandle()).contentFrame()
+    await widgetFrame.locator("main").waitFor()
+    assert.equal(await widget.getAttribute("tabindex"), "-1")
+    let widgetBox = await widget.boundingBox()
+    await widgetPage.mouse.move(
+      widgetBox.x + widgetBox.width / 2,
+      widgetBox.y + widgetBox.height / 2,
+    )
+    const passiveScroll = await widgetPage.evaluate(() => scrollY)
+    await widgetPage.mouse.wheel(0, 150)
+    await widgetPage.waitForFunction((before) => scrollY > before, passiveScroll)
+    assert.equal(await widgetFrame.evaluate(() => scrollY), 0)
+    assert.equal(await widgetFrame.evaluate(() => window.widgetWheelCount), 0)
+    await shell.locator(".widget-activate").click()
+    assert(await shell.evaluate((node) => node.classList.contains("widget-active")))
+    assert.equal(await widget.getAttribute("tabindex"), "0")
+    widgetBox = await widget.boundingBox()
+    await widgetPage.mouse.move(
+      widgetBox.x + widgetBox.width / 2,
+      widgetBox.y + widgetBox.height / 2,
+    )
+    const activeScroll = await widgetPage.evaluate(() => scrollY)
+    await widgetPage.mouse.wheel(0, 150)
+    await widgetFrame.waitForFunction(() => window.widgetWheelCount > 0 && scrollY > 0)
+    assert(Math.abs((await widgetPage.evaluate(() => scrollY)) - activeScroll) < 1)
+    await widgetPage.keyboard.press("Escape")
+    assert(!(await shell.evaluate((node) => node.classList.contains("widget-active"))))
+    assert.equal(await widget.getAttribute("tabindex"), "-1")
+    assert(Math.abs((await widgetPage.evaluate(() => scrollY)) - activeScroll) < 1)
+    assert(
+      await shell.locator(".widget-activate").evaluate((node) => document.activeElement === node),
+    )
+    await widgetPage.mouse.wheel(0, 150)
+    await widgetPage.waitForFunction((before) => scrollY > before, activeScroll)
+    await widgetPage.close()
+    console.log(
+      "Inactive widgets pass scroll to the page; activation opts in; iframe Escape releases in place",
+    )
+
     const touch = await browser.newPage({
       viewport: { width: 390, height: 900 },
       isMobile: true,

@@ -30,6 +30,8 @@ This is the sentence that needs extra context.<span class="sidenote-ref" aria-hi
 
 Empty references and their notes are numbered automatically in document order; phrase-based references do not consume a number.
 
+For explanations attached to particular code lines, use [Code Annotations](./Code-Annotations): numbered comments become interactive markers without hand-written HTML.
+
 ## Writing guidelines
 
 - Use sidenotes for optional context, asides, definitions, and implementation details.

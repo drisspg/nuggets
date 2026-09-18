@@ -1,14 +1,19 @@
 export function registerEscapeHandler(outsideContainer: HTMLElement | null, cb: () => void) {
   if (!outsideContainer) return
   function click(this: HTMLElement, e: HTMLElementEventMap["click"]) {
-    if (e.target !== this) return
+    if (e.target !== this || !outsideContainer?.classList.contains("active")) return
     e.preventDefault()
     e.stopPropagation()
     cb()
   }
 
   function esc(e: HTMLElementEventMap["keydown"]) {
-    if (!e.key.startsWith("Esc")) return
+    if (
+      !e.key.startsWith("Esc") ||
+      e.defaultPrevented ||
+      !outsideContainer?.classList.contains("active")
+    )
+      return
     e.preventDefault()
     cb()
   }

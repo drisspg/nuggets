@@ -6,14 +6,28 @@ const svgCheck =
 window.addEventListener("message", (event) => {
   if (event.origin !== window.location.origin) return
   if (event.data?.type !== "nuggets-widget-wheel") return
-  window.scrollBy({ left: event.data.deltaX, top: event.data.deltaY, behavior: "auto" })
+  window.scrollBy({ left: event.data.deltaX, top: event.data.deltaY, behavior: "instant" })
 })
+
+function setWidgetActive(shell: Element, active: boolean) {
+  shell.classList.toggle("widget-active", active)
+  const frame = shell.querySelector<HTMLIFrameElement>("iframe.widget-frame")
+  if (frame) {
+    frame.classList.toggle("widget-frame-inert", !active)
+    frame.tabIndex = active ? 0 : -1
+    frame.setAttribute("aria-hidden", String(!active))
+  }
+  const activate = shell.querySelector<HTMLButtonElement>(".widget-activate")
+  if (activate) {
+    activate.tabIndex = active ? -1 : 0
+    activate.setAttribute("aria-expanded", String(active))
+    activate.setAttribute("aria-hidden", String(active))
+  }
+}
 
 function deactivateWidgets(except?: Element) {
   document.querySelectorAll(".widget-shell.widget-active").forEach((shell) => {
-    if (shell === except) return
-    shell.classList.remove("widget-active")
-    shell.querySelector(".widget-frame")?.classList.add("widget-frame-inert")
+    if (shell !== except) setWidgetActive(shell, false)
   })
 }
 
@@ -27,22 +41,61 @@ document.addEventListener("keydown", (event) => {
 })
 
 document.addEventListener("nav", () => {
+  const controller = new AbortController()
+  const { signal } = controller
+  window.addCleanup(() => controller.abort())
   document.querySelectorAll(".widget-shell").forEach((shell) => {
-    const frame = shell.querySelector(".widget-frame")
-    const activate = shell.querySelector(".widget-activate")
-    activate?.addEventListener("click", (event) => {
+    const frame = shell.querySelector<HTMLIFrameElement>("iframe.widget-frame")
+    const activate = shell.querySelector<HTMLButtonElement>(".widget-activate")
+    setWidgetActive(shell, false)
+    activate?.addEventListener(
+      "click",
+      (event) => {
+        event.stopPropagation()
+        deactivateWidgets(shell)
+        setWidgetActive(shell, true)
+        frame?.focus({ preventScroll: true })
+      },
+      { signal },
+    )
+
+    if (!frame) return
+    let frameDocument: Document | null = null
+    const escapeFrame = (event: KeyboardEvent) => {
+      if (
+        event.key !== "Escape" ||
+        event.defaultPrevented ||
+        !shell.classList.contains("widget-active")
+      )
+        return
+      event.preventDefault()
       event.stopPropagation()
-      deactivateWidgets(shell)
-      shell.classList.add("widget-active")
-      frame?.classList.remove("widget-frame-inert")
-    })
+      setWidgetActive(shell, false)
+      activate?.focus({ preventScroll: true })
+    }
+    const bindFrame = () => {
+      frameDocument?.removeEventListener("keydown", escapeFrame)
+      try {
+        frameDocument = frame.contentDocument
+      } catch {
+        frameDocument = null
+      }
+      frameDocument?.addEventListener("keydown", escapeFrame)
+    }
+    frame.addEventListener("load", bindFrame, { signal })
+    bindFrame()
+    window.addCleanup(() => frameDocument?.removeEventListener("keydown", escapeFrame))
   })
 
   const els = document.getElementsByTagName("pre")
   for (let i = 0; i < els.length; i++) {
     const codeBlock = els[i].getElementsByTagName("code")[0]
     if (codeBlock) {
-      const source = codeBlock.innerText.replace(/\n\n/g, "\n")
+      const annotated = els[i].closest<HTMLElement>(".code-annotations")
+      const source =
+        annotated?.querySelector("pre") === els[i]
+          ? annotated.dataset.codeSource!
+          : codeBlock.innerText.replace(/\n\n/g, "\n")
       const button = document.createElement("button")
       button.className = "clipboard-button"
       button.type = "button"
