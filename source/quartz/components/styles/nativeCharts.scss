@@ -5,12 +5,14 @@
   --chart-red: #aa413a;
   --chart-gold: #9a6a22;
   --chart-purple: #725b91;
+  position: relative;
   margin: 2rem 0;
   min-width: 0;
   hyphens: none;
 
   > figcaption {
     margin: 0 0 0.8rem;
+    padding-right: 6rem;
     color: var(--dark);
     font-family: var(--bodyFont);
     font-size: 0.95rem;
@@ -254,50 +256,69 @@
     line-height: 1.5;
   }
 
-  .native-chart-mode {
-    display: inline-flex;
-    flex: none;
-    align-items: center;
-    gap: 0.35rem;
-    box-sizing: border-box;
-    min-width: 4.25rem;
-    padding: 0;
+  .native-chart-tools {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .native-chart-tool {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    padding: 4px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
     color: var(--gray);
-    font-family: var(--bodyFont);
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    transition: color 160ms ease;
+    cursor: pointer;
 
-    &::before {
-      flex: none;
-      box-sizing: border-box;
-      width: 6px;
-      height: 6px;
-      border: 1px solid currentColor;
-      border-radius: 50%;
-      content: "";
-      transition: background-color 160ms ease;
+    &[hidden] {
+      display: none;
     }
-
-    &[data-mode="live"] {
+    &:hover,
+    &[aria-pressed="true"] {
       color: var(--secondary);
-
-      &::before {
-        background: currentColor;
-      }
+      background: var(--highlight);
     }
 
-    &[data-mode="pinned"] {
-      color: var(--dark);
-
-      &::before {
-        border-color: var(--secondary);
-        background: var(--secondary);
-        box-shadow: 0 0 0 2px color-mix(in srgb, var(--secondary) 25%, transparent);
-      }
+    svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
+  }
+
+  .native-chart-pin-icon {
+    display: none;
+  }
+  &[data-pinned="true"] {
+    .native-chart-pin-icon {
+      display: initial;
+    }
+    .native-chart-cursor-icon {
+      display: none;
+    }
+  }
+
+  .native-chart-selection {
+    fill: color-mix(in srgb, var(--secondary) 12%, transparent);
+    stroke: var(--secondary);
+    stroke-dasharray: 3 3;
+  }
+
+  &[data-dragging="pan"] .native-chart-plot > svg {
+    cursor: grabbing;
+  }
+  &[data-zoom-armed="true"] .native-chart-plot > svg {
+    cursor: crosshair;
   }
 
   .native-chart-coordinate-value {
@@ -328,47 +349,12 @@
     padding-left: 0.7rem;
   }
 
-  .native-chart-data {
-    margin: 0.65rem 0 0.4rem;
-    font-size: 0.75rem;
-
-    summary {
-      color: var(--editorial-muted);
-      cursor: pointer;
-    }
-  }
-
-  .native-chart-table-wrap {
-    max-width: 100%;
-    overflow-x: auto;
-    margin-top: 0.5rem;
-  }
-
-  table {
-    width: 100%;
-    margin: 0;
-    font-size: 0.72rem;
-
-    caption {
-      padding: 0.4rem 0;
-      text-align: left;
-    }
-
-    td,
-    th {
-      padding: 0.45rem;
-      text-align: left;
-      vertical-align: top;
-      font-variant-numeric: tabular-nums;
-    }
-  }
-
   .native-chart-download {
     color: var(--editorial-muted);
     font-size: 0.75rem;
   }
 
-  :is(button, summary, svg, .native-chart-table-wrap):focus-visible {
+  :is(button, a, svg):focus-visible {
     outline: 2px solid var(--secondary);
     outline-offset: 3px;
   }
@@ -376,9 +362,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .native-chart .native-chart-legend-item,
-  .native-chart .native-chart-legend-value,
-  .native-chart .native-chart-mode,
-  .native-chart .native-chart-mode::before {
+  .native-chart .native-chart-legend-value {
     transition: none;
   }
 }

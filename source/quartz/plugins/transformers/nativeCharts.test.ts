@@ -4,6 +4,7 @@ import os from "node:os"
 import path from "node:path"
 import { test, TestContext } from "node:test"
 import { fileURLToPath } from "node:url"
+import { runInNewContext } from "node:vm"
 import { build } from "esbuild"
 import { Root } from "mdast"
 import remarkParse from "remark-parse"
@@ -85,11 +86,19 @@ async function render(directory: string, input: unknown = options, slug = "note"
   return node.value
 }
 
-test("real Markdown transform emits the exact accessible shell and download contract", async (t) => {
+test("the bundled renderer does not leak minified bindings into other classic scripts", () => {
+  const resource = NativeCharts().externalResources!({} as BuildCtx).js![0]
+  assert("script" in resource)
+  const sandbox = { document: { addEventListener() {} } }
+  runInNewContext(resource.script, sandbox)
+  assert.deepEqual(Object.keys(sandbox), ["document"])
+})
+
+test("real Markdown transform emits an accessible shell with a fallback data link", async (t) => {
   const { root } = await fixture(t)
   assert.equal(
     await render(root),
-    '<figure class="native-chart" data-chart-src="./media/chart.json" data-chart-height="300" aria-label="Training loss"><figcaption>Training loss</figcaption><div class="native-chart-content"><p role="status">Chart data is available below.</p></div><noscript>Interactive chart requires JavaScript.</noscript><a class="native-chart-download" href="./media/chart.json" download data-router-ignore>Download chart data</a></figure>',
+    '<figure class="native-chart" data-chart-src="./media/chart.json" data-chart-height="300" aria-label="Training loss"><figcaption>Training loss</figcaption><div class="native-chart-content"><p role="status">Interactive chart requires JavaScript.</p><a class="native-chart-download" href="./media/chart.json" download data-router-ignore>Download chart data</a></div></figure>',
   )
   const resources = NativeCharts().externalResources!({} as BuildCtx)
   assert.equal(resources.js?.length, 1)

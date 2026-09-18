@@ -2,9 +2,9 @@
  * Build native chart specs for the KDA article from the metadata-free W&B snapshot.
  *
  * Run from `source/`: npx tsx visuals/kda/native-charts.ts
- * Writes content/media/kda/{scaled-loss,scaled-gap,paired-checkpoints,paired-seeds}.json.
+ * Writes the training-loss and four evaluation charts under content/media/kda/.
  *
- * Values are copied from metrics.json at full precision. Intervals are the estimate ± 1.96 ×
+ * Values are copied from metrics.json and training-loss.json at full precision. Intervals are the estimate ± 1.96 ×
  * the logged standard error (sequence-level for arm gaps, paired for differences of gaps); the
  * logged SE is kept in each point's details. Nothing is smoothed, rescaled, or recomputed.
  */
@@ -49,7 +49,16 @@ export interface KdaMetrics {
   }
 }
 
+export interface TrainingLossMetrics {
+  description: string
+  series: Record<
+    "scaled_causal" | "scaled_midpoint",
+    { rows: Array<{ step: number; loss: number }> }
+  >
+}
+
 export const CHART_NAMES = [
+  "training-loss",
   "scaled-loss",
   "scaled-gap",
   "paired-checkpoints",
@@ -71,10 +80,15 @@ const PAIRED_INTERVAL = "estimate ± 1.96 × logged paired SE (approximate point
 
 const KDA_DIR = dirname(fileURLToPath(import.meta.url))
 export const METRICS_PATH = resolve(KDA_DIR, "metrics.json")
+export const TRAINING_METRICS_PATH = resolve(KDA_DIR, "training-loss.json")
 export const OUTPUT_DIR = resolve(KDA_DIR, "../../content/media/kda")
 
 export function loadMetrics(path = METRICS_PATH): KdaMetrics {
   return JSON.parse(readFileSync(path, "utf8")) as KdaMetrics
+}
+
+export function loadTrainingMetrics(path = TRAINING_METRICS_PATH): TrainingLossMetrics {
+  return JSON.parse(readFileSync(path, "utf8")) as TrainingLossMetrics
 }
 
 function interval(estimate: number, se: number): [number, number] {
@@ -150,8 +164,11 @@ function assertAlignedSteps(metrics: KdaMetrics): void {
   }
 }
 
-/** Pure: builds the four article charts from the snapshot without touching the filesystem. */
-export function buildKdaCharts(metrics: KdaMetrics): Record<ChartName, ChartSpec> {
+/** Build the article charts from the snapshots without touching the filesystem. */
+export function buildKdaCharts(
+  metrics: KdaMetrics,
+  training: TrainingLossMetrics,
+): Record<ChartName, ChartSpec> {
   assertAlignedSteps(metrics)
   const { scaled_causal, scaled_midpoint, scaled_paired_64, scaled_paired_1024 } = metrics.series
 
@@ -228,7 +245,30 @@ export function buildKdaCharts(metrics: KdaMetrics): Record<ChartName, ChartSpec
     ],
   }
 
+  const trainingLoss: ChartSpec = {
+    version: 1,
+    x: STEP_AXIS,
+    y: { label: "Cross-entropy (nats/token; lower is better)" },
+    series: [
+      {
+        name: "Causal",
+        mode: "line",
+        color: "blue",
+        points: training.series.scaled_causal.rows.map(({ step, loss }) => ({ x: step, y: loss })),
+      },
+      {
+        name: "Midpoint",
+        mode: "line",
+        color: "amber",
+        points: training.series.scaled_midpoint.rows.map(({ step, loss }) => ({
+          x: step,
+          y: loss,
+        })),
+      },
+    ],
+  }
   return {
+    "training-loss": trainingLoss,
     "scaled-loss": scaledLoss,
     "scaled-gap": scaledGap,
     "paired-checkpoints": pairedCheckpoints,
@@ -236,12 +276,13 @@ export function buildKdaCharts(metrics: KdaMetrics): Record<ChartName, ChartSpec
   }
 }
 
-/** Writes the four specs as prettier-formatted JSON so `npm run check` stays clean. */
+/** Write the specs as prettier-formatted JSON. */
 export async function writeKdaCharts(
   outputDir = OUTPUT_DIR,
   metricsPath = METRICS_PATH,
+  trainingPath = TRAINING_METRICS_PATH,
 ): Promise<string[]> {
-  const charts = buildKdaCharts(loadMetrics(metricsPath))
+  const charts = buildKdaCharts(loadMetrics(metricsPath), loadTrainingMetrics(trainingPath))
   for (const chart of Object.values(charts)) parseChart(chart)
   mkdirSync(outputDir, { recursive: true })
   const paths: string[] = []

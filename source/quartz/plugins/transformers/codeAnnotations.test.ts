@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
+import { runInNewContext } from "node:vm"
 import { build } from "esbuild"
 import { Element, Nodes, Root as HtmlRoot } from "hast"
 import { toHtml } from "hast-util-to-html"
@@ -55,6 +56,14 @@ const bundle = await build({
 const { CodeAnnotations } = (await import(
   `data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`
 )) as typeof import("./codeAnnotations")
+
+test("the bundled annotations do not leak minified bindings into other classic scripts", () => {
+  const resource = CodeAnnotations().externalResources!({} as BuildCtx).js![0]
+  assert("script" in resource)
+  const sandbox = { document: { addEventListener() {} } }
+  runInNewContext(resource.script, sandbox)
+  assert.deepEqual(Object.keys(sandbox), ["document"])
+})
 
 const ctx = {} as BuildCtx
 const fence = (code: string, meta = "annotate", lang = "python") =>

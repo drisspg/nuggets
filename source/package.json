@@ -23,7 +23,7 @@
     "check": "tsc --noEmit && npx prettier . --check",
     "format": "npx prettier . --write",
     "test": "tsx ./quartz/util/path.test.ts && tsx ./quartz/depgraph.test.ts && tsx ./quartz/util/chargeMotion.test.ts && npm run test:charts && npm run test:annotations",
-    "test:charts": "tsx --test quartz/util/chart.test.ts quartz/plugins/transformers/nativeCharts.test.ts visuals/kda/native-charts.test.ts",
+    "test:charts": "tsx --test quartz/util/chart.test.ts quartz/util/chartViewport.test.ts quartz/plugins/transformers/nativeCharts.test.ts visuals/kda/native-charts.test.ts",
     "test:charts:browser": "node scripts/test-native-charts.cjs",
     "test:annotations": "tsx --test quartz/plugins/transformers/codeAnnotations.test.ts",
     "test:annotations:browser": "node scripts/test-code-annotations.cjs",
