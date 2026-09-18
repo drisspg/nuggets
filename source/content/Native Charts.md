@@ -85,14 +85,14 @@ Give the y axis a `categories` array instead of numeric options. The order is to
 
 ## Interaction and accessibility
 
-- Hover over the plot to inspect the nearest x coordinate, or the nearest categorical row. A shared crosshair updates series-colored value chips **directly in the legend**, without a floating panel. An unsampled coordinate is shown as `—`; an explicit null observation is shown as `Missing`. Neither is interpolated.
+- Hover over the plot to inspect the nearest x coordinate, or the nearest categorical row. A shared crosshair updates larger tabular numbers **directly in the legend**, with subtle series-colored underlines rather than boxes. An unsampled coordinate is shown as `—`; an explicit null observation is shown as `Missing`. Neither is interpolated.
 - Legend values use seven significant digits for compact display. Legend tooltips and accessible names retain the full-precision estimates, interval endpoints, and details; the data table and download retain the original numbers.
 - Click or tap to **pin** the selection: moving the pointer no longer changes the crosshair or values. Click again to release it. The badge shows Explore, Live, or Pinned. Pins survive resize and theme changes; hiding all observations at the pinned coordinate clears the pin.
-- Focus the plot and use arrow keys, Home, or End to inspect observations, including while pinned. Enter or Space toggles pinning. Escape releases the pin and clears inspection.
+- Focus the plot and use arrow keys, Home, or End to inspect observations, including while pinned. Enter or Space toggles pinning. Escape releases the pin, clears inspection, and returns keyboard scrolling to the page without changing its scroll position.
 - Legend buttons toggle series and expose their state through `aria-pressed`. At least one series stays visible.
 - **View data table** exposes all original rows, including hidden series and missing observations. It is a standard HTML table, not a canvas-only alternative. Long category labels are abbreviated on the axis but remain complete in the table and inspection.
 - **Download chart data** provides the source JSON. It remains available if JavaScript is disabled or a runtime load fails. Invalid data fails the build; runtime failures display an error rather than an empty, apparently valid plot.
-- The plot never captures wheel scrolling or animates/interpolates the data. Updated legend values have a brief opacity accent; reduced-motion preferences disable it and the chip transitions. Only the optional data table can scroll horizontally on a narrow screen.
+- The plot never captures wheel scrolling, even when pinned, or animates/interpolates the data. Updated legend values have a brief opacity accent; reduced-motion preferences disable it and the underline/status transitions. Only the optional data table can scroll horizontally on a narrow screen.
 
 Version 1 intentionally has no logarithmic/date axes, stacking, smoothing, animated data, pan/zoom, or Plotly toolbar. Use the existing Plotly embed when those capabilities are needed. Do not add per-post rendering code for a feature that belongs in the shared renderer.
 
