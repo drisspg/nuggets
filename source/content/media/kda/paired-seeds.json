@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "x": { "label": "ΔG (nats/token)", "format": "scientific", "includeZero": true },
+  "y": {
+    "label": "Final checkpoint",
+    "categories": ["520M · seed 42", "520M · seed 11", "520M · seed 23", "1.45B · seed 42"]
+  },
+  "intervalLabel": "estimate ± 1.96 × logged paired SE (approximate pointwise 95%)",
+  "series": [
+    {
+      "name": "Final checkpoint ΔG",
+      "mode": "points",
+      "color": "purple",
+      "marker": "circle",
+      "points": [
+        {
+          "x": -0.00003935295832625113,
+          "y": "520M · seed 42",
+          "xLow": -0.0001405164645862032,
+          "xHigh": 0.00006181054793370095,
+          "details": { "Training step": 4000, "Paired SE": 0.000051614033806098 }
+        },
+        {
+          "x": 0.00006475663717455532,
+          "y": "520M · seed 11",
+          "xLow": -0.0000398513281170961,
+          "xHigh": 0.00016936460246620672,
+          "details": { "Training step": 4000, "Paired SE": 0.000053371410863087457 }
+        },
+        {
+          "x": -0.000003156410532945131,
+          "y": "520M · seed 23",
+          "xLow": -0.00009861090147894803,
+          "xHigh": 0.00009229808041305777,
+          "details": { "Training step": 4000, "Paired SE": 0.00004870127089081781 }
+        },
+        {
+          "x": 0.000008819354240234556,
+          "y": "1.45B · seed 42",
+          "xLow": -0.00009150486782246043,
+          "xHigh": 0.00010914357630292954,
+          "details": { "Training step": 7600, "Paired SE": 0.00005118582758300765 }
+        }
+      ]
+    }
+  ]
+}

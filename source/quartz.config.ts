@@ -61,6 +61,7 @@ const config: QuartzConfig = {
         priority: ["frontmatter", "filesystem"],
       }),
       Plugin.DocEmbeds(),
+      Plugin.NativeCharts(),
       Plugin.SyntaxHighlighting({
         theme: {
           light: "github-light",

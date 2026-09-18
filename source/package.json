@@ -22,7 +22,10 @@
     "prepare": "git -C .. rev-parse --is-inside-work-tree >/dev/null 2>&1 && git -C .. config core.hooksPath scripts/git-hooks || true",
     "check": "tsc --noEmit && npx prettier . --check",
     "format": "npx prettier . --write",
-    "test": "tsx ./quartz/util/path.test.ts && tsx ./quartz/depgraph.test.ts && tsx ./quartz/util/chargeMotion.test.ts",
+    "test": "tsx ./quartz/util/path.test.ts && tsx ./quartz/depgraph.test.ts && tsx ./quartz/util/chargeMotion.test.ts && npm run test:charts",
+    "test:charts": "tsx --test quartz/util/chart.test.ts quartz/plugins/transformers/nativeCharts.test.ts visuals/kda/native-charts.test.ts",
+    "test:charts:browser": "node scripts/test-native-charts.cjs",
+    "charts:kda": "tsx visuals/kda/native-charts.ts",
     "profile": "0x -D prof ./quartz/bootstrap-cli.mjs build --concurrency=1"
   },
   "engines": {

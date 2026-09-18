@@ -1,4 +1,5 @@
 export { DocEmbeds } from "./docEmbeds"
+export { NativeCharts } from "./nativeCharts"
 export { FrontMatter } from "./frontmatter"
 export { GitHubFlavoredMarkdown } from "./gfm"
 export { Citations } from "./citations"
