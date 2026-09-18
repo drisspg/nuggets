@@ -1,0 +1,128 @@
+---
+title: Native Charts
+draft: true
+---
+
+Native charts are SVGs inside the article, not iframes. They use the blog's fonts and theme, keep ordinary page scrolling, and support line plots, points, and horizontal or vertical uncertainty intervals. The same embed works in any note; no frontmatter class is needed. Existing `plotly` embeds remain supported.
+
+## Add a chart
+
+Save a versioned JSON specification under `source/content/media/`, then reference it from a note:
+
+````md
+```chart
+{"src":"media/charts/experiment.json","title":"Held-out loss difference","height":300}
+```
+````
+
+`src` is relative to the **content root**, including for notes in subfolders. Only local `media/*.json` paths are accepted; traversal, remote URLs, and symlinks escaping the content root are rejected. `title` is required and also names the chart for assistive technology. `height` is the SVG plot height in pixels (default 300, range 180–800); captions, controls, and data inspection use normal page flow outside it.
+
+Everything in the data file is public and downloadable. Do not include credentials, private run URLs, or internal-only metadata.
+
+Example `experiment.json`:
+
+```json
+{
+  "version": 1,
+  "x": { "label": "Training step" },
+  "y": {
+    "label": "Δ loss (nats/token)",
+    "format": "scientific",
+    "includeZero": true
+  },
+  "intervalLabel": "95% confidence interval supplied by the experiment",
+  "series": [
+    {
+      "name": "Candidate − baseline",
+      "mode": "line",
+      "color": "green",
+      "points": [
+        { "x": 1000, "y": 0.04, "yLow": 0.01, "yHigh": 0.07 },
+        { "x": 2000, "y": 0.02, "yLow": -0.01, "yHigh": 0.05 }
+      ]
+    }
+  ]
+}
+```
+
+These example numbers are illustrative. The renderer draws supplied interval endpoints; it does **not** infer standard errors, confidence levels, or statistical significance.
+
+## Data contract
+
+- `version` must be `1`. Unknown fields are errors, so misspelled options do not silently disappear.
+- Axes have a nonempty `label`. Numeric axes optionally accept `format: "number" | "scientific"`, `includeZero`, and `domain: [minimum, maximum]`.
+- Automatic domains include **all series and interval endpoints**, with 5% padding. Hiding a series does not silently rescale the chart. An explicit domain must contain all values, intervals, and any requested zero; clipping data requires an explicit future feature, not an accidental range setting.
+- Each series has a unique `name`, a `mode` (`"line"` or `"points"`), and a nonempty `points` array. A series must contain at least one observation.
+- Optional series styling: `color` is `blue`, `amber`, `green`, `red`, `gold`, or `purple`; `dash` is `solid` or `dash`; `marker` is `circle` or `diamond`. Colors adapt to the site theme. Use dashes/markers as well as color when comparing related series.
+- Points have numeric `x` and numeric `y`. A numeric `y: null` is an explicit missing observation: it gets no marker and **breaks** a line instead of becoming zero or being interpolated across. Do not simply omit a missing point if the line must show a gap.
+- Line-series x values must be strictly increasing. Points-only series can be unordered. Curves use straight segments, with no smoothing or resampling.
+- Intervals use `xLow`/`xHigh` or `yLow`/`yHigh`. Both endpoints are required, must be finite, and must enclose the estimate. Any interval requires an `intervalLabel` explaining its meaning. Numeric strings, `NaN`, and infinity are rejected.
+- Optional per-point `details` is a map of plain strings or finite numbers. It appears in inspection and the table; it is never interpreted as HTML.
+
+### Categorical rows / forest plots
+
+Give the y axis a `categories` array instead of numeric options. The order is top to bottom, and points use a category string as `y`. Category charts require `mode: "points"`; horizontal intervals remain numeric:
+
+```json
+{
+  "version": 1,
+  "x": { "label": "Difference", "includeZero": true },
+  "y": { "label": "Model", "categories": ["Small", "Large"] },
+  "intervalLabel": "95% confidence interval supplied by the experiment",
+  "series": [
+    {
+      "name": "Model comparison",
+      "mode": "points",
+      "color": "purple",
+      "points": [
+        { "x": 0.1, "y": "Small", "xLow": -0.1, "xHigh": 0.3 },
+        { "x": 0.05, "y": "Large", "xLow": -0.05, "xHigh": 0.15 }
+      ]
+    }
+  ]
+}
+```
+
+## Interaction and accessibility
+
+- Hover or tap the plot to inspect the nearest x coordinate, or the nearest categorical row. Inspection shows all visible observations there, their full-precision numbers, intervals, and details.
+- Focus the plot and use arrow keys, Home, or End to inspect observations. Escape clears inspection.
+- Legend buttons toggle series and expose their state through `aria-pressed`. At least one series stays visible.
+- **View data table** exposes all original rows, including hidden series and missing observations. It is a standard HTML table, not a canvas-only alternative. Long category labels are abbreviated on the axis but remain complete in the table and inspection.
+- **Download chart data** provides the source JSON. It remains available if JavaScript is disabled or a runtime load fails. Invalid data fails the build; runtime failures display an error rather than an empty, apparently valid plot.
+- The plot never captures wheel scrolling or starts animated transitions. Only the optional data table can scroll horizontally on a narrow screen.
+
+Version 1 intentionally has no logarithmic/date axes, stacking, smoothing, animation, pan/zoom, or Plotly toolbar. Use the existing Plotly embed when those capabilities are needed. Do not add per-post rendering code for a feature that belongs in the shared renderer.
+
+## KDA data and regeneration
+
+The KDA article's four JSON files are derived from its existing metadata-free `source/visuals/kda/metrics.json` snapshot:
+
+```sh
+cd source && npm run charts:kda
+```
+
+The adapter preserves the logged values, paired versus sequence-level standard errors, and intervals computed as estimate ± 1.96 × logged SE. The two 1,024-sequence observations stay points-only; the four final-checkpoint categories keep their original order. Old Plotly exports and their Python renderer remain available for comparison, but KDA now embeds the native JSON files.
+
+## Validation
+
+From `source/`:
+
+```sh
+npm run test:charts
+npm run build
+```
+
+The chart tests are also included in `npm test`. They cover schema/domain edge cases, real Markdown transforms, safe paths and escaping, and KDA data fidelity. Generation is checked against committed JSON, so stale assets fail tests.
+
+Browser regression tests build isolated fixtures and run their own temporary server. They cover theme and resize behavior, error bars, keyboard/touch inspection, legend toggling, ordinary scrolling, missing data, unsafe text, failed fetches, nested deployed paths, and repeated SPA navigation. They do not restart the user's preview or add browser dependencies to this repo.
+
+Use an isolated Playwright installation (or point `NODE_PATH` at one you already have):
+
+```sh
+pw_dir=$(mktemp -d) && npm install --prefix "$pw_dir" --no-save playwright@1.57.0 && "$pw_dir/node_modules/.bin/playwright" install chromium && NODE_PATH="$pw_dir/node_modules" npm run test:charts:browser
+```
+
+Screenshots and fixture output are retained in the printed temporary directory. Re-run both behavioral suites when changing the schema, renderer, or generation logic; a successful build alone does not check interaction or scientific fidelity.
+
+Implementation: `quartz/util/chart.ts` (contract/domains), `quartz/plugins/transformers/nativeCharts.ts` (Markdown/build validation), `quartz/components/scripts/nativeCharts.inline.ts` (D3 and lifecycle), and `quartz/components/styles/nativeCharts.scss` (scoped theme styling).

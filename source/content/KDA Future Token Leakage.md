@@ -2,7 +2,7 @@
 title: KDA Doesn't Care About the Future
 date: 2026-09-15
 enableToc: false
-dek: A future-dependent rounding effect in KDA, and the experiments that separated numerical leakage from learned exploitation.
+dek: A future-dependent rounding effect in KDA when enabling tensorcores and experiments investigating their affect
 tags:
   - pytorch
 cssclasses:
@@ -13,57 +13,129 @@ cssclasses:
 
 <iframe class="doc-widget widget-frame" src="./media/kda/kda-future-animation.html" title="Conceptual reference directions from an orange midpoint: green toward earlier positions, red toward later positions." loading="lazy" style="height: 340px;"></iframe>
 
-> [!note] Working draft
-> This is a first pass through the experiment story. The evaluation figures use exported W&B metrics; the kernel and probe results come from my experiment notes. Public code links, the remaining probe figures, and full reproducibility details still need to be attached.
+### Product pitch
 
-I was working on the intra-chunk kernels for Kimi Delta Attention (KDA) in [Attention Gym](https://github.com/meta-pytorch/attention-gym) and ran into something odd: an expression that is causal on paper was not quite causal on the GPU. I used [TorchTitan](https://github.com/pytorch/torchtitan) to test whether the model could learn to exploit it.
+TorchTitan has been working on enabling new models. As you most likely know, most new models have moved away from purely global causal attention and now do some combo of GCA (global causal attention) + local attention. We call these hybrid models. They optionally mix in sparse attention for some or all of the layers that used to be GCA. 
 
-Changing a future token's gate could change an earlier output. The causal mask was still there. No future value vector had been accidentally included in the sum. The dependence came from a reference value used to rescale the operands before a matrix multiplication.
+It is hard to be nimble in pytorch/pytorch - this is a good and a bad thing. We want to build out useful apis that enable researchers and implementers to get the most out of pytorch. Our Linear Attention apis have been severely lacking here. And our Sparse Apis have been decent through flex-attention but only when sparse granularity is largish (128,128)+. Soooo what are we to do! 
 
-That led to two different questions:
+[Attention Gym](https://github.com/meta-pytorch/attention-gym) is changing! 
 
-1. Can the implementation's forward pass depend on future inputs?
-2. Can training learn to use that dependence to predict future tokens?
+We are coalescing development of these fun new attention flavors here. We have built a number of primitives for gdn and kda and have been integrating them into torchtitan's training and RL(inference) stack. As well we have been adding more sparse primitives to enable performant DSv4 training in Titan.
 
-For the midpoint-reference variant I tested, the first answer was **yes**. For the training experiments I ran, the second was **no exploitation detected**. Those are different results, and the difference is most of the story.
+"But Driss why would I not just use FLA" That is a great question insightful reader! My honest answer: we pytorch developers are humans. We need a place to explore ideas, find common abstractions, figure out what works and what doesn't. Attention gym is that place for me and others. Long term I would love to develop something as extensible as `Flex Linear Attention` but right now - I don't see it. As well AI has kind of thrown a wrench into this all generalization thing we like doing. If you want to have some influence on where we invest our time; use the repo, open issues and give us feedback. We are dogfooding in torchtitan but would love to hear from other voices.
 
-## What has to be causal?
+Another more `polished` answer is that the components we are offering are more specialized to the latest hardware and this allows us to eek <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-performance-note">non trivial out performance</span>.<span id="kda-performance-note" class="sidenote" role="note">These performance gains can be very large, but numbers are numbers, and I don't want to include comparisons in this particular blog post.</span></span> We have fully integrated CuDNN's uber mega kernels, a robust CP implementation, paid special attention to making everything cuda-graphable. But if you are using FLA and it works for you and don't want to switch I get it. Its an awesome project and I personally have learned so much from it :)
 
-For next-token prediction, the logits at position $t$ should depend on tokens $x_1,\ldots,x_t$, not on the tokens after them. Hold the model weights and valid past state fixed: changing the suffix should not change that prediction. Computing all positions in parallel does not relax this condition.
+#### Pitch done - TLDR
 
-The target $x_{t+1}$ does enter the calculation—but **at the loss**, where we score the prediction, not upstream where we make it.
+ I was working on the intra-chunk kernels for Kimi Delta Attention(KDA) and found that there was a subtle implementation choice that has the potential to break `causality`.  I used [TorchTitan](https://github.com/pytorch/torchtitan) to test whether the model could learn to exploit it. I wont bury the need but turns out not; at least at the scales I tested; and I do a lil math to show why it seems unlikely to do so at larger runs.
 
-<figure class="kda-figure" aria-labelledby="kda-causality-title">
-<div class="kda-figure-title" id="kda-causality-title">The boundary is the prediction, not the end of training</div>
-<div class="kda-causal-row">
-<div class="kda-node"><span class="kda-label">Available context</span><strong>Prefix x₁ … xₜ</strong>Fixed weights and state built from the allowed past.</div>
-<div class="kda-node"><span class="kda-label">Forward</span><strong>Predict xₜ₊₁</strong>The logits must not depend on this sequence's future tokens.</div>
-<div class="kda-node"><span class="kda-label">Loss</span><strong>Score the prediction</strong>The true target xₜ₊₁ is used here.</div>
+### What is causality anyways
+
+I think this phrase is is a little to anthropomorphized. A better one is; training inference mismatch. Thats it. We call it causality because this particular form of mismatch is when you let a token at position $N$ receive information from token $M$, for some $M > N$. And in essence $N$ can see the future. This unsurprisingly really helps with the task of next token prediction. What are some ways this might happen;
+1. you forget to invoke `F.scaled_dot_product_attention(... causal=True)`. That is an obvious one. There are some other more subtle forms; 
+2. Expert choice routing
+3. Blockwise scaling of inputs during training
+
+etc etc
+
+This can be subtle, because during training there isnt anything actually `wrong` with this. Either you have a massive information leak and you will see your loss decrease very very rapidly; or it will be a slow trickle. You might even think `damn i really did something with this datamix!`. Dont be fooled, the problems only show up when you try to serve this model using auto-regressive token generation. The model learned that it's only going to see batches of tokens and that this information from token $M$ will always be there to influence what it should predict at token $N$. That's what it learned during training, but at inference, token $M$ doesn't exist yet. We're building up the sequence one token at a time, and the result is you've trained this cracked model, but at inference time, it's going to underperform relative to what you saw during training!
+
+<figure class="kda-figure kda-token-modes" aria-label="Possible prediction mismatch between parallel training and autoregressive inference">
+<div class="kda-token-mode">
+<div class="kda-label">Training</div>
+<svg viewBox="0 0 360 240" role="img" aria-labelledby="kda-training-title kda-training-desc">
+<title id="kda-training-title">Next-token distributions computed together</title>
+<desc id="kda-training-desc">All three input tokens are available. Solid green arrows show allowed causal inputs: x1 predicts p2; x1 and x2 predict p3; x1 through x3 predict p4. Red dashed arrows show every forbidden future-token connection in this example: x2 into p2, and x3 into p2 and p3. These predictions should not depend on those future tokens. The distributions are computed in parallel. The leak and bars are schematic, not measured KDA results or evidence of learned exploitation.</desc>
+<defs>
+<marker id="kda-training-arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L6 3L0 6Z" fill="currentColor" /></marker>
+<marker id="kda-leak-arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path class="kda-mode-leak-head" d="M0 0L6 3L0 6Z" /></marker>
+<g id="kda-probability-bars"><rect x="0" y="21" width="7" height="11" rx="1" /><rect x="11" y="2" width="7" height="30" rx="1" /><rect x="22" y="13" width="7" height="19" rx="1" /><rect x="33" y="25" width="7" height="7" rx="1" /></g>
+<g id="kda-probability-bars-next"><rect x="0" y="15" width="7" height="17" rx="1" /><rect x="11" y="25" width="7" height="7" rx="1" /><rect x="22" y="3" width="7" height="29" rx="1" /><rect x="33" y="18" width="7" height="14" rx="1" /></g>
+<g id="kda-probability-bars-last"><rect x="0" y="24" width="7" height="8" rx="1" /><rect x="11" y="17" width="7" height="15" rx="1" /><rect x="22" y="22" width="7" height="10" rx="1" /><rect x="33" y="1" width="7" height="31" rx="1" /></g>
+</defs>
+<g class="kda-mode-token"><rect x="46" y="48" width="36" height="30" rx="3" /><text x="64" y="68">x₁</text><rect x="159" y="48" width="36" height="30" rx="3" /><text x="177" y="68">x₂</text><rect x="272" y="48" width="36" height="30" rx="3" /><text x="290" y="68">x₃</text></g>
+<g class="kda-mode-arrows" marker-end="url(#kda-training-arrow)"><path d="M64 80V135" /><path d="M64 80C64 108 177 105 177 135" /><path d="M64 80C64 117 290 110 290 135" /><path d="M177 80V135" /><path d="M177 80C177 119 290 118 290 135" /><path d="M290 80V135" /></g>
+<rect class="kda-mode-batch" x="29" y="139" width="298" height="69" rx="3" />
+<g class="kda-mode-leak-arrows" marker-end="url(#kda-leak-arrow)"><path d="M177 80C177 106 82 114 76 143" /><path d="M290 80C290 128 123 165 87 165" /><path d="M290 80C290 104 192 112 188 143" /></g>
+<g class="kda-mode-probs"><use href="#kda-probability-bars" x="44" y="147" /><use href="#kda-probability-bars-next" x="157" y="147" /><use href="#kda-probability-bars-last" x="270" y="147" /></g>
+<g class="kda-mode-prob-label"><text x="64" y="198">p₂</text><text x="177" y="198">p₃</text><text x="290" y="198">p₄</text></g>
+</svg>
 </div>
-<div class="kda-forbidden"><strong>Forbidden shortcut:</strong> current future tokens → a scale or reference → the current prediction.</div>
-<div class="kda-backward"><strong>Different dependency rule after the loss:</strong> losses across positions → backward reductions → parameter update for subsequent training steps.</div>
-<figcaption>A causal mask blocks direct attention to future positions. It cannot undo future information that already entered through operand preparation.</figcaption>
+<div class="kda-token-mode kda-token-mode--inference">
+<div class="kda-label">Inference</div>
+<svg viewBox="0 0 360 240" role="img" aria-labelledby="kda-inference-title kda-inference-desc">
+<title id="kda-inference-title">Next-token distributions computed one at a time</title>
+<desc id="kda-inference-desc">Start with x1 and compute p2. Sample x2, append it to the prefix, and compute p3. Sample x3, append it, and compute p4. Dashed empty boxes are tokens that do not exist yet; curved arrows feed a sampled token into the next step. Different bar shapes illustrate a possible prediction mismatch if training relied on future information that is unavailable at inference. These are illustrative distributions, not measured KDA results or evidence of learned exploitation.</desc>
+<defs>
+<marker id="kda-inference-arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L6 3L0 6Z" fill="currentColor" /></marker>
+<g id="kda-inference-bars"><rect x="0" y="8" width="7" height="24" rx="1" /><rect x="11" y="20" width="7" height="12" rx="1" /><rect x="22" y="23" width="7" height="9" rx="1" /><rect x="33" y="10" width="7" height="22" rx="1" /></g>
+<g id="kda-inference-bars-next"><rect x="0" y="17" width="7" height="15" rx="1" /><rect x="11" y="7" width="7" height="25" rx="1" /><rect x="22" y="14" width="7" height="18" rx="1" /><rect x="33" y="23" width="7" height="9" rx="1" /></g>
+<g id="kda-inference-bars-last"><rect x="0" y="6" width="7" height="26" rx="1" /><rect x="11" y="20" width="7" height="12" rx="1" /><rect x="22" y="14" width="7" height="18" rx="1" /><rect x="33" y="24" width="7" height="8" rx="1" /></g>
+</defs>
+<g class="kda-mode-token"><rect x="34" y="26" width="36" height="30" rx="3" /><text x="52" y="46">x₁</text><rect x="34" y="104" width="36" height="30" rx="3" /><text x="52" y="124">x₁</text><rect x="34" y="182" width="36" height="30" rx="3" /><text x="52" y="202">x₁</text><rect x="80" y="182" width="36" height="30" rx="3" /><text x="98" y="202">x₂</text></g>
+<g class="kda-mode-token kda-mode-token--new"><rect x="80" y="104" width="36" height="30" rx="3" /><text x="98" y="124">x₂</text><rect x="126" y="182" width="36" height="30" rx="3" /><text x="144" y="202">x₃</text></g>
+<g class="kda-mode-missing"><rect x="80" y="26" width="36" height="30" rx="3" /><rect x="126" y="26" width="36" height="30" rx="3" /><rect x="126" y="104" width="36" height="30" rx="3" /></g>
+<g class="kda-mode-arrows" marker-end="url(#kda-inference-arrow)"><path d="M181 42H232" /><path d="M181 120H232" /><path d="M181 198H232" /><path class="kda-mode-feedback" d="M262 64C262 91 98 79 98 98" /><path class="kda-mode-feedback" d="M262 142C262 169 144 157 144 176" /></g>
+<g class="kda-mode-probs"><use href="#kda-inference-bars" x="242" y="26" /><use href="#kda-inference-bars-next" x="242" y="104" /><use href="#kda-inference-bars-last" x="242" y="182" /></g>
+<g class="kda-mode-prob-label"><text x="310" y="46">p₂</text><text x="310" y="124">p₃</text><text x="310" y="202">p₄</text></g>
+</svg>
+</div>
 </figure>
 
-### Why backward is different
+### Don't just take my word for it
 
-The gradient of the training loss is allowed to combine information from different token positions. A weight-gradient reduction across tokens is not, by itself, a future leak into the forward prediction. The same distinction applies when discussing token-spanning quantization in backward: the important question for forward causality is whether the logits used to compute the loss already saw a forbidden signal.
+MatX's [“Future leakage in block-quantized attention”](https://matx.com/research/leaky_quantization) is a really really nice blog. The causal break it found has to do with low precision attention. When values share a quantization scale across token positions, a future outlier can increase that scale and make an earlier value underflow. Seems harmless but models are sneaky, trixy little hobbits and they use signals in remarkable ways! 
 
-That is **not** a license for arbitrary gradient error. Backward quantization can still introduce bias, noise, or instability, and must be validated on those terms. I would not turn this into a general rule that numerical bias is fine in forward but dangerous only in backward.
+<figure class="kda-source-figure" aria-labelledby="matx-leaky-region-caption">
+<img src="./media/kda/matx-leaky-region.svg" alt="MatX's query-by-value matrix, divided into 32-token blocks. Red hatched diagonal blocks can leak future information through shared value quantization scales; green earlier blocks are safe from this leak, and gray later blocks are masked." width="550" height="500" loading="lazy">
+<figcaption id="matx-leaky-region-caption">Figure from MatX, <a href="https://matx.com/research/leaky_quantization">Future leakage in block-quantized attention</a> </figcaption>
+</figure>
 
-Delayed scaling from a previous batch is also a different dependency from reading this sequence's future. It may use permitted history, but that depends on the data order and the scale-state policy available at inference. “The optimizer already saw that batch” is not a proof that carrying extra state is redundant or harmless. Training–serving mismatch is the broader concern; forward future leakage is one way to create it, not a name for every numerical mismatch.
+MX quantization shares one scale across 32 elements along the reduction dimension. In attention's second GEMM, $PV$, we multiply $(N_q \times N_{kv})$ by $(N_{kv} \times D_v)$. So the reduction runs across **token positions**.
 
-### The MatX example
+In the picture, rows are queries and columns are values. Green blocks are entirely in the past -> all query indices > all  kv indices; gray blocks are fully masked. The **red diagonal blocks** have mixed sign. If we naively quantized there would be a path for info to flow form kv_index > q_index.
 
-MatX's [“Future leakage in block-quantized attention”](https://matx.com/research/leaky_quantization) gives a concrete example. When values share a quantization scale across token positions, a future outlier can increase that scale and make an earlier value underflow. An earlier query can still attend to that altered value even though future attention weights are masked. The future information arrived through the scale, not through an unmasked attention edge.
+We shall see this future leakage ends up looking very similar to our KDA example but not through low precision quantization but a rescale factor.
 
-Their fix uses unquantized probabilities and values for the block-diagonal part of $PV$, while keeping block-quantized multiplications elsewhere. In two 1B-parameter C4 models using MXFP4 in attention and its gradients, they report parallel/autoregressive losses of **2.56/2.66** for the leaky model and **2.64/2.64** for the fixed model. The apparent parallel-mode advantage reversed when future tokens were unavailable.
+MatX describes a really nice experimental process for finding this leak: train a small model and measure its performance on a held-out set, evaluating in two modes: parallel and autoregressive. If autoregressive performance is worse, that's a good sign your model's training setup isn't mirroring its inference setup. Their fix is also quite nice—>I encourage you to read the blog! We'll use this technique to see if our causal break is measurable.
 
-That motivated the question here, but these are not matched experiments. MatX does not state a total training-token budget in the post. My scaled run used 1.45B parameters and 4B C4 tokens, and the numerical mechanism is different: **gate-reference rounding**, not block quantization of values. The experiment has to establish separately whether that different channel is usable by training.
+## Chunkwise KDA in Broad Strokes
 
-## The forward pass, in broad strokes
+KDA is a delta-rule linear attention variant. Like many other linear attention variants it stores info in a recurrent state that is calculated earlier tokens:
 
-KDA carries a recurrent state from earlier tokens. The chunked implementation reorganizes that recurrence into local matrix operations plus a state update across chunks. Here is the logical flow for the **64-token chunked path**—not a claim that each box is a separate GPU launch. Fusion and scheduling can combine these stages.
+$$
+\begin{alignedat}{3}
+\text{Definition:}\\
+\text{(0)}&\quad D_i
+&&=\operatorname{diag}(2^{g_i})
+&\qquad&\text{form the per-channel decay operator},\\
+\text{(1)}&\quad\widetilde S_i
+&&=D_iS_{i-1}
+&\qquad&\text{decay the previous state},\\
+\text{(2)}&\quad\widehat v_i
+&&=k_i^\top\widetilde S_i
+&\qquad&\text{read the existing value associated with the current key},\\
+\text{(3)}&\quad z_i
+&&=\beta_i\left(v_i-\widehat v_i\right)
+&\qquad&\text{given the current value, compute the scaled prediction error},\\
+\text{(4)}&\quad S_i
+&&=\widetilde S_i+k_iz_i^\top
+&\qquad&\text{write that correction at the current key},\\
+\text{(5)}&\quad o_i
+&&=s q_i^\top S_i
+&\qquad&\text{read the updated state with the current query}.
+\end{alignedat}
+$$
+
+
+This recurrent form is great when we are decoding 1 token at a time but for training it is not efficient. If only there was some way to turn this memory bound problem into one that can use our tensorcores.. <span class="sidenote-hover"><button type="button" class="sidenote-trigger" aria-describedby="kda-chunking-reaction">CHUNKING!</button><span id="kda-chunking-reaction" class="sidenote sidenote--hover-media" role="note"><img src="./media/kda/kool-aid-man.gif" alt="The Kool-Aid Man bursts through a wall. Oh yeah!" width="420" height="310" loading="lazy"></span></span>
+
+The chunked implementation reorganizes that recurrence into local matrix operations plus a state update across chunks, effectively shortening our sequential depth at the cost of explicitly computing pairwise terms within each chunk. 
+
+ Here is the logical flow for an implementation that processes 64 tokens at a time
+
 
 <figure class="kda-figure" aria-labelledby="kda-flow-title">
 <div class="kda-figure-title" id="kda-flow-title">From Q/K/V inputs to chunk outputs</div>
@@ -87,7 +159,7 @@ The key distinction is between **local interactions within a chunk** and the **s
 
 This is not a derivation of all of KDA. I want to isolate the query/key interaction inside a chunk, which I'll call $A_{qk}$.
 
-Let $q_i$ and $k_j$ be query and key vectors with $D$ channels. Let $g_{i,d}$ be the cumulative log-base-2 gate at token $i$, channel $d$, measured within the chunk.<span class="sidenote-ref" aria-hidden="true"></span><span class="sidenote" role="note">Attention Gym's KDA API uses natural-log gates. At the $-5$ floor—the strongest decay allowed by the tested gate transform—the multiplier is $e^{-5}\approx0.006738$: only about 0.67% of the previous state is retained before the other update terms.</span> Ignoring the usual query scaling, the causal entries are:
+Let $q_i$ and $k_j$ be query and key vectors with $D$ channels. Let $g_{i,d}$ be the <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-gate-units-note">cumulative log-base-2 gate</span> at token $i$, channel $d$, measured within the chunk.<span id="kda-gate-units-note" class="sidenote" role="note">Attention Gym's KDA API uses natural-log gates. At the $-5$ floor—the strongest decay allowed by the tested gate transform—the multiplier is $e^{-5}\approx0.006738$: only about 0.67% of the previous state is retained before the other update terms.</span></span> Ignoring the usual query scaling, the causal entries are:
 
 $$
 A_{qk}[i,j] = \sum_{d=1}^{D} q_{i,d} k_{j,d} 2^{g_{i,d}-g_{j,d}}, \qquad j \leq i.
@@ -117,7 +189,7 @@ The block can be computed as $\widetilde Q\widetilde K^T$, then causally masked.
 
 In real arithmetic, the reference cancels. Pick the first row, pick the midpoint: same answer.
 
-On the GPU, we materialize those operands separately. Exponent evaluation, multiplication, conversion, and the matrix multiplication all have finite precision. The cancellation is no longer an identity between the computed values. **The reference becomes part of the numerical result.**<span class="sidenote-ref" aria-hidden="true"></span><span class="sidenote" role="note">The BF16 CuTe engine casts the rescaled operands to BF16 before its matrix multiplication, with FP32 accumulation. The Triton diagonal kernel passes FP32 products to <code>tl.dot</code>; its effective dot precision needs to be checked separately. BF16 inputs do not imply identical rounding paths.</span>
+On the GPU, we materialize those operands separately. Exponent evaluation, multiplication, conversion, and the matrix multiplication all have finite precision. The cancellation is no longer an identity between the computed values. <span class="sidenote-pair"><strong class="sidenote-ref" tabindex="0" aria-describedby="kda-rounding-note">The reference becomes part of the numerical result.</strong><span id="kda-rounding-note" class="sidenote" role="note">The BF16 CuTe engine casts the rescaled operands to BF16 before its matrix multiplication, with FP32 accumulation. The Triton diagonal kernel passes FP32 products to <code>tl.dot</code>; its effective dot precision needs to be checked separately. BF16 inputs do not imply identical rounding paths.</span></span>
 
 ## How a midpoint breaks causality
 

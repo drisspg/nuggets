@@ -49,35 +49,6 @@
         outline: 2px solid var(--amber);
         outline-offset: -3px;
       }
-      button {
-        position: absolute;
-        right: 12px;
-        bottom: 10px;
-        display: grid;
-        place-items: center;
-        width: 26px;
-        height: 26px;
-        padding: 4px;
-        border: 1px solid var(--rule);
-        border-radius: 2px;
-        background: var(--paper);
-        color: var(--ink);
-        cursor: pointer;
-        font: inherit;
-      }
-      button svg {
-        width: 14px;
-        height: 14px;
-        fill: currentColor;
-      }
-      button[data-state="running"] .play-icon,
-      button[data-state="paused"] .pause-icon {
-        display: none;
-      }
-      button:focus-visible {
-        outline: 2px solid var(--green);
-        outline-offset: 2px;
-      }
     </style>
   </head>
   <body>
@@ -85,22 +56,15 @@
       role="slider"
       tabindex="0"
       aria-label="Selected token in a conceptual reference animation"
-      aria-description="Use arrow keys or click a token to select it. Lookup arrows toward earlier positions are green; later positions are red. This is not measured data."
+      aria-description="Use arrow keys or click a token to select it. Space pauses or resumes the animation. Lookup arrows toward earlier positions are green; later positions are red. This is not measured data."
       aria-orientation="horizontal"
       aria-valuemin="0"
       aria-valuemax="15"
       aria-valuenow="8"
     ></canvas>
-    <button type="button" id="toggle" data-state="running" aria-label="Pause illustration">
-      <svg viewBox="0 0 16 16" aria-hidden="true">
-        <path class="pause-icon" d="M3 2h3v12H3zM10 2h3v12h-3z" />
-        <path class="play-icon" d="M4 2l10 6-10 6z" />
-      </svg>
-    </button>
     <script>
       const canvas = document.querySelector("canvas")
       const ctx = canvas.getContext("2d")
-      const button = document.querySelector("#toggle")
       const controller = new AbortController()
       const { signal } = controller
       const host = window.parent === window ? document : window.parent.document
@@ -110,6 +74,7 @@
       let width = 0
       let height = 0
       const tokenCount = 16
+      const selectionInterval = 3400
       let elapsed = 0
       let previous = 0
       let frame = 0
@@ -119,8 +84,8 @@
       let pivot = 8
       let fromPivot = 8
       let selectedAt = 0
-      let autoSelect = true
-      let autoStep = 0
+      let nextSelectionAt = selectionInterval
+      let selectionDirection = 1
 
       function geometry() {
         const pad = width < 600 ? 16 : 28
@@ -130,8 +95,8 @@
         return { pad, gap, cardWidth, cardHeight, topY: 40, bottomY: height - 40 - cardHeight }
       }
 
-      function selectToken(index, manual = true) {
-        if (manual) autoSelect = false
+      function selectToken(index) {
+        nextSelectionAt = elapsed + selectionInterval
         const next = Math.max(0, Math.min(tokenCount - 1, index))
         if (next !== selected) {
           fromPivot = running ? pivot : next
@@ -222,11 +187,10 @@
         ctx.stroke()
         ctx.globalAlpha = 1
 
-        const step = Math.floor(time / 3400)
-        if (autoSelect && step !== autoStep) {
-          autoStep = step
-          const cycle = (8 + step) % (2 * (tokenCount - 1))
-          selectToken(cycle < tokenCount ? cycle : 2 * (tokenCount - 1) - cycle, false)
+        if (time >= nextSelectionAt) {
+          if (selected === 0) selectionDirection = 1
+          else if (selected === tokenCount - 1) selectionDirection = -1
+          selectToken(selected + selectionDirection)
         }
         const blend = Math.min(1, (time - selectedAt) / 420)
         const ease = blend * blend * (3 - 2 * blend)
@@ -292,8 +256,6 @@
       function schedule() {
         cancelAnimationFrame(frame)
         previous = 0
-        button.dataset.state = running ? "running" : "paused"
-        button.setAttribute("aria-label", running ? "Pause illustration" : "Play illustration")
         if (running && visible && !document.hidden) frame = requestAnimationFrame(tick)
         else draw(elapsed)
       }
@@ -310,18 +272,17 @@
         { signal },
       )
       canvas.addEventListener(
-        "focus",
-        () => {
-          autoSelect = false
-        },
-        { signal },
-      )
-      canvas.addEventListener(
         "keydown",
         (event) => {
           if (event.ctrlKey || event.metaKey || event.altKey) return
           let next = selected
           switch (event.key) {
+            case " ":
+              event.preventDefault()
+              if (event.repeat) return
+              running = !running
+              schedule()
+              return
             case "ArrowLeft":
             case "ArrowDown":
               next--
@@ -342,14 +303,6 @@
           event.preventDefault()
           selectToken(next)
           draw(elapsed)
-        },
-        { signal },
-      )
-      button.addEventListener(
-        "click",
-        () => {
-          running = !running
-          schedule()
         },
         { signal },
       )

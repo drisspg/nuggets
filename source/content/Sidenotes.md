@@ -14,19 +14,27 @@ cssclasses:
   - sidenotes
 ```
 
-Place the reference and note immediately after the relevant sentence:
+Wrap the annotated phrase and its note in a `sidenote-pair`:
+
+```md
+This sentence needs <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="extra-context-note">extra context</span>.<span id="extra-context-note" class="sidenote" role="note">Keep the sidenote short and useful.</span></span>
+```
+
+The phrase has a dotted underline, like Attention Gym's documentation. Hovering or focusing the phrase highlights both it and its note; hovering the note highlights the phrase too. Use a unique note ID and match it in `aria-describedby`. Notes remain visible in the margin on desktop and inline on smaller screens.
+
+The older numbered style is still supported:
 
 ```md
 This is the sentence that needs extra context.<span class="sidenote-ref" aria-hidden="true"></span><span class="sidenote" role="note">Keep the sidenote short and useful.</span>
 ```
 
-The reference and note are numbered automatically in document order.
+Empty references and their notes are numbered automatically in document order; phrase-based references do not consume a number.
 
 ## Writing guidelines
 
 - Use sidenotes for optional context, asides, definitions, and implementation details.
 - Keep each note to one short paragraph.
-- Put the markup directly after the sentence it annotates.
+- Keep the reference and note in the same pair; put the note after the sentence it annotates.
 - Avoid stacking several sidenotes in the same paragraph.
 - Keep essential arguments and required instructions in the main text.
 - Use regular Markdown footnotes when the note is primarily a citation.

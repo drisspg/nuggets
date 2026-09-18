@@ -162,6 +162,166 @@
   }
 }
 
+.kda-source-figure {
+  margin: 1.5rem 0;
+
+  img {
+    display: block;
+    width: 100%;
+    max-width: 36rem;
+    height: auto;
+    margin: 0 auto;
+    // The source SVG has black labels on a transparent canvas.
+    background: #fff;
+  }
+
+  figcaption {
+    margin: 0.75rem auto 0;
+    color: var(--editorial-muted);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    text-align: center;
+  }
+}
+
+// Borderless two-panel diagram: the SVGs carry the structure, so the figure
+// drops the card chrome and separates the panels with a single hairline.
+.kda-figure.kda-token-modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 360px));
+  justify-content: center;
+  gap: 0 3rem;
+  margin: 2.25rem 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+
+  .kda-token-mode {
+    min-width: 0;
+    color: var(--secondary);
+  }
+
+  .kda-token-mode--inference {
+    padding-left: 1.5rem;
+    margin-left: -1.5rem;
+    border-left: 1px solid var(--editorial-rule);
+    color: var(--kda-focus);
+  }
+
+  .kda-label {
+    margin-bottom: 0.75rem;
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-align: center;
+  }
+
+  svg {
+    display: block;
+    width: 100%;
+    max-width: 360px;
+    height: auto;
+    margin: 0 auto;
+  }
+
+  text {
+    fill: currentColor;
+    font-family: var(--codeFont);
+    font-size: 15px;
+    text-anchor: middle;
+  }
+
+  .kda-mode-token {
+    rect {
+      fill: var(--editorial-code);
+      stroke: var(--editorial-rule);
+    }
+
+    text {
+      fill: var(--darkgray);
+    }
+  }
+
+  .kda-mode-token--new {
+    rect {
+      fill: color-mix(in srgb, currentColor 10%, var(--light));
+      stroke: currentColor;
+    }
+
+    text {
+      fill: currentColor;
+    }
+  }
+
+  .kda-mode-missing rect {
+    fill: none;
+    stroke: var(--kda-muted);
+    stroke-opacity: 0.55;
+    stroke-dasharray: 3 4;
+  }
+
+  .kda-mode-arrows {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.1;
+
+    path {
+      opacity: 0.55;
+    }
+
+    .kda-mode-feedback {
+      opacity: 1;
+      stroke-width: 1.6;
+    }
+  }
+
+  .kda-mode-leak-arrows {
+    fill: none;
+    stroke: var(--kda-warning);
+    stroke-width: 1.5;
+    stroke-dasharray: 3 4;
+    stroke-linecap: round;
+  }
+
+  .kda-mode-leak-head {
+    fill: var(--kda-warning);
+  }
+
+  .kda-mode-batch {
+    fill: color-mix(in srgb, currentColor 4%, transparent);
+    stroke: currentColor;
+    stroke-opacity: 0.3;
+  }
+
+  .kda-mode-probs {
+    fill: currentColor;
+    fill-opacity: 0.9;
+  }
+
+  .kda-token-mode--inference .kda-mode-probs {
+    fill: var(--kda-warning);
+  }
+
+  .kda-mode-prob-label text {
+    fill: var(--kda-muted);
+  }
+}
+
+@media (max-width: 700px) {
+  .kda-figure.kda-token-modes {
+    grid-template-columns: minmax(0, 360px);
+    gap: 2rem 0;
+
+    .kda-token-mode--inference {
+      margin-left: 0;
+      padding-top: 2rem;
+      padding-left: 0;
+      border-top: 1px solid var(--editorial-rule);
+      border-left: 0;
+    }
+  }
+}
+
 :root:not([saved-theme="dark"]) .kda-figure {
   --kda-focus: #97551c;
   --kda-warning: #aa413a;
