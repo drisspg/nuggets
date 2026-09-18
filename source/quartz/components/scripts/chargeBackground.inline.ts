@@ -81,7 +81,7 @@ document.addEventListener("nav", () => {
       spawn()
       nextSpawn = random(2.5, 4.5)
     }
-    accumulator += elapsed * 0.18
+    accumulator += elapsed * 0.45
     while (accumulator >= step) {
       stepCharges(particles, step)
       accumulator -= step
