@@ -37,12 +37,13 @@ const gapSpec = {
   version: 1,
   x: { label: "X" },
   y: { label: "Y" },
+  intervalLabel: "Supplied interval",
   series: [
     {
       name: "<img src=x onerror=alert(1)>",
       mode: "line",
       points: [
-        { x: 0, y: 1 },
+        { x: 0, y: 1, yLow: 0.9, yHigh: 1.1 },
         { x: 1, y: null },
         { x: 2, y: 1, details: { Note: "<script>alert(1)</script>" } },
       ],
@@ -72,8 +73,9 @@ async function main() {
   })
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
   const base = `http://127.0.0.1:${server.address().port}/blog`
-  const browser = await chromium.launch()
+  let browser
   try {
+    browser = await chromium.launch()
     for (const width of [320, 390, 960, 1440]) {
       const page = await browser.newPage({ viewport: { width, height: 1000 } })
       const errors = []
@@ -84,6 +86,9 @@ async function main() {
           document.querySelectorAll(".native-chart-plot svg").length === 4 &&
           document.querySelectorAll(".native-chart-point").length === 62,
       )
+      await page.evaluate(() => document.fonts.ready)
+      // Focus/scroll setup must settle before measuring hover layout, not animate between samples.
+      await page.addStyleTag({ content: "html { scroll-behavior: auto !important; }" })
       const charts = page.locator(".native-chart")
       assert.equal(await charts.count(), 4)
       assert.equal(await page.locator(".plotly-chart__frame").count(), 0)
@@ -109,15 +114,33 @@ async function main() {
           await chart.locator(".native-chart-inspection circle").count(),
           [4, 2, 2, 1][i],
         )
-        assert(await chart.locator(".native-chart-readout").innerText())
+        assert(
+          (await chart.locator(".native-chart-legend-value").allTextContents()).every(
+            (text) => text !== "—",
+          ),
+        )
+        await page.keyboard.press("Enter")
+        assert.equal(await chart.getAttribute("data-pinned"), "true")
+        await page.keyboard.press("Home")
+        assert.equal(await chart.getAttribute("data-pinned"), "true")
+        await page.keyboard.press("Space")
+        assert.equal(await chart.getAttribute("data-pinned"), "false")
         await page.keyboard.press("Escape")
         assert.equal(await chart.locator(".native-chart-inspection circle").count(), 0)
       }
       const forest = charts.nth(3)
+      await forest.locator(".native-chart-legend-item").focus()
+      assert(
+        await forest
+          .locator(".native-chart-legend-item")
+          .evaluate((node) => !node.disabled && document.activeElement === node),
+        "single-series legend remains keyboard-accessible",
+      )
       await forest.locator("svg").focus()
       await page.keyboard.press("End")
       const finalPoint = specs[3].series[0].points.at(-1)
-      const readout = await forest.locator(".native-chart-readout").innerText()
+      const readout = await forest.locator(".native-chart-legend-item").getAttribute("title")
+      assert((await forest.locator(".native-chart-axis").first().locator(".tick").count()) >= 2)
       for (const value of [
         finalPoint.x,
         finalPoint.xLow,
@@ -126,6 +149,57 @@ async function main() {
       ])
         assert(readout.includes(String(value)))
       const loss = charts.first()
+      await loss.locator("svg").scrollIntoViewIfNeeded()
+      const beforeHover = await loss.locator("svg").boundingBox()
+      // Curves overlap: inspect a coordinate, not whichever marker happens to be on top.
+      const firstPoint = await loss
+        .locator('.native-chart-point[data-x="1000"]')
+        .first()
+        .boundingBox()
+      await page.mouse.move(
+        firstPoint.x + firstPoint.width / 2,
+        firstPoint.y + firstPoint.height / 2,
+      )
+      assert(
+        (await loss.locator(".native-chart-legend-item").first().getAttribute("title")).includes(
+          String(specs[0].series[0].points[0].y),
+        ),
+      )
+      const afterHover = await loss.locator("svg").boundingBox()
+      assert(
+        Math.abs(beforeHover.y - afterHover.y) < 1,
+        `legend updates moved the plot: before=${JSON.stringify(beforeHover)}, after=${JSON.stringify(afterHover)}`,
+      )
+      await page.mouse.click(
+        firstPoint.x + firstPoint.width / 2,
+        firstPoint.y + firstPoint.height / 2,
+      )
+      assert.equal(await loss.getAttribute("data-pinned"), "true")
+      const pinnedValues = await loss.locator(".native-chart-legend-value").allTextContents()
+      const pinnedCrosshair = await loss.locator(".native-chart-crosshair").getAttribute("x1")
+      const lastPoint = await loss
+        .locator('.native-chart-point[data-x="7600"]')
+        .first()
+        .boundingBox()
+      await page.mouse.move(lastPoint.x + lastPoint.width / 2, lastPoint.y + lastPoint.height / 2)
+      assert.deepEqual(
+        await loss.locator(".native-chart-legend-value").allTextContents(),
+        pinnedValues,
+      )
+      assert.equal(
+        await loss.locator(".native-chart-crosshair").getAttribute("x1"),
+        pinnedCrosshair,
+      )
+      await page.mouse.click(lastPoint.x + lastPoint.width / 2, lastPoint.y + lastPoint.height / 2)
+      assert.equal(await loss.getAttribute("data-pinned"), "false")
+      assert.notDeepEqual(
+        await loss.locator(".native-chart-legend-value").allTextContents(),
+        pinnedValues,
+      )
+      await page.keyboard.press("Enter")
+      assert.equal(await loss.getAttribute("data-pinned"), "true")
+      await page.keyboard.press("Escape")
+      assert.equal(await loss.getAttribute("data-pinned"), "false")
       const beforeAxes = await loss.locator(".native-chart-axis").allTextContents()
       const buttons = loss.locator(".native-chart-legend-item")
       await buttons.nth(0).click()
@@ -139,6 +213,22 @@ async function main() {
       await buttons.nth(1).click()
       await buttons.nth(2).click()
       assert.equal(await loss.locator(".native-chart-line").count(), 4)
+      const sweep = charts.nth(2)
+      await sweep.locator("svg").focus()
+      await page.keyboard.press("Home")
+      await page.keyboard.press("Enter")
+      assert.equal(await sweep.getAttribute("data-pinned"), "true")
+      await sweep.locator(".native-chart-legend-item").first().click()
+      assert.equal(
+        await sweep.getAttribute("data-pinned"),
+        "false",
+        "hiding the only observation at a pinned coordinate releases it",
+      )
+      await sweep.locator(".native-chart-legend-item").first().click()
+      await loss.locator("svg").focus()
+      await page.keyboard.press("End")
+      await page.keyboard.press("Enter")
+      const themedValues = await loss.locator(".native-chart-legend-value").allTextContents()
       for (const theme of ["light", "dark"]) {
         if ((await page.locator("html").getAttribute("saved-theme")) !== theme)
           await page.locator(".darkmode").click()
@@ -148,6 +238,12 @@ async function main() {
           .first()
           .evaluate((node) => getComputedStyle(node).color)
         assert.equal(color, theme === "light" ? "rgb(23, 109, 156)" : "rgb(104, 181, 230)")
+        assert.equal(await loss.getAttribute("data-pinned"), "true")
+        assert.deepEqual(
+          await loss.locator(".native-chart-legend-value").allTextContents(),
+          themedValues,
+        )
+        await page.waitForTimeout(180)
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
         await loss.screenshot({ path: path.join(work, `loss-${width}-${theme}.png`) })
         await forest.screenshot({ path: path.join(work, `forest-${width}-${theme}.png`) })
@@ -180,8 +276,20 @@ async function main() {
         await page.locator(".native-chart").first().locator(".native-chart-line").count(),
         3,
       )
+      const resizedChart = page.locator(".native-chart").first()
+      await resizedChart.locator("svg").focus()
+      await page.keyboard.press("Home")
+      await page.keyboard.press("Enter")
+      const beforeResize = await resizedChart
+        .locator(".native-chart-legend-value")
+        .allTextContents()
       await page.setViewportSize({ width: width === 1440 ? 390 : 1440, height: 1000 })
       await page.waitForTimeout(100)
+      assert.equal(await resizedChart.getAttribute("data-pinned"), "true")
+      assert.deepEqual(
+        await resizedChart.locator(".native-chart-legend-value").allTextContents(),
+        beforeResize,
+      )
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
       assert.deepEqual(errors, [])
       console.log(
@@ -197,8 +305,34 @@ async function main() {
     await touch.goto(`${base}/`)
     await touch.waitForSelector(".native-chart-point")
     const touchPlot = touch.locator(".native-chart-plot svg").first()
+    await touchPlot.scrollIntoViewIfNeeded()
+    const touchBox = await touchPlot.boundingBox()
+    const startScroll = await touch.evaluate(() => scrollY)
+    const cdp = await touch.context().newCDPSession(touch)
+    const touchPoint = { x: touchBox.x + touchBox.width / 2, y: touchBox.y + 210 }
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [touchPoint] })
+    for (let step = 1; step <= 5; step++) {
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ ...touchPoint, y: touchPoint.y - step * 30 }],
+      })
+      await touch.waitForTimeout(20)
+    }
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+    await touch.waitForFunction((before) => scrollY > before, startScroll)
+    assert.equal(
+      await touch.locator(".native-chart-inspection circle").count(),
+      0,
+      "vertical touch scrolling must not select data",
+    )
+    await cdp.detach()
+    await touch.goto(`${base}/`)
+    await touch.waitForSelector(".native-chart-point")
     await touchPlot.tap({ position: { x: 180, y: 100 } })
     assert((await touch.locator(".native-chart-inspection circle").count()) > 0)
+    assert.equal(await touch.locator(".native-chart").first().getAttribute("data-pinned"), "true")
+    await touchPlot.tap({ position: { x: 220, y: 120 } })
+    assert.equal(await touch.locator(".native-chart").first().getAttribute("data-pinned"), "false")
     await touch.close()
 
     const edge = await browser.newPage()
@@ -217,9 +351,18 @@ async function main() {
     await edge.locator(".native-chart-plot svg").focus()
     await edge.keyboard.press("End")
     assert(
-      (await edge.locator(".native-chart-readout").textContent()).includes(
+      (await edge.locator(".native-chart-legend-item").getAttribute("title")).includes(
         "<script>alert(1)</script>",
       ),
+    )
+    await edge.keyboard.press("Home")
+    await edge.keyboard.press("ArrowRight")
+    assert.equal(await edge.locator(".native-chart-legend-value").innerText(), "Missing")
+    assert.equal(await edge.locator(".native-chart-inspection circle").count(), 0)
+    assert.equal(
+      await edge.locator("tbody tr").nth(2).locator("td").nth(3).textContent(),
+      "—",
+      "no interval is distinct from a missing observation",
     )
     assert.deepEqual(dialogs, [])
     await edge.close()
@@ -237,12 +380,48 @@ async function main() {
       assert.equal(await chart.locator(".native-chart-point").count(), 0)
       await page.close()
     }
+    const reduced = await browser.newPage({ reducedMotion: "reduce" })
+    await reduced.goto(`${base}/`)
+    await reduced.waitForSelector(".native-chart-point")
+    const reducedChart = reduced.locator(".native-chart").first()
+    await reducedChart.locator("svg").focus()
+    await reduced.keyboard.press("End")
+    await reduced.keyboard.press("Enter")
+    assert.equal(await reducedChart.getAttribute("data-pinned"), "true")
+    assert(
+      await reducedChart
+        .locator(".native-chart-legend-value")
+        .evaluateAll((nodes) =>
+          nodes.every(
+            (node) =>
+              node.getAnimations().length === 0 &&
+              getComputedStyle(node).transitionDuration === "0s",
+          ),
+        ),
+    )
+    await reduced.close()
+
+    const noScript = await browser.newPage({ javaScriptEnabled: false })
+    await noScript.goto(`${base}/`)
+    assert.equal(await noScript.locator(".native-chart-download").count(), 4)
+    assert.equal(await noScript.locator(".native-chart-plot").count(), 0)
+    assert(
+      (await noScript.locator(".native-chart").first().innerText()).includes("requires JavaScript"),
+    )
+    const sourceResponse = await noScript.request.get(
+      await noScript
+        .locator(".native-chart-download")
+        .first()
+        .evaluate((node) => node.href),
+    )
+    assert.deepEqual(await sourceResponse.json(), specs[0])
+    await noScript.close()
     console.log(
-      "Touch, null gaps, escaped content, legacy Plotly, network/schema failure fallback passed",
+      "Touch pan/tap, null gaps, escaped content, legacy Plotly, no-JS and network/schema failure fallback passed",
     )
     console.log(`Browser artifacts: ${work}`)
   } finally {
-    await browser.close()
+    await browser?.close()
     server.closeAllConnections()
     await new Promise((resolve) => server.close(resolve))
   }

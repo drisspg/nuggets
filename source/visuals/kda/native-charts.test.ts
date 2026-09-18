@@ -2,6 +2,9 @@ import assert from "node:assert/strict"
 import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { test } from "node:test"
+import remarkParse from "remark-parse"
+import { unified } from "unified"
+import { visit } from "unist-util-visit"
 import {
   parseChart,
   type ChartPoint,
@@ -261,10 +264,41 @@ test("generated JSON assets match the builder output exactly", () => {
   assert(existsSync(METRICS_PATH))
 })
 
+test("the KDA article uses all four native embeds rather than stale Plotly fences", () => {
+  const markdown = readFileSync(resolve(OUTPUT_DIR, "../../KDA Future Token Leakage.md"), "utf8")
+  const tree = unified().use(remarkParse).parse(markdown)
+  const embeds: Array<{ language: string; src: string }> = []
+  visit(tree, "code", (node) => {
+    if (node.lang === "chart" || node.lang === "plotly") {
+      embeds.push({ language: node.lang, src: JSON.parse(node.value).src })
+    }
+  })
+  for (const name of CHART_NAMES) {
+    assert.equal(
+      embeds.filter((embed) => embed.language === "chart" && embed.src === `media/kda/${name}.json`)
+        .length,
+      1,
+      `${name} must use the native chart embed`,
+    )
+    assert(
+      !embeds.some((embed) => embed.src === `media/kda/${name}.html`),
+      `${name} still uses the old iframe export`,
+    )
+  }
+})
+
 test("builder rejects misaligned checkpoints", () => {
   const broken = JSON.parse(JSON.stringify(metrics)) as typeof metrics
   broken.series.scaled_paired_64.rows.pop()
   assert.throws(() => buildKdaCharts(broken), /scaled_paired_64 checkpoints/)
+})
+
+test("builder rejects invalid logged standard errors without coercion", () => {
+  for (const value of [-0.1, NaN, Infinity, "0.001"]) {
+    const broken = structuredClone(metrics)
+    broken.series.scaled_paired_1024.rows[0]["paired/gap_did_se"] = value as number
+    assert.throws(() => buildKdaCharts(broken), /finite, nonnegative logged SE/)
+  }
 })
 
 test("generated specs pass the shared parseChart contract", () => {
