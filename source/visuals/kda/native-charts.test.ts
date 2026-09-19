@@ -291,7 +291,7 @@ test("generated JSON assets match the builder output exactly", () => {
   assert(existsSync(METRICS_PATH))
 })
 
-test("the KDA article uses all five native embeds rather than stale Plotly fences", () => {
+test("the KDA article uses native embeds for measured data and the analytic range chart", () => {
   const markdown = readFileSync(resolve(OUTPUT_DIR, "../../KDA Future Token Leakage.md"), "utf8")
   const tree = unified().use(remarkParse).parse(markdown)
   const embeds: Array<{ language: string; src: string }> = []
@@ -300,7 +300,7 @@ test("the KDA article uses all five native embeds rather than stale Plotly fence
       embeds.push({ language: node.lang, src: JSON.parse(node.value).src })
     }
   })
-  for (const name of CHART_NAMES) {
+  for (const name of [...CHART_NAMES, "rebase-range"]) {
     assert.equal(
       embeds.filter((embed) => embed.language === "chart" && embed.src === `media/kda/${name}.json`)
         .length,

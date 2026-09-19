@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A 64 by 16 MMA footprint</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f4f0e8;
+        --panel: #eae6de;
+        --ink: #1a2e22;
+        --muted: #6a7a6e;
+        --rule: #d0ccc4;
+        --green: #5f7f67;
+        --amber: #97551c;
+        --blue: #4d6f8f;
+        --mask: #b9b4aa;
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --paper: #0e0e0e;
+        --panel: #161616;
+        --ink: #d4d4d4;
+        --muted: #999999;
+        --rule: #202020;
+        --green: #6f8f7b;
+        --amber: #e3a15f;
+        --blue: #8fb3d1;
+        --mask: #4a4a4a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        overflow: hidden;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "IBM Plex Sans", system-ui, sans-serif;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      .mono {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+      }
+      .map {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px 18px 14px;
+      }
+      /* Instruction bar: mnemonic plus the three shape letters, each tied to a color. */
+      .op {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 14px;
+        margin: 0;
+      }
+      .op .mn {
+        font-size: 13px;
+        color: var(--ink);
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        padding: 3px 8px;
+        min-width: 0;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+      }
+      .op .dims {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        font-size: 12.5px;
+        color: var(--muted);
+      }
+      .op .dim b {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-weight: 700;
+        font-size: 13px;
+        padding-bottom: 1px;
+        border-bottom: 2px solid currentColor;
+      }
+      .m {
+        color: var(--amber);
+      }
+      .n {
+        color: var(--green);
+      }
+      .k {
+        color: var(--blue);
+      }
+      /* Strip selector: a radiogroup with roving focus. */
+      .strips {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 5px;
+        margin: 0;
+      }
+      .strip {
+        appearance: none;
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        background: var(--panel);
+        color: var(--ink);
+        font: inherit;
+        font-size: 13px;
+        line-height: 1.25;
+        text-align: left;
+        padding: 6px 9px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 0;
+      }
+      .strip .keys {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-size: 12.5px;
+        white-space: nowrap;
+      }
+      .strip .base {
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .strip[aria-checked="true"] {
+        border-color: var(--amber);
+        box-shadow: inset 0 -2px 0 var(--amber);
+      }
+      .strip[aria-checked="true"] .keys {
+        color: var(--amber);
+      }
+      .strip:focus-visible {
+        outline: 2px solid var(--amber);
+        outline-offset: 1px;
+      }
+      /* Graphic: the full Aqk map, centered and capped near its desktop size. */
+      .matrix {
+        margin: 0 auto;
+        width: min(100%, 720px);
+        min-width: 0;
+      }
+      .matrix svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+      }
+      .hit {
+        cursor: pointer;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        margin: 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .sw {
+        width: 12px;
+        height: 12px;
+        border: 1px solid var(--rule);
+        display: inline-block;
+        flex: none;
+      }
+      .sw.diag {
+        background: var(--green);
+      }
+      .sw.causal {
+        background: color-mix(in srgb, var(--green) 45%, var(--paper));
+      }
+      .sw.masked {
+        background: repeating-linear-gradient(45deg, var(--paper) 0 2px, var(--mask) 2px 3px);
+      }
+      .sw.foot {
+        border: 2px solid var(--amber);
+        background: color-mix(in srgb, var(--amber) 10%, transparent);
+      }
+      .sw.other {
+        background: var(--panel);
+        opacity: 0.55;
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .fade,
+        .foot,
+        .anchor {
+          transition:
+            opacity 220ms ease,
+            transform 260ms ease;
+        }
+      }
+      @media (max-width: 639px) {
+        .map {
+          gap: 8px;
+          padding: 10px 12px 12px;
+        }
+        body {
+          font-size: 13px;
+        }
+        .strip {
+          padding: 5px 6px;
+        }
+        .strip .base {
+          font-size: 11px;
+        }
+        .strip .keys .kw {
+          display: none;
+        }
+      }
+      @media (max-width: 419px) {
+        .op .dims {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="map" id="main">
+      <p class="op">
+        <span class="mn mono" id="mnemonic">tcgen05.mma<wbr />.cta_group::1<wbr />.kind::f16</span>
+        <span class="dims">
+          <span class="dim m"><b>M 64</b> query rows</span>
+          <span class="dim n"><b>N 16</b> key columns</span>
+          <span class="dim k"><b>K 16</b> channels per issue, ×8 = 128</span>
+        </span>
+      </p>
+      <div class="strips" role="radiogroup" aria-label="Key strip" id="strips"></div>
+      <figure class="matrix" id="matrix"></figure>
+      <p class="legend" aria-hidden="true">
+        <span><i class="sw foot"></i>MMA footprint</span>
+        <span><i class="sw diag"></i>diagonal triangle</span>
+        <span><i class="sw causal"></i>same-base blocks</span>
+        <span><i class="sw masked"></i>masked</span>
+        <span><i class="sw other"></i>other strips</span>
+      </p>
+    </main>
+    <script>
+      const controller = new AbortController()
+      const { signal } = controller
+      const host = window.parent === window ? document : window.parent.document
+      const systemTheme = matchMedia("(prefers-color-scheme: dark)")
+      const main = document.getElementById("main")
+      const NS = "http://www.w3.org/2000/svg"
+      const T = 64 // chunk: query rows and key columns
+      const B = 16 // strip width: keys per instruction (N) and sub-tile edge
+      const NB = T / B
+      const el = (tag, attrs, parent) => {
+        const node = document.createElementNS(NS, tag)
+        for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v)
+        if (parent) parent.appendChild(node)
+        return node
+      }
+      const text = (x, y, str, attrs, parent) => {
+        const t = el("text", { x, y, ...attrs }, parent)
+        t.textContent = str
+        return t
+      }
+      const sub = (n) => String(n).replace(/\d/g, (d) => "₀₁₂₃₄₅₆₇₈₉"[d])
+      // Lower-triangle staircase of a b-by-b block whose top-left is (x, y), cell size c.
+      const stair = (x, y, b, c) => {
+        let d = `M${x},${y} L${x},${y + b * c} L${x + b * c},${y + b * c}`
+        for (let i = b - 1; i >= 0; i--)
+          d += ` L${x + (i + 1) * c},${y + i * c} L${x + i * c},${y + i * c}`
+        return d + " Z"
+      }
+      const hatchDef = (defs, id, size) => {
+        const p = el(
+          "pattern",
+          {
+            id,
+            width: size,
+            height: size,
+            patternUnits: "userSpaceOnUse",
+            patternTransform: "rotate(45)",
+          },
+          defs,
+        )
+        el("rect", { width: size, height: size, fill: "var(--paper)" }, p)
+        el(
+          "line",
+          { x1: 0, y1: 0, x2: 0, y2: size, stroke: "var(--mask)", "stroke-width": size * 0.24 },
+          p,
+        )
+      }
+
+      // ---------- strip selector ----------
+      const strips = document.getElementById("strips")
+      const buttons = []
+      for (let s = 0; s < NB; s++) {
+        const b = document.createElement("button")
+        b.type = "button"
+        b.className = "strip"
+        b.setAttribute("role", "radio")
+        b.setAttribute("aria-checked", "false")
+        b.tabIndex = -1
+        b.dataset.strip = String(s)
+        b.innerHTML = `<span class="keys"><span class="kw">keys </span>${s * B}–${s * B + B - 1}</span><span class="base">base r = G${sub(s * B)}</span>`
+        b.addEventListener("click", () => setStrip(s), { signal })
+        strips.appendChild(b)
+        buttons.push(b)
+      }
+      strips.addEventListener(
+        "keydown",
+        (event) => {
+          const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key]
+          let next
+          if (step) next = (strip + step + NB) % NB
+          else if (event.key === "Home") next = 0
+          else if (event.key === "End") next = NB - 1
+          else return
+          event.preventDefault()
+          setStrip(next)
+          buttons[next].focus()
+        },
+        { signal },
+      )
+
+      // ---------- full Aqk map ----------
+      const c = 6
+      const ox = 50
+      const oy = 54
+      const W = T * c
+      const mat = el("svg", {
+        viewBox: `0 0 ${ox + W + 48} ${oy + W + 10}`,
+        role: "img",
+        "aria-labelledby": "mat-title mat-desc",
+      })
+      const matTitle = el("title", { id: "mat-title" }, mat)
+      const matDesc = el("desc", { id: "mat-desc" }, mat)
+      const mdefs = el("defs", {}, mat)
+      hatchDef(mdefs, "hatch", 5)
+      const grid = el(
+        "pattern",
+        { id: "grid", width: c, height: c, patternUnits: "userSpaceOnUse" },
+        mdefs,
+      )
+      el(
+        "path",
+        {
+          d: `M${c},0 L0,0 L0,${c}`,
+          fill: "none",
+          stroke: "var(--paper)",
+          "stroke-width": 0.5,
+          opacity: 0.9,
+        },
+        grid,
+      )
+
+      // Axis titles and block-range headers.
+      text(
+        ox + W / 2,
+        12,
+        "key j  (N direction →)",
+        { "text-anchor": "middle", "font-size": 10, fill: "var(--muted)" },
+        mat,
+      )
+      text(
+        0,
+        0,
+        "query i  (M direction ↓)",
+        {
+          "text-anchor": "middle",
+          "font-size": 10,
+          fill: "var(--muted)",
+          transform: `translate(11 ${oy + W / 2}) rotate(-90)`,
+        },
+        mat,
+      )
+      const colHdrs = []
+      for (let b = 0; b < NB; b++) {
+        colHdrs.push(
+          text(
+            ox + b * B * c + (B * c) / 2,
+            oy - 6,
+            `${b * B}–${b * B + B - 1}`,
+            {
+              class: "fade",
+              "text-anchor": "middle",
+              "font-size": 9.5,
+              fill: "var(--ink)",
+            },
+            mat,
+          ),
+        )
+        text(
+          ox - 5,
+          oy + b * B * c + (B * c) / 2 + 3,
+          `${b * B}–${b * B + B - 1}`,
+          {
+            "text-anchor": "end",
+            "font-size": 9.5,
+            fill: "var(--ink)",
+          },
+          mat,
+        )
+      }
+
+      // Sub-tile layer: one group per strip so the unselected strips can dim together.
+      const stripGroups = []
+      for (let bj = 0; bj < NB; bj++) {
+        const g = el("g", { class: "fade" }, mat)
+        for (let bi = 0; bi < NB; bi++) {
+          const x = ox + bj * B * c
+          const y = oy + bi * B * c
+          if (bj > bi) {
+            el("rect", { x, y, width: B * c, height: B * c, fill: "url(#hatch)" }, g)
+          } else if (bj < bi) {
+            el(
+              "rect",
+              { x, y, width: B * c, height: B * c, fill: "var(--green)", opacity: 0.45 },
+              g,
+            )
+          } else {
+            el("rect", { x, y, width: B * c, height: B * c, fill: "url(#hatch)" }, g)
+            el("path", { d: stair(x, y, B, c), fill: "var(--green)" }, g)
+          }
+        }
+        stripGroups.push(g)
+      }
+      el(
+        "rect",
+        { x: ox, y: oy, width: W, height: W, fill: "url(#grid)", "pointer-events": "none" },
+        mat,
+      )
+      for (let b = 0; b <= NB; b++) {
+        const p = b * B * c
+        el(
+          "line",
+          {
+            x1: ox + p,
+            y1: oy,
+            x2: ox + p,
+            y2: oy + W,
+            stroke: "var(--ink)",
+            "stroke-width": 0.8,
+            opacity: 0.6,
+          },
+          mat,
+        )
+        el(
+          "line",
+          {
+            x1: ox,
+            y1: oy + p,
+            x2: ox + W,
+            y2: oy + p,
+            stroke: "var(--ink)",
+            "stroke-width": 0.8,
+            opacity: 0.6,
+          },
+          mat,
+        )
+      }
+
+      // Footprint overlay for the selected strip: full-height 64 by 16 rectangle plus base anchor.
+      const foot = el("g", { class: "foot", "pointer-events": "none" }, mat)
+      el(
+        "rect",
+        { x: ox, y: oy, width: B * c, height: W, fill: "var(--amber)", opacity: 0.1 },
+        foot,
+      )
+      el(
+        "rect",
+        {
+          x: ox,
+          y: oy,
+          width: B * c,
+          height: W,
+          fill: "none",
+          stroke: "var(--amber)",
+          "stroke-width": 2.4,
+        },
+        foot,
+      )
+      // N bracket above the strip.
+      el(
+        "path",
+        {
+          d: `M${ox},${oy - 20} v-4 h${B * c} v4`,
+          fill: "none",
+          stroke: "var(--green)",
+          "stroke-width": 1.4,
+        },
+        foot,
+      )
+      text(
+        ox + (B * c) / 2,
+        oy - 27,
+        "N = 16 keys",
+        { "text-anchor": "middle", "font-size": 9.5, fill: "var(--green)", "font-weight": 700 },
+        foot,
+      )
+      // Base anchor: first row of the strip and the diagonal block's corner cell.
+      const anchor = el("g", { class: "anchor" }, foot)
+      el(
+        "rect",
+        {
+          x: ox,
+          y: oy,
+          width: c,
+          height: c,
+          fill: "var(--amber)",
+          stroke: "var(--ink)",
+          "stroke-width": 0.8,
+        },
+        anchor,
+      )
+      el(
+        "line",
+        {
+          x1: ox,
+          y1: oy,
+          x2: ox + B * c,
+          y2: oy,
+          stroke: "var(--amber)",
+          "stroke-width": 1.6,
+          "stroke-dasharray": "3 2",
+        },
+        anchor,
+      )
+      const anchorLabel = text(
+        ox + B * c + 4,
+        oy + 4.5,
+        "r = G₀",
+        { "font-size": 9.5, fill: "var(--amber)", "font-weight": 700 },
+        anchor,
+      )
+      const anchorSub = text(
+        ox + B * c + 4,
+        oy + 14,
+        "base for all 64 rows",
+        { "font-size": 8, fill: "var(--muted)" },
+        anchor,
+      )
+      // M bracket on the right: the whole chunk height, always.
+      const mx = ox + W + 34
+      el(
+        "path",
+        {
+          d: `M${mx},${oy} h4 v${W} h-4`,
+          fill: "none",
+          stroke: "var(--amber)",
+          "stroke-width": 1.4,
+        },
+        mat,
+      )
+      text(
+        0,
+        0,
+        "M = 64 query rows, one issue",
+        {
+          "text-anchor": "middle",
+          "font-size": 9.5,
+          fill: "var(--amber)",
+          "font-weight": 700,
+          transform: `translate(${mx + 12} ${oy + W / 2}) rotate(-90)`,
+        },
+        mat,
+      )
+      // Click targets over each strip.
+      for (let s = 0; s < NB; s++) {
+        el(
+          "rect",
+          {
+            class: "hit",
+            x: ox + s * B * c,
+            y: oy - 36,
+            width: B * c,
+            height: W + 36,
+            fill: "transparent",
+          },
+          mat,
+        ).addEventListener("click", () => setStrip(s), { signal })
+      }
+      document.getElementById("matrix").appendChild(mat)
+
+      // ---------- state ----------
+      let strip = -1
+      function setStrip(s) {
+        if (s === strip) return
+        strip = s
+        const start = s * B
+        const end = start + B - 1
+        const retained = (B * (B + 1)) / 2 + B * B * (NB - 1 - s)
+        const G = `G${sub(start)}`
+        buttons.forEach((b, i) => {
+          b.setAttribute("aria-checked", String(i === s))
+          b.tabIndex = i === s ? 0 : -1
+        })
+        stripGroups.forEach((g, i) => g.setAttribute("opacity", i === s ? 1 : 0.32))
+        colHdrs.forEach((t, i) => {
+          t.setAttribute("fill", i === s ? "var(--amber)" : "var(--ink)")
+          t.setAttribute("font-weight", i === s ? 700 : 400)
+        })
+        foot.setAttribute("transform", `translate(${start * c} 0)`)
+        anchor.setAttribute("transform", `translate(0 ${start * c})`)
+        anchorLabel.textContent = `r = ${G}`
+        const flip = s === NB - 1
+        for (const t of [anchorLabel, anchorSub]) {
+          t.setAttribute("text-anchor", flip ? "end" : "start")
+          t.setAttribute("x", flip ? ox - 4 : ox + B * c + 4)
+        }
+        matTitle.textContent = `Aqk for a 64-token chunk as four by four 16 by 16 sub-tiles, with the 64 by 16 instruction footprint over keys ${start} to ${end}.`
+        matDesc.textContent =
+          `Diagonal blocks keep their lower triangle; blocks below the diagonal are fully causal; blocks above are masked. ` +
+          `The highlighted strip covers all 64 query rows for keys ${start} to ${end}, rebased at ${G}: ` +
+          `its diagonal triangle and the ${NB - 1 - s} fully causal squares below share that base, ` +
+          `and the ${start} masked rows above are still inside the same instruction. ${retained} of 1024 accumulator cells are retained.`
+      }
+
+      // ---------- theme / embed plumbing ----------
+      function syncTheme() {
+        document.documentElement.dataset.theme =
+          host.documentElement.getAttribute("saved-theme") ||
+          (systemTheme.matches ? "dark" : "light")
+        if (host !== document) {
+          const palette = window.parent.getComputedStyle(host.documentElement)
+          const tokens = {
+            paper: "--light",
+            panel: "--editorial-code",
+            ink: "--dark",
+            muted: "--gray",
+            rule: "--editorial-rule",
+            green: "--secondary",
+          }
+          for (const [name, source] of Object.entries(tokens)) {
+            const value = palette.getPropertyValue(source).trim()
+            if (value) document.documentElement.style.setProperty(`--${name}`, value)
+          }
+        }
+      }
+      host.addEventListener("themechange", syncTheme, { signal })
+      systemTheme.addEventListener("change", syncTheme, { signal })
+      document.addEventListener(
+        "wheel",
+        (event) => {
+          if (window.parent === window || event.ctrlKey || event.metaKey) return
+          event.preventDefault()
+          const unit =
+            event.deltaMode === WheelEvent.DOM_DELTA_LINE
+              ? 16
+              : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+                ? window.parent.innerHeight
+                : 1
+          window.parent.postMessage(
+            {
+              type: "nuggets-widget-wheel",
+              deltaX: event.deltaX * unit,
+              deltaY: event.deltaY * unit,
+            },
+            location.origin,
+          )
+        },
+        { capture: true, passive: false, signal },
+      )
+      // Same-origin embed: size the iframe to the intrinsic content height.
+      const frame = window.frameElement
+      let frameHeight = 0
+      function fitFrame() {
+        if (!frame) return
+        const style = window.parent.getComputedStyle(frame)
+        const border =
+          style.boxSizing === "border-box"
+            ? parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth)
+            : 0
+        const next = Math.ceil(main.getBoundingClientRect().height + border)
+        if (next && next !== frameHeight) {
+          frameHeight = next
+          frame.style.height = `${next}px`
+        }
+      }
+      const sizer = new ResizeObserver(fitFrame)
+      sizer.observe(main)
+      window.addEventListener(
+        "pageshow",
+        () => {
+          syncTheme()
+          fitFrame()
+        },
+        { signal },
+      )
+      window.addEventListener("pagehide", (event) => {
+        if (!event.persisted) {
+          sizer.disconnect()
+          controller.abort()
+        }
+      })
+      syncTheme()
+      setStrip(0)
+      fitFrame()
+    </script>
+  </body>
+</html>

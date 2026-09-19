@@ -228,10 +228,9 @@ $$
 We then re-associate these terms -> the first factor on the query and the second on the key, and we have a GEMM!
 
 
+The catch is that the split factors can be <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-decay-range-note">tiny and huge even although their product is well behaved</span><span id="kda-decay-range-note" class="sidenote" role="note">Unsplit, $2^{G_{i,d}-G_{j,d}}$ measures decay only from $j+1$ to $i$. Split, $2^{G_{i,d}}\cdot2^{-G_{j,d}}$ uses two cumulative gates measured from the start of this chunk.</span></span>.
 
-The catch is that the split factors can be <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-decay-range-note">tiny and huge even when their product is well behaved</span><span id="kda-decay-range-note" class="sidenote" role="note">Unsplit, $2^{G_{i,d}-G_{j,d}}$ measures decay only from $j+1$ to $i$. Split, $2^{G_{i,d}}\cdot2^{-G_{j,d}}$ uses two cumulative gates measured from the start of this chunk<br><br></span></span>.
-
-Rebasing keeps that separation but moves the reference from zero to a gate $r_d$ per channel, shared across the block:
+After splitting, we choose a reference gate $r_d$, shared across the block for each channel, to tame those extremes without changing the product:
 
 $$
 2^{G_{i,d}-G_{j,d}} = 2^{G_{i,d}-r_d}\,2^{r_d-G_{j,d}}.
@@ -245,66 +244,98 @@ $$
 \widetilde K_{j,d}=k_{j,d}2^{r_d-G_{j,d}}.
 $$
 
-With that reference fixed, the left operand uses only $(i,d)$ and the right only $(j,d)$. Multiply $\widetilde Q\widetilde K^T$, then mask future entries. There are our tensorcores.
+With that reference fixed, the left operand uses only $(i,d)$ and the right only $(j,d)$. Multiply $\widetilde Q\widetilde K^T$, then mask future entries. And like magic we can finally use these tensorcores!
 
-In real arithmetic, the reference cancels. First row or midpoint: same answer.
+## Whats the catch?
 
-On the GPU, we compute each operand separately. Exponent evaluation, multiplication, conversion, and matrix multiplication all use finite precision. <span class="sidenote-pair"><strong class="sidenote-ref" tabindex="0" aria-describedby="kda-rounding-note">The reference can become part of the numerical result.</strong><span id="kda-rounding-note" class="sidenote" role="note">The BF16 CuTe engine casts the rescaled operands to BF16 before its matrix multiplication, with FP32 accumulation. The Triton diagonal kernel passes FP32 products to <code>tl.dot</code>; its effective dot precision needs to be checked separately. BF16 inputs do not imply identical rounding paths.</span></span>
+While we tend to use a chunk size of 64 for the state updates, splitting the decay this way has broader ramifications. **How far can we get from our reference before the growing factor overflows?**
 
-If that reference comes from a future token, changing future gates can change a retained Aqk entry. No future values have to get through the mask.
+The [lowest decay we accept is $-5$](https://github.com/meta-pytorch/attention-gym/blob/52c9eaa31e87a28dc0d3d9464af2088e6384a483/attn_gym/linear/kda/gate.py#L22), the same as K3. Suppose every gate were at that bound, then what? How big, and how small, could our separated factors get?
 
-<iframe class="doc-widget widget-frame" src="./media/kda/aqk-rescale.html" title="Following one retained causal Aqk entry, query 5 reading the write from token 2, through relative decay, operand rebasing, a midpoint reference, and separately rounded operands." loading="lazy" style="height: 900px;"></iframe>
+Each step adds another $-5$ to the cumulative natural-log gate. At distance $k$ from the first-row reference, the factors become:
 
-## How a midpoint breaks causality
+$$
+e^{-5k}=2^{-5k\log_2 e},\qquad e^{5k}=2^{5k\log_2 e}.
+$$
 
-For a full 16-token diagonal subchunk, the midpoint reference is the gate at local row 8, counting from zero:
+```chart
+{"src":"media/kda/rebase-range.json","title":"What if every gate is at −5","height":280}
+```
 
-<figure class="kda-figure" aria-labelledby="kda-pivot-title">
-<div class="kda-figure-title" id="kda-pivot-title">One subchunk: row 8 supplies the midpoint reference</div>
-<ol class="kda-tokens" aria-label="Local token rows zero through fifteen">
-<li class="kda-token--early">0</li><li class="kda-token--early">1</li><li class="kda-token--early">2</li><li class="kda-token--early">3</li><li class="kda-token--early">4</li><li class="kda-token--early">5</li><li class="kda-token--early">6</li><li class="kda-token--early">7</li><li class="kda-token--pivot">8</li><li>9</li><li>10</li><li>11</li><li>12</li><li>13</li><li>14</li><li>15</li>
-</ol>
-<div class="kda-forbidden"><strong>Rows 0–7:</strong> operand scaling reads the cumulative gate at row 8, which includes future gate increments.</div>
-<figcaption>Row 8 is already available to rows 8–15, but is in the future for rows 0–7. It can change how retained causal entries round, without unmasking future values.</figcaption>
-</figure>
+An $N$-token window spans $N-1$ steps. The cutoff lines mark the FP32/BF16 normal exponent range. After just **18 steps**, the growing factor reaches about $2^{129.8}$, beyond the largest finite FP32 or BF16 value! Quite the pickle aint it.
+
+**The width limit here comes from overflow of the growing key-side factor.** To keep it finite at that bound, we pick the largest multiple of 8 that fits: **16 key columns**.
+
+If you look at the **[`tcgen05.mma`](https://docs.nvidia.com/cuda/parallel-thread-execution/#tcgen05-mma)** instruction we're using, you might be a little confused. It has $M=64$ query rows. Didn't we just convince ourselves we need to stay within a $16\times16$ tile? Turns out the 16 limits the **key columns sharing a base**, not the number of query rows.
+
+<iframe class="doc-widget widget-frame" src="./media/kda/mma-strip-map.html" title="A 64 by 16 tcgen05 MMA footprint over a 64-token Aqk matrix: query rows, key columns, and 16 channels per instruction." loading="lazy" style="height: 700px;"></iframe>
+
+Take keys 0–15 and use $G_0$ as the reference. Their key-side factors are $2^{G_0-G_j}$: the farther the key is from the reference, the larger that factor gets. With 16 keys, we span 15 decay steps and the largest positive exponent is about **108.2**, which fits. Extend that same first-row reference to 32 keys and it reaches **223.6**, which does not.
+
+But we can keep going down the query rows! For query $i\geq0$, $G_i-G_0\leq0$, so its factor $2^{G_i-G_0}$ only adds decay. Query 63 is reading the same keys as query 15, just after more decay. **The diagonal triangle and the fully causal squares below it can share the same base.** Moving down does not increase the key-side factor.
+
+That gives us one strip of <span class="sidenote-pair"><a class="sidenote-ref" href="https://docs.nvidia.com/cuda/parallel-thread-execution/#tcgen05-matrix-shape" aria-describedby="kda-instruction-shape-note">64 query rows by 16 key columns</a><span id="kda-instruction-shape-note" class="sidenote" role="note">The <a href="https://github.com/meta-pytorch/attention-gym/blob/0653a9ba568f980df628652f372e394c233b43d8/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd_intra_engine.py">SM100 engine</a> issues <code>tcgen05.mma</code> with $M=64$, $N=16$, $K=16$: BF16 inputs and FP32 accumulation. Eight instructions cover the 128-channel reduction. The $16\times16$ diagonal block is only part of that rectangle.</span></span>, not four separate $16\times16$ MMAs. Each new key strip can choose its own reference. The 16-token choice limits the growing factor; it does not cap the number of query rows at 16.
+
+This is an **overflow argument**, not a guarantee against underflow. A query factor can still round to zero before the key factor compensates, losing a contribution. Q/K magnitudes and later rounding also need their own accuracy checks. We'll use the $16\times16$ diagonal block to look at the reference choice next.
+
+<details>
+<summary>Why not share one base across all 64 keys?</summary>
+
+I tried chunk-wide rebasing earlier. Even with the training module initialized near **−2.5 in natural-log units**, not the −5 bound, it exceeded the exponent range for every measured chunk/head/channel triple. My optimization harness used mild random gates and had missed it.
+
+That is different from 64 query rows reading 16 keys. Extending the key range makes the reciprocal factor grow; adding later queries only adds decay. At that initial per-token decay, a 16-key first-row window spans about 54 base-2 log units, so the bounded 16-token choice did not have the same overflow problem.
+
+</details>
+
+## Decisions Decisions
+
+So how do we choose $r_d$ within that window? Reusing a gate that's already available is convenient and fast, so let's pick one from the block: either the **first row, $G_0$**, or the **midpoint, $G_8$**.
+
+With infinite precision, $r_d$ cancels perfectly, so it wouldn't matter which reference we chose. But these are floats: the operands are rounded separately, beware of ghosts in the machine.
+
+In the graphic, keep query 5 and its past fixed, then change the gates at tokens 6, 7, and 8. Switch the reference between the first row and midpoint. Does the earlier weight $A_{qk}[5,2]$ change?
+
+<iframe class="doc-widget widget-frame" src="./media/kda/aqk-rescale.html" title="Compare first-row and midpoint references for the same retained Aqk entry, query 5 reading token 2's write, while varying only future decay gates." loading="lazy" style="height: 900px;"></iframe>
+
+With $G_0$, those future gates never enter the operands for this entry. With $G_8$, they do, and rounding can keep them from cancelling.
 
 <span class="sidenote-hover"><button type="button" class="sidenote-trigger" aria-describedby="kda-mask-reaction">The mask does not fix this.</button><span id="kda-mask-reaction" class="sidenote sidenote--hover-media" role="note"><img src="./media/kda/doc-brown-future.png" alt="Doc Brown staring in disbelief." width="640" height="360" loading="lazy"><span class="sidenote-hover-caption">The causal mask was there the whole time.</span></span></span> It masks future key indices, not a future-dependent scale already used in a retained entry.
 
-To test this, keep the shape and prefix fixed, change only suffix gate increments, and compare prefix outputs. Shortening the sequence could also change dispatch, tiling, or reduction order.
+So we need both: **a short enough rebasing window, and no future reference.**
 
-An early isolated probe changed future gates in rows 8–15 while holding rows 0–7 fixed. It changed **11 of 512 BF16 Aqk values**, with a maximum absolute difference of **1.526e-5**. A later GB200 regression through the public `chunk_kda` path, perturbing future Q/K/V and gates together, recorded **851 of 9472 prefix output elements** changing, with maximum absolute difference **2.44e-4**. The causal-reference variant passed the bitwise prefix check.
+<details>
+<summary>How does an Aqk change reach the output?</summary>
 
-These probes measure different tensors, and their magnitudes are workload-specific. Both show numerical dependence on future inputs; the gate-only probe shows one way it happens.
+In this readout pseudocode, `bf16` means a cast and `mm_fp32` means a matrix multiply with FP32 accumulation. The write solve is omitted; `Z` contains the completed writes.
 
-Using the **first row of each subchunk** removes that future reference read. But why subchunks?
+```python annotate title="From reference choice to output"
+r = G[reference_row]  # (1)!
+Q_scaled = bf16(Q * exp2(G - r))  # (2)!
+K_scaled = bf16(K * exp2(r - G))  # (2)!
+Aqk = bf16(causal_mask(mm_fp32(Q_scaled, K_scaled.T)))  # (3)!
+O = history + s * mm_fp32(Aqk, Z)  # (4)!
+```
 
-## Why 16 tokens, not one reference for all 64?
+1. Choose one reference per channel for the whole tile. Row 8 includes future gates for query 5; row 0 does not.
+2. Each operand is rounded separately. The reference cancels algebraically, but the rounding errors need not.
+3. This is the Aqk accumulator followed by the BF16 cast shown in the graphic, not the final attention output. The mask removes entries with $j>i$; it does not repair retained entries.
+4. Aqk weights the writes in `Z`. Holding `history` and `Z` fixed, the exact-arithmetic change is $\Delta O=s\,\Delta A_{qk}Z$. A changed weight **can** change the output, but cancellation or later rounding can erase the difference.
 
-This experiment used **64-token outer chunks**, with **16-token diagonal rebasing subchunks**.
+</details>
 
-Even though the true pairwise decay is at most one, its split factors can be tiny and huge:
+<details>
+<summary>What changed in the actual kernel checks?</summary>
 
-$$
-\text{small finite decay} = \text{tiny factor}\times\text{huge factor}.
-$$
+These are separate kernel checks, not measurements from the browser graphic. Keep the shape and prefix fixed, change future inputs, and compare earlier results. Shortening the sequence could also change dispatch, tiling, or reduction order.
 
-Materialize factors outside the exponent range, and we can get zero times infinity—even when the true answer is finite.
+| Check | Tensor compared | Changed elements | Maximum absolute difference |
+| --- | --- | ---: | ---: |
+| Isolated probe, change gates in rows 8–15 | BF16 Aqk values with rows 0–7 held fixed | 11 / 512 | $1.526\times10^{-5}$ |
+| GB200 `chunk_kda` regression, change future Q/K/V and gates | Prefix output elements | 851 / 9472 | $2.44\times10^{-4}$ |
 
-The tested activation allows gates as low as $-5$ nats per token, about $-7.2135$ log-base-2 units per token. At that bound, the largest absolute displacement from the reference is:
+The causal-reference variant passed the latter bitwise prefix check. These probes measure different tensors, and their magnitudes are workload-specific. One checks Aqk values; the other checks the final prefix outputs.
 
-| Rebasing window | Reference | Maximum displacement, log-base-2 units |
-| --- | --- | ---: |
-| 16 tokens | First row | $15\times7.2135\approx108.2$ |
-| 16 tokens | Midpoint, row 8 | $8\times7.2135\approx57.7$ |
-| 64 tokens | First row | $63\times7.2135\approx454.4$ |
-
-FP32 and BF16 have an upper exponent limit near 128. Under this gate bound, 16-token first-row factors fit below that limit; 64-token factors do not. That only bounds the gate factors—not arbitrary Q/K magnitudes, underflow, or every intermediate.
-
-In the earlier kernel campaign, the training module initialized near **−2.5 nats/token**, not the −5 bound. Yet **64-token chunk-wide rebasing** exceeded the exponent range for every measured chunk/head/channel triple. A 16-token window at that decay spans only about 54 base-2 log units, so this was not a failure of the bounded 16-token choice. My optimization harness used mild random gates and had missed the chunk-wide failure.
-
-The midpoint buys exponent headroom, not mantissa bits. In a later comparison against an FP64 recurrent reference on the same BF16 inputs, it showed no systematic accuracy advantage over first-row rebasing across the gate ranges tested.
-
-So we need both: **no future reference, and a short enough rebasing window.**
+</details>
 
 ## Does the model learn to use it?
 

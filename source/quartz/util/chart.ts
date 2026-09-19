@@ -17,13 +17,22 @@ export type ChartPoint = {
   details?: Record<string, string | number>
 }
 
+export type ChartColor = "blue" | "amber" | "green" | "red" | "gold" | "purple"
+
 export type ChartSeries = {
   name: string
   mode: "line" | "points"
-  color?: "blue" | "amber" | "green" | "red" | "gold" | "purple"
+  color?: ChartColor
   dash?: "solid" | "dash"
   marker?: "circle" | "diamond"
   points: ChartPoint[]
+}
+
+/** A horizontal cutoff/reference rule at a fixed y value; it is not a data series. */
+export type ChartReference = {
+  y: number
+  label: string
+  color?: ChartColor
 }
 
 export type ChartSpec = {
@@ -32,7 +41,10 @@ export type ChartSpec = {
   y: NumericAxis | CategoryAxis
   intervalLabel?: string
   series: ChartSeries[]
+  references?: ChartReference[]
 }
+
+const COLORS = ["blue", "amber", "green", "red", "gold", "purple"] as const
 
 function fail(location: string, message: string): never {
   throw new Error(`${location}: ${message}`)
@@ -105,7 +117,14 @@ function numericAxis(value: unknown, location: string): NumericAxis {
 
 /** Validate v1 chart data at both the build and fetch boundaries, without mutating the input. */
 export function parseChart(value: unknown): ChartSpec {
-  const input = record(value, "chart", ["version", "x", "y", "intervalLabel", "series"])
+  const input = record(value, "chart", [
+    "version",
+    "x",
+    "y",
+    "intervalLabel",
+    "series",
+    "references",
+  ])
   if (input.version !== 1) fail("chart.version", "expected version 1")
   const x = numericAxis(input.x, "chart.x")
   const yInput = record(input.y, "chart.y")
@@ -142,13 +161,7 @@ export function parseChart(value: unknown): ChartSpec {
     if (categories && mode !== "points")
       fail(`${location}.mode`, "category charts require points mode")
     const series: ChartSeries = { name, mode, points: [] }
-    if ("color" in input) {
-      series.color = choice(
-        input.color,
-        ["blue", "amber", "green", "red", "gold", "purple"],
-        `${location}.color`,
-      )
-    }
+    if ("color" in input) series.color = choice(input.color, COLORS, `${location}.color`)
     if ("dash" in input) series.dash = choice(input.dash, ["solid", "dash"], `${location}.dash`)
     if ("marker" in input)
       series.marker = choice(input.marker, ["circle", "diamond"], `${location}.marker`)
@@ -217,12 +230,27 @@ export function parseChart(value: unknown): ChartSpec {
     if (!plottable) fail(`${location}.points`, "series must contain a plottable point")
     return series
   })
+  if ("references" in input) {
+    if (categories) fail("chart.references", "category charts do not support reference lines")
+    const labels = new Set<string>()
+    chart.references = nonemptyArray(input.references, "chart.references").map((value, index) => {
+      const location = `chart.references[${index}]`
+      const input = record(value, location, ["y", "label", "color"])
+      const label = text(input.label, `${location}.label`)
+      if (labels.has(label))
+        fail(`${location}.label`, `duplicate reference label ${JSON.stringify(label)}`)
+      labels.add(label)
+      const reference: ChartReference = { y: finite(input.y, `${location}.y`), label }
+      if ("color" in input) reference.color = choice(input.color, COLORS, `${location}.color`)
+      return reference
+    })
+  }
   numericDomain(chart, "x")
   if (!categories) numericDomain(chart, "y")
   return chart
 }
 
-/** Domains always include every series, including hidden series and interval endpoints. */
+/** Domains always include every series (hidden or not), interval endpoints, and reference lines. */
 export function numericDomain(chart: ChartSpec, axis: "x" | "y"): [number, number] {
   const config = chart[axis]
   const location = `chart.${axis}.domain`
@@ -237,6 +265,12 @@ export function numericDomain(chart: ChartSpec, axis: "x" | "y"): [number, numbe
       high = Math.max(high, point[`${axis}High`] ?? estimate)
     }
   }
+  if (axis === "y") {
+    for (const reference of chart.references ?? []) {
+      low = Math.min(low, reference.y)
+      high = Math.max(high, reference.y)
+    }
+  }
   if (config.includeZero) {
     low = Math.min(low, 0)
     high = Math.max(high, 0)
@@ -247,7 +281,7 @@ export function numericDomain(chart: ChartSpec, axis: "x" | "y"): [number, numbe
     if (min >= max) fail(location, "must be strictly increasing")
     if (!Number.isFinite(max - min)) fail(location, "range overflows")
     if (min > low || max < high)
-      fail(location, "must encompass all data, intervals, and requested zero")
+      fail(location, "must encompass all data, intervals, reference lines, and requested zero")
     return [min, max]
   }
   const range = high - low

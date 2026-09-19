@@ -58,6 +58,7 @@ These example numbers are illustrative. The renderer draws supplied interval end
 - Line-series x values must be strictly increasing. Points-only series can be unordered. Curves use straight segments, with no smoothing or resampling.
 - Intervals use `xLow`/`xHigh` or `yLow`/`yHigh`. Both endpoints are required, must be finite, and must enclose the estimate. Any interval requires an `intervalLabel` explaining its meaning. Numeric strings, `NaN`, and infinity are rejected.
 - Optional per-point `details` is a map of plain strings or finite numbers. It appears in inspection; it is never interpreted as HTML.
+- Optional `references` is a nonempty array of horizontal cutoff/reference lines for numeric y axes: `{ "y": 128, "label": "FP32 overflow (+128)", "color": "red" }`. `y` must be finite, `label` nonempty and unique, and `color` (optional) uses the series palette. Category charts reject references. Use them for analytic limits or thresholds rather than a constant series: they draw as a fine dotted rule with the label attached inside the plot, have no markers, legend entry, or live readout, cannot be toggled, and never take part in inspection or snapping. They are hidden together with their label while zoomed outside their value. Automatic domains include them, and an explicit `domain` must contain them. A visually hidden summary lists them for assistive technology.
 
 ### Categorical rows / forest plots
 
@@ -108,7 +109,7 @@ Version 1 intentionally has no logarithmic/date axes, stacking, smoothing, anima
 
 ## KDA data and regeneration
 
-The KDA article's five JSON files are derived from two metadata-free snapshots under `source/visuals/kda/`: `metrics.json` for checkpoint evaluations and `training-loss.json` for the full training history:
+The KDA article's five measured-data charts are derived from two metadata-free snapshots under `source/visuals/kda/`: `metrics.json` for checkpoint evaluations and `training-loss.json` for the full training history:
 
 ```sh
 cd source && npm run charts:kda
@@ -117,6 +118,8 @@ cd source && npm run charts:kda
 The training-loss chart includes all 7,600 logged steps per arm, without smoothing or downsampling. These are training cross-entropies, not held-out evaluation losses.
 
 The adapter preserves the logged values, paired versus sequence-level standard errors, and intervals computed as estimate ± 1.96 × logged SE. The two 1,024-sequence observations stay points-only; the four final-checkpoint categories keep their original order. Old Plotly exports and their Python renderer remain available for comparison, but KDA now embeds the native JSON files.
+
+The separate `media/kda/rebase-range.json` chart is analytic, not measured. Regenerate it with `cd source && npx tsx visuals/kda/rebase-range.ts`; its vertical axis plots base-2 exponents on a linear scale, and the FP32 limits are `references` barriers rather than series.
 
 ## Validation
 
@@ -129,7 +132,7 @@ npm run build
 
 The chart tests are also included in `npm test`. They cover schema/domain edge cases, real Markdown transforms, safe paths and escaping, and KDA data fidelity. Generation is checked against committed JSON, so stale assets fail tests.
 
-Browser regression tests build isolated fixtures and run their own temporary server. They cover theme and resize behavior, error bars, keyboard/touch inspection, legend toggling, ordinary scrolling, missing data, unsafe text, failed fetches, nested deployed paths, and repeated SPA navigation. They do not restart the user's preview or add browser dependencies to this repo.
+Browser regression tests build isolated fixtures and run their own temporary server. They cover theme and resize behavior, error bars, keyboard/touch inspection, legend toggling, reference barriers, ordinary scrolling, missing data, unsafe text, failed fetches, nested deployed paths, and repeated SPA navigation. They do not restart the user's preview or add browser dependencies to this repo.
 
 Use an isolated Playwright installation (or point `NODE_PATH` at one you already have):
 

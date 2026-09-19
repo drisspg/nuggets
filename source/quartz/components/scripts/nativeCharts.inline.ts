@@ -131,6 +131,18 @@ function drawChart(
   )
   if (spec.intervalLabel)
     content.append(element("p", "native-chart-interval-label", spec.intervalLabel))
+  if (spec.references) {
+    // Barriers are not legend entries; keep them discoverable as static text regardless of zoom.
+    content.append(
+      element(
+        "p",
+        "native-chart-reference-summary",
+        `Reference lines: ${spec.references
+          .map((reference) => `${reference.label} at ${spec.y.label} ${reference.y}`)
+          .join("; ")}.`,
+      ),
+    )
+  }
 
   let width = 0
   let activeKey: number | null = null
@@ -305,6 +317,37 @@ function drawChart(
         .attr("x2", right)
         .attr("y1", y(0))
         .attr("y2", y(0))
+    }
+    // Reference rules sit under the data, clipped to the plot, and never join inspection or legends.
+    const referenceLayer = svg
+      .append("g")
+      .attr("class", "native-chart-reference-layer")
+      .attr("clip-path", `url(#${clipId})`)
+      .attr("pointer-events", "none")
+    for (const reference of spec.references ?? []) {
+      if (categories || reference.y < view.y[0] || reference.y > view.y[1]) continue
+      const py = y(reference.y)
+      const group = referenceLayer
+        .append("g")
+        .attr("class", "native-chart-reference")
+        .attr("data-y", String(reference.y))
+      if (reference.color) group.style("color", `var(--chart-${reference.color})`)
+      group
+        .append("line")
+        .attr("class", "native-chart-reference-line")
+        .attr("x1", left)
+        .attr("x2", right)
+        .attr("y1", py)
+        .attr("y2", py)
+      // Label above the rule at the right edge; drop below when the rule is close to the top.
+      const labelHeight = 14
+      group
+        .append("text")
+        .attr("class", "native-chart-reference-label")
+        .attr("x", right - 6)
+        .attr("y", py - 4 - labelHeight < top ? py + labelHeight - 2 : py - 4)
+        .attr("text-anchor", "end")
+        .text(reference.label)
     }
     const dataLayer = svg
       .append("g")

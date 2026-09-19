@@ -80,6 +80,17 @@ fs.writeFileSync(
   path.join(content, "training.md"),
   `---\ntitle: Training loss\n---\n${embed("media/kda/training-loss.json", "Training loss")}`,
 )
+const rangeSpec = JSON.parse(
+  fs.readFileSync(path.join(root, "content/media/kda/rebase-range.json"), "utf8"),
+)
+fs.copyFileSync(
+  path.join(root, "content/media/kda/rebase-range.json"),
+  path.join(content, "media/kda/rebase-range.json"),
+)
+fs.writeFileSync(
+  path.join(content, "range.md"),
+  `---\ntitle: Reference barriers\n---\n${embed("media/kda/rebase-range.json", "Gate-factor range")}`,
+)
 execFileSync(
   process.execPath,
   ["quartz/bootstrap-cli.mjs", "build", "--directory", content, "--output", output],
@@ -476,6 +487,120 @@ async function main() {
     await dense.close()
     console.log(
       "Dense training loss: all 15,200 vertices, exact inspection, two-axis guides, zoom markers and mobile passed",
+    )
+
+    for (const width of [320, 1440]) {
+      const range = await browser.newPage({ viewport: { width, height: 1000 } })
+      await range.goto(`${base}/range`)
+      await range.waitForSelector(".native-chart-reference")
+      await range.addStyleTag({ content: "html { scroll-behavior: auto !important; }" })
+      const rangeChart = range.locator(".native-chart")
+      const rangePlot = rangeChart.locator(".native-chart-plot > svg")
+      const barriers = () =>
+        rangeChart.locator(".native-chart-reference").evaluateAll((nodes) =>
+          nodes.map((node) => ({
+            y: node.dataset.y,
+            label: node.querySelector("text").textContent,
+            color: getComputedStyle(node).color,
+            events: getComputedStyle(node).pointerEvents,
+          })),
+        )
+      const palettes = {
+        light: ["rgb(170, 65, 58)", "rgb(114, 91, 145)"],
+        dark: ["rgb(211, 107, 98)", "rgb(165, 143, 201)"],
+      }
+      const startTheme = await range.locator("html").getAttribute("saved-theme")
+      assert.deepEqual(
+        await barriers(),
+        rangeSpec.references.map((reference, index) => ({
+          y: String(reference.y),
+          label: reference.label,
+          color: palettes[startTheme][index],
+          events: "none",
+        })),
+      )
+      // Barriers are not series: two legend entries, two lines, no barrier markers or readouts.
+      assert.equal(await rangeChart.locator(".native-chart-legend-item").count(), 2)
+      assert.equal(await rangeChart.locator(".native-chart-line").count(), 2)
+      assert.equal(
+        await rangeChart.locator(".native-chart-legend-name").allTextContents().then(String),
+        "Inverse factor,Decay factor",
+      )
+      assert.equal(await rangeChart.locator('.native-chart-point[data-y="128"]').count(), 0)
+      assert.equal(await rangeChart.locator(".native-chart-reference-summary").count(), 1)
+      assert(
+        (await rangeChart.locator(".native-chart-reference-summary").textContent()).includes(
+          "FP32 subnormal (\u2212126) at Gate-factor exponent (base 2) -126",
+        ),
+      )
+      const clipBox = await rangePlot.evaluate((node) => {
+        const clip = node.querySelector("clipPath rect")
+        return {
+          left: Number(clip.getAttribute("x")),
+          top: Number(clip.getAttribute("y")),
+          right: Number(clip.getAttribute("x")) + Number(clip.getAttribute("width")),
+          bottom: Number(clip.getAttribute("y")) + Number(clip.getAttribute("height")),
+        }
+      })
+      const labelBoxes = await rangeChart
+        .locator(".native-chart-reference-label")
+        .evaluateAll((nodes) =>
+          nodes
+            .map((node) => node.getBBox())
+            .map(({ x, y, width, height }) => ({ x, y, width, height })),
+        )
+      for (const box of labelBoxes) {
+        assert(
+          box.x >= clipBox.left && box.x + box.width <= clipBox.right,
+          JSON.stringify({ box, clipBox, width }),
+        )
+        assert(
+          box.y >= clipBox.top && box.y + box.height <= clipBox.bottom,
+          JSON.stringify({ box, clipBox, width }),
+        )
+      }
+      const [upper, lower] = labelBoxes
+      assert(
+        upper.y + upper.height <= lower.y || lower.y + lower.height <= upper.y,
+        "labels overlap",
+      )
+      // Keyboard sampling sees only the two data curves.
+      await rangePlot.focus()
+      await range.keyboard.press("End")
+      assert.equal(await rangeChart.locator(".native-chart-inspection circle").count(), 2)
+      assert.deepEqual(
+        await rangeChart
+          .locator('.native-chart-crosshair[data-axis="y"]')
+          .evaluateAll((nodes) => nodes.length),
+        2,
+      )
+      await range.keyboard.press("Escape")
+      // Zooming to y ≈ [-50, 50] hides both barriers and their labels; reset restores them.
+      await rangePlot.focus()
+      for (let i = 0; i < 4; i++) await range.keyboard.press("+")
+      const yDomain = JSON.parse(await rangePlot.getAttribute("data-y-domain"))
+      assert(yDomain[0] > -126 && yDomain[1] < 128, JSON.stringify(yDomain))
+      assert.equal(await rangeChart.locator(".native-chart-reference").count(), 0)
+      assert.equal(await rangeChart.locator(".native-chart-reference-label").count(), 0)
+      assert.equal(await rangeChart.locator(".native-chart-line").count(), 2)
+      await range.keyboard.press("0")
+      assert.equal(await rangeChart.locator(".native-chart-reference").count(), 2)
+      await rangeChart.locator(".native-chart-legend-item").first().click()
+      assert.equal(await rangeChart.locator(".native-chart-line").count(), 1)
+      assert.equal(await rangeChart.locator(".native-chart-reference").count(), 2)
+      await range.locator(".darkmode").click()
+      const endTheme = startTheme === "dark" ? "light" : "dark"
+      assert.equal(await range.locator("html").getAttribute("saved-theme"), endTheme)
+      assert.equal(
+        (await barriers())[0].color,
+        palettes[endTheme][0],
+        "barriers follow the theme palette",
+      )
+      await rangeChart.screenshot({ path: path.join(work, `range-${width}.png`) })
+      await range.close()
+    }
+    console.log(
+      "Reference barriers: isolated from legend/inspection, bounded labels, zoom hiding passed",
     )
 
     const widgetPage = await browser.newPage({ viewport: { width: 960, height: 1000 } })

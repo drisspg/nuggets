@@ -4,6 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>One retained Aqk entry through rebasing</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"
+    />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
     <style>
       :root {
         color-scheme: light;
@@ -19,11 +24,11 @@
       }
       :root[data-theme="dark"] {
         color-scheme: dark;
-        --paper: #161616;
-        --panel: #202020;
+        --paper: #0e0e0e;
+        --panel: #161616;
         --ink: #d4d4d4;
         --muted: #999999;
-        --rule: #3a3a3a;
+        --rule: #202020;
         --green: #6f8f7b;
         --amber: #e3a15f;
         --red: #d36b62;
@@ -101,6 +106,66 @@
         outline: 2px solid var(--amber);
         outline-offset: 1px;
       }
+      /* Reference choice: one segmented radio group shared by every stage. */
+      .aqk-ref {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 8px;
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+      .aqk-seg-group {
+        display: inline-flex;
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .aqk-seg {
+        position: relative;
+        display: inline-flex;
+        cursor: pointer;
+      }
+      .aqk-seg + .aqk-seg {
+        border-left: 1px solid var(--rule);
+      }
+      .aqk-seg input {
+        position: absolute;
+        opacity: 0;
+        width: 1px;
+        height: 1px;
+        margin: 0;
+        pointer-events: none;
+      }
+      .aqk-seg span {
+        padding: 4px 10px;
+        background: var(--panel);
+        color: var(--ink);
+        font-size: 12.5px;
+        line-height: 1.2;
+        white-space: nowrap;
+      }
+      .aqk-seg .sym {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        padding: 0 5px 0 0;
+        color: var(--muted);
+      }
+      .aqk-seg input:checked + span {
+        background: color-mix(in srgb, var(--amber) 16%, var(--panel));
+        box-shadow: inset 0 -2px 0 var(--amber);
+      }
+      .aqk-seg input:checked + span .sym {
+        color: var(--amber);
+      }
+      .aqk-seg input:focus-visible + span {
+        outline: 2px solid var(--amber);
+        outline-offset: -2px;
+      }
+      /* Reference-specific copy: the main element's data-ref picks which variant shows. */
+      .aqk[data-ref="mid"] [data-ref="first"],
+      .aqk[data-ref="first"] [data-ref="mid"] {
+        display: none !important;
+      }
       .aqk-panel[hidden] {
         display: none;
       }
@@ -124,6 +189,12 @@
         overflow-wrap: anywhere;
         line-height: 1.6;
       }
+      .math .katex-display {
+        margin: 0;
+        padding: 2px 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
       .math sub,
       .math sup {
         font-size: 0.72em;
@@ -141,31 +212,8 @@
         text-decoration-thickness: 1.5px;
         color: var(--muted);
       }
-      .cols {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-        grid-template-areas:
-          "legend tables"
-          "chips tables"
-          "verdict tables"
-          "fine tables";
-        column-gap: 16px;
-        align-items: start;
-      }
-      .legend-line {
-        grid-area: legend;
-      }
-      .chips {
-        grid-area: chips;
-      }
-      .tables {
-        grid-area: tables;
-      }
-      #verdict {
-        grid-area: verdict;
-      }
-      .fine {
-        grid-area: fine;
+      .strike.past {
+        text-decoration-color: var(--green);
       }
       .chips {
         display: flex;
@@ -213,6 +261,56 @@
         background: var(--red);
         box-shadow: 0 0 0 2px color-mix(in srgb, var(--red) 35%, transparent);
       }
+      .readouts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 28px;
+        margin: 2px 0 8px;
+      }
+      .readout {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .readout .k {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .readout .v {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-size: 22px;
+        line-height: 1.2;
+        font-variant-numeric: tabular-nums;
+      }
+      .readout .v.moved {
+        color: var(--amber);
+      }
+      #delta-bf16.moved {
+        color: var(--red);
+      }
+      .readout .v.same {
+        color: var(--muted);
+      }
+      .raw {
+        margin: 0 0 6px;
+      }
+      .raw summary {
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 12.5px;
+        width: fit-content;
+      }
+      .raw summary:focus-visible {
+        outline: 2px solid var(--amber);
+        outline-offset: 1px;
+      }
+      .raw[open] summary {
+        margin-bottom: 6px;
+      }
+      .scroll {
+        max-width: 100%;
+        overflow-x: auto;
+      }
       .toy {
         width: 100%;
         border-collapse: collapse;
@@ -250,6 +348,10 @@
         font-size: 13px;
         margin: 0 0 6px;
         line-height: 1.4;
+      }
+      .status.controls {
+        color: var(--muted);
+        font-size: 12px;
       }
       .short {
         display: none;
@@ -304,6 +406,13 @@
           margin-left: 5px;
           font-family: "IBM Plex Sans", system-ui, sans-serif;
         }
+        .aqk-ref {
+          font-size: 12px;
+        }
+        .aqk-seg span {
+          padding: 4px 8px;
+          font-size: 12px;
+        }
         .aqk-panel h2 {
           font-size: 14px;
         }
@@ -311,13 +420,10 @@
           font-size: 11.5px;
           padding: 5px 7px;
         }
-        .cols {
-          display: block;
+        .readout .v {
+          font-size: 19px;
         }
-        .chan,
-        .long,
-        .toy th:nth-child(3),
-        .toy td:nth-child(3) {
+        .long {
           display: none;
         }
         .short {
@@ -330,11 +436,32 @@
     </style>
   </head>
   <body>
-    <main class="aqk">
+    <main class="aqk" data-ref="mid">
       <p class="aqk-summary">
-        <b>A<sub>qk</sub>[5,2]</b> should depend only on tokens 0–5. Separately rounding the
-        rescaled operands to BF16 can make it depend on future gates.
+        Here’s a 16×16 tile of A<sub>qk</sub> weights. We’ll follow the highlighted entry
+        <b>A<sub>qk</sub>[5,2]</b> and see what happens when we choose
+        <span data-ref="mid"
+          >row 8’s gate, <b>G<sub>8</sub></b
+          >, the block midpoint,</span
+        ><span data-ref="first"
+          >row 0’s gate, <b>G<sub>0</sub></b
+          >, the block’s first row,</span
+        >
+        as the shared reference.
       </p>
+      <div class="aqk-ref" role="radiogroup" aria-label="Shared reference row">
+        <span id="ref-label">Shared reference</span>
+        <span class="aqk-seg-group">
+          <label class="aqk-seg">
+            <input type="radio" name="ref" value="first" aria-describedby="ref-label" />
+            <span><span class="sym">r = G₀</span>first row</span>
+          </label>
+          <label class="aqk-seg">
+            <input type="radio" name="ref" value="mid" aria-describedby="ref-label" checked />
+            <span><span class="sym">r = G₈</span>midpoint</span>
+          </label>
+        </span>
+      </div>
       <div class="aqk-tabs" role="tablist" aria-label="Stages">
         <button class="aqk-tab" role="tab" id="tab-1" aria-controls="panel-1" aria-selected="true">
           <span class="n" data-short="Decay">1</span><span>Write, then decay</span>
@@ -357,7 +484,8 @@
           aria-selected="false"
           tabindex="-1"
         >
-          <span class="n" data-short="r = G₈">3</span><span>Midpoint reference</span>
+          <span class="n" data-short="r = G₈">3</span
+          ><span id="tab-3-label">Midpoint reference</span>
         </button>
         <button
           class="aqk-tab"
@@ -373,17 +501,12 @@
       <div class="aqk-panels">
         <div class="aqk-panel" role="tabpanel" id="panel-1" aria-labelledby="tab-1" tabindex="0">
           <h2>Write at 2, decay, read at 5</h2>
-          <div class="math">
+          <div class="math" data-formula="decay">
             A<sub>qk</sub>[5,2] = Σ<sub>d</sub> q<sub>5,d</sub> k<sub>2,d</sub> 2<sup
               >G<sub>5,d</sub> − G<sub>2,d</sub></sup
             >,&nbsp; G<sub>5</sub> − G<sub>2</sub> = <span class="g">δ₃ + δ₄ + δ₅</span>
           </div>
-          <p>
-            Token 2 decays the state, then writes <b>z₂</b>. Query 5 reads that correction after
-            per-channel decays δ₃, δ₄, δ₅ — not δ₂. This weight multiplies z₂, not raw v₂; no
-            softmax.
-          </p>
-          <p>The mask keeps [5,2]; only j &gt; i is dropped.</p>
+          <p>The green path shows how token 2's contribution decays before query 5 reads it.</p>
         </div>
         <div
           class="aqk-panel"
@@ -394,7 +517,7 @@
           hidden
         >
           <h2>Split the decay for GEMM</h2>
-          <div class="math">
+          <div class="math" data-formula="split">
             2<sup>G<sub>5</sub> − G<sub>2</sub></sup> = 2<sup>G<sub>5</sub> − r</sup> · 2<sup
               >r − G<sub>2</sub></sup
             ><br />Q̃<sub>5,d</sub> = q<sub>5,d</sub> 2<sup>G<sub>5,d</sub> − r<sub>d</sub></sup
@@ -402,13 +525,8 @@
             ><br />A<sub>qk</sub> = mask(Q̃ K̃<sup>⊤</sup>)
           </div>
           <p>
-            The per-channel decay belongs inside the sum, not after QK<sup>⊤</sup>. Splitting it
-            into query-only and key-only factors lets us prepare each row once and use a GEMM.
-          </p>
-          <p>
-            Any r<sub>d</sub> cancels algebraically, including zero. We choose a reference to keep
-            the factors in <b>range</b>, not to make the decay separable. Each channel shares one
-            r<sub>d</sub> across the block.
+            Split the decay between query and key. Share one reference per channel across the block
+            to control the factors' scale.
           </p>
         </div>
         <div
@@ -419,8 +537,9 @@
           tabindex="0"
           hidden
         >
-          <h2>G₈ cancels exactly, but looks ahead of row 5</h2>
-          <div class="math">
+          <h2 data-ref="mid">G₈ cancels exactly, but looks ahead of row 5</h2>
+          <h2 data-ref="first">G₀ cancels exactly and never looks ahead</h2>
+          <div class="math" data-formula="midpoint" data-ref="mid">
             G<sub>5</sub> − G<sub>8</sub> = <span class="r">−(δ₆ + δ₇ + δ₈)</span> ≥ 0<br />G<sub
               >8</sub
             >
@@ -431,13 +550,21 @@
             >
             ✓
           </div>
-          <p>
-            Row 8 supplies the reference for this 16-row block. In exact arithmetic the red terms
-            cancel: multiplying a factor ≥ 1 by one ≤ 1 gives the original decay.
+          <div class="math" data-formula="first" data-ref="first">
+            G<sub>5</sub> − G<sub>0</sub> = <span class="g">δ₁ + δ₂ + δ₃ + δ₄ + δ₅</span> ≤ 0<br />G<sub
+              >0</sub
+            >
+            − G<sub>2</sub> = <span class="g">−(δ₁ + δ₂)</span> ≥ 0<br />sum =
+            <span class="g">δ₃ + δ₄ + δ₅</span>
+            <span class="strike past">+ δ₁ + δ₂ − δ₁ − δ₂</span> = G<sub>5</sub> − G<sub>2</sub> ✓
+          </div>
+          <p data-ref="mid">
+            Reusing row 8 shortens the longest decay span versus row 0, but for rows 0–7, the
+            reference is influenced by decay factors from future tokens.
           </p>
-          <p>
-            For row 5, δ₆–δ₈ are future increments. Every row i &lt; 8 uses a reference that looks
-            ahead; rows 8–15 do not. The mask only removes j &gt; i, not this operand dependence.
+          <p data-ref="first">
+            Row 0 sits at or before every query in the block, so no future gate reaches the
+            reference. The cost is range: row 15's factors span all 15 decay steps.
           </p>
         </div>
         <div
@@ -448,49 +575,80 @@
           tabindex="0"
           hidden
         >
-          <h2>Round operands to BF16; vary future gates</h2>
-          <div class="cols">
-            <p class="status legend-line">
-              Pick h₆, h₇, h₈ in nats/token (δ<sub>t,d</sub> = h<sub>t</sub>·w<sub>d</sub>·loG₂e).
-              <span class="dot none"></span> no change · <span class="dot sum"></span> accumulator
-              moves · <span class="dot bf16"></span> stored BF16 moves
-            </p>
-            <div class="chips" role="radiogroup" aria-label="Suffix gate scenario" id="chips"></div>
-            <div class="tables">
+          <h2 data-ref="mid">Does A<sub>qk</sub>[5,2] change with r = G₈?</h2>
+          <h2 data-ref="first">Does A<sub>qk</sub>[5,2] change with r = G₀?</h2>
+          <p class="status legend-line">
+            Tokens 0–5 stay fixed. Set the decay strength at tokens 6, 7, and 8.
+            <span class="dot none"></span> no change · <span class="dot sum"></span> sum changes ·
+            <span class="dot bf16"></span> stored BF16 changes
+          </p>
+          <div class="chips" role="radiogroup" aria-label="Suffix gate scenario" id="chips"></div>
+          <p class="status" id="gate-values"></p>
+          <div class="readouts" aria-live="polite">
+            <div class="readout">
+              <span class="k"
+                >Aqk FP32 accumulator, <span data-ref="mid">r = G₈</span
+                ><span data-ref="first">r = G₀</span>, Δ vs starting gates</span
+              >
+              <span class="v" id="delta-sum"></span>
+            </div>
+            <div class="readout">
+              <span class="k"
+                >Aqk cast to BF16, <span data-ref="mid">r = G₈</span
+                ><span data-ref="first">r = G₀</span>, Δ vs starting gates</span
+              >
+              <span class="v" id="delta-bf16"></span>
+            </div>
+          </div>
+          <p class="status" id="verdict"></p>
+          <p class="status controls" id="controls"></p>
+          <details class="raw" id="raw">
+            <summary>Calculation details</summary>
+            <div class="scroll">
               <table class="toy" aria-label="Aqk[5,2] under each computation path">
                 <thead>
                   <tr>
                     <th>path for A<sub>qk</sub>[5,2]</th>
                     <th>value</th>
-                    <th>Δ vs baseline</th>
+                    <th>Δ vs start</th>
                   </tr>
                 </thead>
                 <tbody id="totals"></tbody>
               </table>
+            </div>
+            <div class="scroll">
               <table
                 class="toy chan"
-                aria-label="Per-channel rounded operands for the midpoint path"
+                aria-label="Per-channel rounded operands for the selected reference"
               >
                 <thead>
                   <tr>
-                    <th>r = G₈, channel d</th>
+                    <th>
+                      <span data-ref="mid">r = G₈</span><span data-ref="first">r = G₀</span>,
+                      channel d
+                    </th>
                     <th>Q̃<sub>5,d</sub></th>
                     <th>K̃<sub>2,d</sub></th>
                     <th>Q̃·K̃</th>
-                    <th>Δ vs baseline</th>
+                    <th>Δ vs start</th>
                   </tr>
                 </thead>
                 <tbody id="channels"></tbody>
               </table>
             </div>
-            <p class="status" id="verdict"></p>
-            <p class="fine long" id="fine"></p>
-            <p class="fine short">
-              Toy, not a GPU measurement: BF16 operand rounding is emulated exactly. Separate
-              gate-only measurement: 11/512 BF16 Aqk values changed, max |Δ| 1.526e-5
-              (workload-specific).
+            <p class="fine">
+              Gate conversion
+              <span data-formula="gate-units"
+                >δ<sub>t,d</sub> = h<sub>t</sub>·w<sub>d</sub>·log₂e</span
+              >, <span id="settings"></span>
             </p>
-          </div>
+            <p class="fine">
+              This browser calculation uses four channels and emulates BF16 round-to-nearest-even
+              for the operands and final storage. The products and sum are exactly representable in
+              FP32.
+            </p>
+          </details>
+          <p class="fine">Computed in your browser, not collected from a GPU run.</p>
         </div>
       </div>
       <figure class="aqk-matrix" id="matrix"></figure>
@@ -504,7 +662,34 @@
       const I = 5
       const J = 2
       const R = 8
+      const main = document.querySelector(".aqk")
       let stage = 1
+      // Shared reference row: "mid" (r = G8, the current default) or "first" (r = G0).
+      const refs = {
+        mid: {
+          row: R,
+          label: "G₈",
+          name: "Midpoint",
+          tab: "Midpoint reference",
+          short: "r = G₈",
+          other: "first",
+          sum: (r) => r.mid,
+          stored: (r) => r.midStored,
+          channels: (r) => r.channels,
+        },
+        first: {
+          row: 0,
+          label: "G₀",
+          name: "First-row",
+          tab: "First-row reference",
+          short: "r = G₀",
+          other: "mid",
+          sum: (r) => r.causal,
+          stored: (r) => r.causalStored,
+          channels: (r) => r.causalChannels,
+        },
+      }
+      let ref = "mid"
 
       // ---------- matrix ----------
       const NS = "http://www.w3.org/2000/svg"
@@ -642,15 +827,15 @@
         svg,
       ).textContent = "masked j > i"
 
-      // headers (the reference mark is placed first so the token-8 label draws on top of it)
+      // The reference belongs to a token row (8 or 0), not a key column.
       const refMark = el("g", { class: "bracket", opacity: 0 }, svg)
-      el(
+      const refMarkRect = el(
         "rect",
         {
-          x: originX + R * cellSize + 1,
-          y: originY - 14,
-          width: cellSize - 2,
-          height: 11,
+          x: originX - 15,
+          y: originY + R * cellSize + 1,
+          width: 13,
+          height: cellSize - 2,
           rx: 1.5,
           fill: "var(--red)",
         },
@@ -713,38 +898,116 @@
       )
       rowAxis.textContent = "query row i ↓"
 
-      // brackets over the token header: decay tokens 3..5 (green) and future tokens 6..8 (red)
-      function bracket(from, to, color, label, anchor) {
-        const g = el("g", { class: "bracket", opacity: 0 }, svg)
-        const x1 = originX + from * cellSize + 1.5
-        const x2 = originX + (to + 1) * cellSize - 1.5
-        const y = originY - 17
+      // This overlay tracks the write through time, not neighboring Aqk entries.
+      const timelineX = originX + (J + 0.5) * cellSize
+      function gateTimeline(id, from, to, startY, endY, color, dashed = false) {
+        const group = el("g", { id, class: "bracket", opacity: 0 }, svg)
         el(
           "path",
           {
-            d: `M${x1} ${y + 4} V${y} H${x2} V${y + 4}`,
+            d: `M${timelineX} ${startY} V${endY}`,
             fill: "none",
             stroke: color,
             "stroke-width": 1.2,
+            "stroke-dasharray": dashed ? "2 2" : "none",
           },
-          g,
+          group,
         )
-        const t = el(
-          "text",
-          {
-            x: anchor === "start" ? x1 : (x1 + x2) / 2,
-            y: y - 4,
-            "text-anchor": anchor,
-            "font-size": 8,
-            fill: color,
-          },
-          g,
-        )
-        t.textContent = label
-        return g
+        for (let token = from; token <= to; token++) {
+          const y = originY + token * cellSize
+          el("path", { d: `M${timelineX - 3} ${y} h6`, stroke: color, "stroke-width": 1.2 }, group)
+          const label = el(
+            "text",
+            {
+              x: timelineX + 12,
+              y: y + 3,
+              "font-size": 8,
+              fill: color,
+              stroke: "var(--paper)",
+              "stroke-width": 2.5,
+              "stroke-linejoin": "round",
+              "paint-order": "stroke",
+            },
+            group,
+          )
+          label.textContent = `δ${"₀₁₂₃₄₅₆₇₈₉"[token]}`
+        }
+        return group
       }
-      const decayBracket = bracket(3, 5, "var(--green)", "δ₃…δ₅", "middle")
-      const futureBracket = bracket(6, 8, "var(--red)", "δ₆…δ₈ · after query 5 · r = G₈", "start")
+      const writeY = originY + (J + 0.5) * cellSize
+      const readY = originY + I * cellSize
+      const decayTimeline = gateTimeline("decay-timeline", J + 1, I, writeY, readY, "var(--green)")
+      el("circle", { cx: timelineX, cy: writeY, r: 2, fill: "var(--green)" }, decayTimeline)
+      el(
+        "text",
+        {
+          x: timelineX - 5,
+          y: writeY + 3,
+          "text-anchor": "end",
+          "font-size": 8,
+          fill: "var(--green)",
+        },
+        decayTimeline,
+      ).textContent = "write"
+      el(
+        "path",
+        {
+          d: `M${timelineX - 3} ${readY - 4} l3 3 l3 -3`,
+          fill: "none",
+          stroke: "var(--green)",
+          "stroke-width": 1.2,
+        },
+        decayTimeline,
+      )
+      const referenceY = originY + (R + 0.5) * cellSize
+      const futureTimeline = gateTimeline(
+        "future-gate-timeline",
+        I + 1,
+        R,
+        originY + (I + 1) * cellSize,
+        referenceY,
+        "var(--red)",
+        true,
+      )
+      el("circle", { cx: timelineX, cy: referenceY, r: 2, fill: "var(--red)" }, futureTimeline)
+      el(
+        "text",
+        {
+          x: timelineX - 5,
+          y: referenceY + 3,
+          "text-anchor": "end",
+          "font-size": 8,
+          fill: "var(--red)",
+        },
+        futureTimeline,
+      ).textContent = "G₈"
+      // r = G0: the key factor 2^(G0 - G2) only reaches back through past gates 1 and 2.
+      const firstY = originY + 0.5 * cellSize
+      const pastTimeline = gateTimeline(
+        "past-gate-timeline",
+        1,
+        J,
+        firstY,
+        writeY,
+        "var(--green)",
+        true,
+      )
+      el("circle", { cx: timelineX, cy: firstY, r: 2, fill: "var(--green)" }, pastTimeline)
+      el(
+        "text",
+        {
+          x: timelineX - 5,
+          y: firstY + 3,
+          "text-anchor": "end",
+          "font-size": 8,
+          fill: "var(--green)",
+          stroke: "var(--paper)",
+          "stroke-width": 2.5,
+          "stroke-linejoin": "round",
+          "paint-order": "stroke",
+        },
+        pastTimeline,
+      ).textContent = "G₀"
       const belowLabel = el(
         "text",
         {
@@ -758,7 +1021,10 @@
         },
         svg,
       )
-      belowLabel.textContent = "rows 0–7: G₈ includes future gates"
+      const belowLabels = {
+        mid: "rows 0–7: G₈ includes future gates",
+        first: "every row: G₀ includes no future gates",
+      }
       const operandLabels = el("g", { class: "bracket", opacity: 0 }, svg)
       el(
         "text",
@@ -800,44 +1066,63 @@
       document.getElementById("matrix").appendChild(svg)
 
       const titles = {
-        1: "Sixteen by sixteen Aqk block. Entries above the diagonal are hatched: masked. Row 5, column 2 is highlighted: query 5 reads the write from token 2 through the gates at tokens 3, 4 and 5.",
+        1: "Sixteen by sixteen Aqk block. Entries above the diagonal are hatched: masked. A green timeline follows token 2's write down column 2 through decay steps 3, 4 and 5 to the highlighted entry (5,2). The path is a time annotation, not additional matrix inputs.",
         2: "Row 5 of Q tilde and column 2 of K tilde meet at the highlighted retained entry (5,2); the block is one masked matrix multiply.",
-        3: "Row 8 supplies the reference gate. Rows 0 through 7 are above it: each is scaled by a reference that includes gate increments after itself; row 5 lacks all of increments 6 through 8. Entry (5,2) stays below the diagonal and retained.",
-        4: "Same block; entry (5,2) under separately rounded operands. The reference row 8 remains highlighted.",
+        3: {
+          mid: "Row 8 supplies the reference gate. A dashed red timeline extends below query 5 through future gate increments 6, 7 and 8 to G8. Rows 0 through 7 use a future reference. Entry (5,2) stays below the diagonal and retained.",
+          first:
+            "Row 0 supplies the reference gate. A dashed green timeline reaches from G0 through past gate increments 1 and 2 to token 2's write. No row depends on a future gate. Entry (5,2) stays below the diagonal and retained.",
+        },
+        4: {
+          mid: "Same block; entry (5,2) under separately rounded operands. The reference row 8 remains highlighted.",
+          first:
+            "Same block; entry (5,2) under separately rounded operands. The reference row 0 remains highlighted.",
+        },
       }
 
       function paintStage() {
-        title.textContent = titles[stage]
+        const t3 = titles[stage]
+        title.textContent = typeof t3 === "string" ? t3 : t3[ref]
         const showRef = stage >= 3
-        bandRow.setAttribute("opacity", stage === 2 ? 0.22 : 0.12)
-        bandCol.setAttribute("opacity", stage === 2 ? 0.22 : 0.12)
+        const mid = ref === "mid"
+        const refRow = refs[ref].row
+        const refColor = mid ? "var(--red)" : "var(--green)"
+        bandRef.setAttribute("y", originY + refRow * cellSize)
+        bandRef.setAttribute("width", (refRow + 1) * cellSize)
+        bandRef.setAttribute("fill", refColor)
+        refMarkRect.setAttribute("y", originY + refRow * cellSize + 1)
+        refMarkRect.setAttribute("fill", refColor)
+        belowLabel.textContent = belowLabels[ref]
+        belowLabel.setAttribute("fill", refColor)
+        bandRow.setAttribute("opacity", stage === 2 ? 0.22 : 0)
+        bandCol.setAttribute("opacity", stage === 2 ? 0.22 : 0)
         bandRef.setAttribute("opacity", showRef ? 0.28 : 0)
-        decayBracket.setAttribute("opacity", stage === 1 || stage === 3 ? 1 : 0)
-        futureBracket.setAttribute("opacity", showRef ? 1 : 0)
+        decayTimeline.setAttribute("opacity", stage !== 2 ? 1 : 0)
+        futureTimeline.setAttribute("opacity", showRef && mid ? 1 : 0)
+        pastTimeline.setAttribute("opacity", showRef && !mid ? 1 : 0)
         refMark.setAttribute("opacity", showRef ? 1 : 0)
         belowLabel.setAttribute("opacity", showRef ? 1 : 0)
-        rowsFutureMark.setAttribute("opacity", showRef ? 1 : 0)
+        rowsFutureMark.setAttribute("opacity", showRef && mid ? 1 : 0)
         operandLabels.setAttribute("opacity", stage === 2 ? 1 : 0)
         for (let t = 0; t < N; t++) {
           const col = colHdr[t]
           const row = rowHdr[t]
-          col.setAttribute(
-            "fill",
-            t === J ? "var(--green)" : showRef && t === R ? "var(--paper)" : "var(--muted)",
-          )
+          col.setAttribute("fill", t === J ? "var(--green)" : "var(--muted)")
           col.setAttribute("font-weight", t === J ? 700 : 400)
           row.setAttribute(
             "fill",
-            t === I ? "var(--amber)" : showRef && t === R ? "var(--red)" : "var(--muted)",
+            t === I ? "var(--amber)" : showRef && t === refRow ? "var(--paper)" : "var(--muted)",
           )
-          row.setAttribute("font-weight", t === I || (showRef && t === R) ? 700 : 400)
+          row.setAttribute("font-weight", t === I || (showRef && t === refRow) ? 700 : 400)
         }
         for (let i = 0; i < N; i++) {
           for (let j = 0; j < N; j++) {
             if (j > i) continue
             cells[i * N + j].setAttribute(
               "fill",
-              showRef && i < R ? "color-mix(in srgb, var(--red) 9%, var(--panel))" : "var(--panel)",
+              showRef && mid && i < R
+                ? "color-mix(in srgb, var(--red) 9%, var(--panel))"
+                : "var(--panel)",
             )
           }
         }
@@ -903,8 +1188,8 @@
       const channelWeight = [1, 0.55, 0.3, 0.8] // per-channel gate scale: decay differs per channel
       const prefixNats = [-0.4, -1.1, -0.2, -0.9, -0.35, -1.6] // tokens 0..5, fixed
       const scenarios = [
-        { name: "baseline", suffix: [-0.5, -0.5, -0.5] },
-        { name: "same total", suffix: [-0.2, -0.8, -0.5] },
+        { name: "Starting gates", suffix: [-0.5, -0.5, -0.5] },
+        { name: "Same total decay", suffix: [-0.2, -0.8, -0.5] },
         { name: "mild", suffix: [-0.1, -0.1, -0.1] },
         { name: "bursty", suffix: [-0.9, -0.2, -0.3] },
         { name: "−1.5 each", suffix: [-1.5, -1.5, -1.5] },
@@ -926,16 +1211,28 @@
         let causal = 0
         let mid = 0
         const channels = []
+        const causalChannels = []
         for (let d = 0; d < 4; d++) {
           const g = cumulative(deltas, d)
           exact += q5[d] * k2[d] * 2 ** (g[I] - g[J])
-          causal += bf16(q5[d] * 2 ** (g[I] - g[0])) * bf16(k2[d] * 2 ** (g[0] - g[J]))
+          const Q0 = bf16(q5[d] * 2 ** (g[I] - g[0]))
+          const K0 = bf16(k2[d] * 2 ** (g[0] - g[J]))
+          causal += Q0 * K0
+          causalChannels.push({ Q: Q0, K: K0, prod: Q0 * K0 })
           const Q = bf16(q5[d] * 2 ** (g[I] - g[R]))
           const K = bf16(k2[d] * 2 ** (g[R] - g[J]))
           mid += Q * K
           channels.push({ Q, K, prod: Q * K })
         }
-        return { exact, causal, mid, midStored: bf16(mid), channels }
+        return {
+          exact,
+          causal,
+          causalStored: bf16(causal),
+          causalChannels,
+          mid,
+          midStored: bf16(mid),
+          channels,
+        }
       }
       const results = scenarios.map(evaluate)
       const base = results[0]
@@ -946,19 +1243,26 @@
 
       const chips = document.getElementById("chips")
       let selected = 0
+      // Change classification for one scenario under one reference, against that reference's own baseline.
+      const changeKind = (r, which) => {
+        const pick = refs[which]
+        return pick.stored(r) !== pick.stored(base)
+          ? "bf16"
+          : pick.sum(r) !== pick.sum(base)
+            ? "sum"
+            : "none"
+      }
       scenarios.forEach((s, k) => {
-        const r = results[k]
-        const kind = r.midStored !== base.midStored ? "bf16" : r.mid !== base.mid ? "sum" : "none"
         const chip = document.createElement("button")
         chip.className = "aqk-chip"
         chip.type = "button"
         chip.setAttribute("role", "radio")
         chip.setAttribute("aria-checked", k === 0)
         chip.tabIndex = k === 0 ? 0 : -1
-        chip.innerHTML = `<span class="dot ${kind}" aria-hidden="true"></span>${s.name}`
+        chip.innerHTML = `<span class="dot ${changeKind(results[k], ref)}" aria-hidden="true"></span>${s.name}`
         chip.setAttribute(
           "aria-label",
-          `${s.name}: h6, h7, h8 = ${fmtNats(s.suffix)} nats per token`,
+          `${s.name}: decay gate settings h6, h7, h8 = ${fmtNats(s.suffix)}`,
         )
         chip.addEventListener("click", () => select(k), { signal })
         chip.addEventListener(
@@ -983,7 +1287,11 @@
       const totals = document.getElementById("totals")
       const channelBody = document.getElementById("channels")
       const verdict = document.getElementById("verdict")
-      const fine = document.getElementById("fine")
+      const controls = document.getElementById("controls")
+      const deltaSum = document.getElementById("delta-sum")
+      const deltaStored = document.getElementById("delta-bf16")
+      const gateValues = document.getElementById("gate-values")
+      const settings = document.getElementById("settings")
 
       function select(k, focus) {
         selected = k
@@ -994,44 +1302,154 @@
           chip.tabIndex = idx === k ? 0 : -1
         })
         if (focus) chips.children[k].focus({ preventScroll: true })
+        gateValues.textContent = `Gate settings: h₆, h₇, h₈ = ${fmtNats(s.suffix)}`
         const cls = (x, y) => (x === y ? "same" : "moved")
-        totals.innerHTML = `
-          <tr><td><span class="long">no operand rounding (FP64)</span><span class="short">FP64 reference</span></td><td>${fmt(r.exact)}</td><td class="same">${fmtDelta(r.exact - base.exact)}</td></tr>
-          <tr><td><span class="long">r = G₀ (first row), BF16 operands</span><span class="short">r = G₀, BF16</span></td><td class="${cls(r.causal, base.causal)}">${fmt(r.causal)}</td><td class="${cls(r.causal, base.causal)}">${fmtDelta(r.causal - base.causal)}</td></tr>
-          <tr class="hot"><td><span class="long">r = G₈ (midpoint), BF16 operands</span><span class="short">r = G₈, BF16</span></td><td class="${cls(r.mid, base.mid)}">${fmt(r.mid)}</td><td class="${cls(r.mid, base.mid)}">${fmtDelta(r.mid - base.mid)}</td></tr>
-          <tr class="hot"><td><span class="long">… stored as BF16</span><span class="short">→ stored BF16</span></td><td class="${cls(r.midStored, base.midStored)}">${fmt(r.midStored, 6)}</td><td class="${cls(r.midStored, base.midStored)}">${fmtDelta(r.midStored - base.midStored)}</td></tr>`
-        channelBody.innerHTML = r.channels
+        const pick = refs[ref]
+        const other = refs[pick.other]
+        const sum = pick.sum(r)
+        const sum0 = pick.sum(base)
+        const stored = pick.stored(r)
+        const stored0 = pick.stored(base)
+        deltaSum.textContent = fmtDelta(sum - sum0)
+        deltaSum.className = `v ${cls(sum, sum0)}`
+        deltaStored.textContent = fmtDelta(stored - stored0)
+        deltaStored.className = `v ${cls(stored, stored0)}`
+        const hot = (which) => (which === ref ? ' class="hot"' : "")
+        const refRows = (which, longName) => {
+          const p = refs[which]
+          const v = p.sum(r)
+          const v0 = p.sum(base)
+          const w = p.stored(r)
+          const w0 = p.stored(base)
+          return `
+          <tr${hot(which)} data-ref-row="${which}"><td><span class="long">r = ${p.label} (${longName}), BF16 operands</span><span class="short">r = ${p.label}, BF16</span></td><td class="${cls(v, v0)}">${fmt(v)}</td><td class="${cls(v, v0)}">${fmtDelta(v - v0)}</td></tr>
+          <tr${hot(which)} data-ref-row="${which}"><td><span class="long">… stored as BF16</span><span class="short">→ stored BF16</span></td><td class="${cls(w, w0)}">${fmt(w, 6)}</td><td class="${cls(w, w0)}">${fmtDelta(w - w0)}</td></tr>`
+        }
+        totals.innerHTML =
+          `
+          <tr><td><span class="long">no operand rounding (FP64)</span><span class="short">FP64 reference</span></td><td>${fmt(r.exact)}</td><td class="same">${fmtDelta(r.exact - base.exact)}</td></tr>` +
+          refRows("first", "first row") +
+          refRows("mid", "midpoint")
+        const baseChannels = pick.channels(base)
+        channelBody.innerHTML = pick
+          .channels(r)
           .map((c, d) => {
-            const dp = c.prod - base.channels[d].prod
+            const dp = c.prod - baseChannels[d].prod
             return `<tr><td>d = ${d}</td><td>${fmt(c.Q, 4)}</td><td>${fmt(c.K, 4)}</td><td>${fmt(c.prod, 5)}</td><td class="${dp === 0 ? "same" : "moved"}">${fmtDelta(dp)}</td></tr>`
           })
           .join("")
+        settings.textContent =
+          `Gates use natural logs. w = [${channelWeight.join(", ")}]; ` +
+          `h₀–h₅ = ${fmtNats(prefixNats)}, fixed; h₆–h₈ = ${fmtNats(s.suffix)}; ` +
+          `q₅, k₂ exact BF16; 4 channels.`
         let msg
-        const lead = `h₆, h₇, h₈ = ${fmtNats(s.suffix)} nats: `
-        if (k === 0)
-          msg = `Baseline, ${lead.slice(0, -2)}. FP64 and r = G₀ stay fixed across all suffixes.`
-        else if (r.mid === base.mid)
+        if (k === 0) msg = "All changes compare with these starting gates."
+        else if (sum === sum0)
           msg =
-            lead +
-            `same total, so G₈ and the operands stay fixed. Only the cumulative gate matters here.`
-        else if (r.midStored !== base.midStored)
-          msg =
-            lead +
-            `both the accumulator and stored BF16 changed. Gates after query 5 changed an entry the mask keeps.`
-        else
-          msg =
-            lead +
-            `the accumulator changed, but stored BF16 did not. Not every suffix change survives output rounding.`
+            ref === "first"
+              ? "h₆–h₈ never enter r = G₀. The FP32 sum and BF16 value stay unchanged."
+              : "Different gates, same total decay. G₈ and the weight stay unchanged."
+        else if (stored !== stored0) msg = "The weight change survives the BF16 cast."
+        else msg = "The FP32 sum changes; the BF16 value stays fixed."
         verdict.textContent = msg
-        fine.textContent = `Toy, not a GPU measurement: 4 channels; exact-BF16 q₅, k₂; δ = h·w_d·loG₂e, w = [1, 0.55, 0.3, 0.8]. BF16 operands use exactly emulated round-to-nearest-even; products and sum are exact in FP32. Real kernels also round exp2 and sum 128 channels. Separate gate-only measurement: 11/512 BF16 Aqk values changed, max |Δ| 1.526e-5 (workload-specific).`
+        const otherSum = other.sum(r) - other.sum(base)
+        const otherStored = other.stored(r) - other.stored(base)
+        const controlsFixed = r.exact === base.exact && otherSum === 0 && otherStored === 0
+        controls.textContent = controlsFixed
+          ? `${other.name} and unrounded operand controls: unchanged.`
+          : `Controls: no operand rounding ${fmtDelta(r.exact - base.exact)}; r = ${other.label} accumulator ${fmtDelta(otherSum)}, stored BF16 ${fmtDelta(otherStored)}.`
       }
       select(0)
+
+      // ---------- reference choice ----------
+      const refInputs = [...document.querySelectorAll('input[name="ref"]')]
+      const tab3Label = document.getElementById("tab-3-label")
+      const tab3Short = tabs[2].querySelector(".n")
+      function setRef(next) {
+        if (!(next in refs)) return
+        ref = next
+        main.dataset.ref = ref
+        refInputs.forEach((input) => (input.checked = input.value === ref))
+        tab3Label.textContent = refs[ref].tab
+        tab3Short.dataset.short = refs[ref].short
+        chips.querySelectorAll(".dot").forEach((dot, k) => {
+          dot.className = `dot ${changeKind(results[k], ref)}`
+        })
+        select(selected)
+        paintStage()
+      }
+      refInputs.forEach((input) =>
+        input.addEventListener("change", () => input.checked && setRef(input.value), { signal }),
+      )
+
+      // Keep the HTML formulas as a readable fallback if the renderer cannot load.
+      const formulas = {
+        decay: String.raw`\begin{aligned}
+          A_{qk}[5,2] &= \sum_d q_{5,d}k_{2,d}\,2^{G_{5,d}-G_{2,d}} \\
+          G_5-G_2 &= \past{\delta_3+\delta_4+\delta_5}
+        \end{aligned}`,
+        split: String.raw`\begin{aligned}
+          2^{G_5-G_2} &= 2^{G_5-r}\,2^{r-G_2} \\
+          \widetilde Q_{5,d} &= q_{5,d}\,2^{G_{5,d}-r_d} \\
+          \widetilde K_{2,d} &= k_{2,d}\,2^{r_d-G_{2,d}} \\
+          A_{qk} &= \operatorname{mask}(\widetilde Q\widetilde K^{\top})
+        \end{aligned}`,
+        midpoint: String.raw`\begin{aligned}
+          G_5-G_8 &= \future{-(\delta_6+\delta_7+\delta_8)} \ge 0 \\
+          G_8-G_2 &= \past{\delta_3+\delta_4+\delta_5} \\
+                  &\quad +\future{\delta_6+\delta_7+\delta_8} \le 0 \\
+          \text{sum} &= \past{\delta_3+\delta_4+\delta_5} \\
+                  &\quad \future{\cancel{-(\delta_6+\delta_7+\delta_8)}} \\
+                  &\quad \future{\cancel{+(\delta_6+\delta_7+\delta_8)}} \\
+                  &= G_5-G_2
+        \end{aligned}`,
+        first: String.raw`\begin{aligned}
+          G_5-G_0 &= \past{\delta_1+\delta_2+\delta_3+\delta_4+\delta_5} \le 0 \\
+          G_0-G_2 &= \past{-(\delta_1+\delta_2)} \ge 0 \\
+          \text{sum} &= \past{\delta_3+\delta_4+\delta_5} \\
+                  &\quad \past{\cancel{+(\delta_1+\delta_2)}} \\
+                  &\quad \past{\cancel{-(\delta_1+\delta_2)}} \\
+                  &= G_5-G_2
+        \end{aligned}`,
+        "gate-units": String.raw`\delta_{t,d}=h_t\,w_d\,\log_2 e`,
+      }
+      function renderFormulas() {
+        if (!window.katex) return
+        const colors = getComputedStyle(document.documentElement)
+        for (const node of document.querySelectorAll("[data-formula]")) {
+          katex.render(formulas[node.dataset.formula], node, {
+            displayMode: node.classList.contains("math"),
+            macros: {
+              // TeX macros need ## for a literal # in a hex color; #1 is the argument.
+              "\\past": `\\textcolor{${colors.getPropertyValue("--green").trim().replace("#", "##")}}{#1}`,
+              "\\future": `\\textcolor{${colors.getPropertyValue("--red").trim().replace("#", "##")}}{#1}`,
+            },
+          })
+        }
+      }
+      document.addEventListener("DOMContentLoaded", renderFormulas, { once: true, signal })
 
       // ---------- theme / embed plumbing ----------
       function syncTheme() {
         document.documentElement.dataset.theme =
           host.documentElement.getAttribute("saved-theme") ||
           (systemTheme.matches ? "dark" : "light")
+        if (host !== document) {
+          const palette = window.parent.getComputedStyle(host.documentElement)
+          const tokens = {
+            paper: "--light",
+            panel: "--editorial-code",
+            ink: "--dark",
+            muted: "--gray",
+            rule: "--editorial-rule",
+            green: "--secondary",
+          }
+          for (const [name, source] of Object.entries(tokens)) {
+            const value = palette.getPropertyValue(source).trim()
+            if (value) document.documentElement.style.setProperty(`--${name}`, value)
+          }
+        }
+        renderFormulas()
       }
       host.addEventListener("themechange", syncTheme, { signal })
       systemTheme.addEventListener("change", syncTheme, { signal })
@@ -1058,12 +1476,16 @@
         { capture: true, passive: false, signal },
       )
       // Same-origin embed: size the iframe to the intrinsic content height so no stage clips or scrolls.
-      const main = document.querySelector(".aqk")
       const frame = window.frameElement
       let frameHeight = 0
       function fitFrame() {
         if (!frame) return
-        const next = Math.ceil(main.getBoundingClientRect().height)
+        const style = window.parent.getComputedStyle(frame)
+        const border =
+          style.boxSizing === "border-box"
+            ? parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth)
+            : 0
+        const next = Math.ceil(main.getBoundingClientRect().height + border)
         if (next && next !== frameHeight) {
           frameHeight = next
           frame.style.height = `${next}px`

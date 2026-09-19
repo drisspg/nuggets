@@ -1,6 +1,6 @@
 # KDA figures
 
-These figures replot W&B training and evaluation metrics; they are not screenshots of the W&B UI. The snapshot includes no credentials, private dashboard URLs, hostnames, or run metadata.
+The training and evaluation figures replot W&B metrics; they are not screenshots of the W&B UI. The snapshot includes no credentials, private dashboard URLs, hostnames, or run metadata.
 
 Regenerate the native chart data from the repository root:
 
@@ -17,6 +17,12 @@ cd source && npm run charts:kda
 The article uses the reusable `chart` fenced embed described in `source/content/Native Charts.md`. Charts render directly in the page with D3/SVG and site CSS, without iframes or a Plotly CDN request. Hover, touch, and keyboard inspection update both-axis dashed guides and the legend; its tooltips expose full-precision values and uncertainty metadata. Ordinary wheel gestures scroll the article without forwarding messages between frames.
 
 The old Plotly `.html` exports, `render.py`, and `frame.html` remain available for comparison and existing embeds. Regenerate those separately with `uv run --with plotly==7.0.0 python source/visuals/kda/render.py`. Their iframe-height, theme synchronization, and wheel-forwarding machinery are not used by the new native charts.
+
+## Gate-factor range
+
+`rebase-range.ts` generates the analytic `content/media/kda/rebase-range.json`, separately from the measured training/evaluation data. Regenerate it with `cd source && npx tsx visuals/kda/rebase-range.ts`.
+
+For a first-row reference and every natural-log gate at the limiting value −5, an N-token window spans N−1 steps. The plotted exponents are ±5(N−1)log₂(e), not measured kernel outputs. The FP32 limits are chart `references` barriers, not series: dotted rules labelled “FP32 overflow (+128)” and “FP32 subnormal boundary (−126)” with no legend entry or readout; crossing the lower line means subnormal values, not necessarily zero. Point details include the unrounded factor and its FP32 cast with gradual underflow (kernels may flush subnormals earlier). Tests check asset parity, indexing, and FP32 overflow/underflow boundaries.
 
 ## Training versus inference
 
