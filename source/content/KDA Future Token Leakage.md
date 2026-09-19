@@ -262,30 +262,9 @@ $$
 {"src":"media/kda/rebase-range.json","title":"What if every gate is at −5","height":280}
 ```
 
-An $N$-token window spans $N-1$ steps. The cutoff lines mark the FP32/BF16 normal exponent range. After just **18 steps**, the growing factor reaches about $2^{129.8}$, beyond the largest finite FP32 or BF16 value! Quite the pickle aint it.
+An $N$-token window spans $N-1$ steps. After just **18 steps**, the growing factor reaches about $2^{129.8}$, beyond the largest finite FP32 or BF16 value! Quite the pickle aint it.
 
 **The width limit here comes from overflow of the growing key-side factor.** To keep it finite at that bound, we pick the largest multiple of 8 that fits: **16 key columns**.
-
-If you look at the **[`tcgen05.mma`](https://docs.nvidia.com/cuda/parallel-thread-execution/#tcgen05-mma)** instruction we're using, you might be a little confused. It has $M=64$ query rows. Didn't we just convince ourselves we need to stay within a $16\times16$ tile? Turns out the 16 limits the **key columns sharing a base**, not the number of query rows.
-
-<iframe class="doc-widget widget-frame" src="./media/kda/mma-strip-map.html" title="A 64 by 16 tcgen05 MMA footprint over a 64-token Aqk matrix: query rows, key columns, and 16 channels per instruction." loading="lazy" style="height: 700px;"></iframe>
-
-Take keys 0–15 and use $G_0$ as the reference. Their key-side factors are $2^{G_0-G_j}$: the farther the key is from the reference, the larger that factor gets. With 16 keys, we span 15 decay steps and the largest positive exponent is about **108.2**, which fits. Extend that same first-row reference to 32 keys and it reaches **223.6**, which does not.
-
-But we can keep going down the query rows! For query $i\geq0$, $G_i-G_0\leq0$, so its factor $2^{G_i-G_0}$ only adds decay. Query 63 is reading the same keys as query 15, just after more decay. **The diagonal triangle and the fully causal squares below it can share the same base.** Moving down does not increase the key-side factor.
-
-That gives us one strip of <span class="sidenote-pair"><a class="sidenote-ref" href="https://docs.nvidia.com/cuda/parallel-thread-execution/#tcgen05-matrix-shape" aria-describedby="kda-instruction-shape-note">64 query rows by 16 key columns</a><span id="kda-instruction-shape-note" class="sidenote" role="note">The <a href="https://github.com/meta-pytorch/attention-gym/blob/0653a9ba568f980df628652f372e394c233b43d8/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd_intra_engine.py">SM100 engine</a> issues <code>tcgen05.mma</code> with $M=64$, $N=16$, $K=16$: BF16 inputs and FP32 accumulation. Eight instructions cover the 128-channel reduction. The $16\times16$ diagonal block is only part of that rectangle.</span></span>, not four separate $16\times16$ MMAs. Each new key strip can choose its own reference. The 16-token choice limits the growing factor; it does not cap the number of query rows at 16.
-
-This is an **overflow argument**, not a guarantee against underflow. A query factor can still round to zero before the key factor compensates, losing a contribution. Q/K magnitudes and later rounding also need their own accuracy checks. We'll use the $16\times16$ diagonal block to look at the reference choice next.
-
-<details>
-<summary>Why not share one base across all 64 keys?</summary>
-
-I tried chunk-wide rebasing earlier. Even with the training module initialized near **−2.5 in natural-log units**, not the −5 bound, it exceeded the exponent range for every measured chunk/head/channel triple. My optimization harness used mild random gates and had missed it.
-
-That is different from 64 query rows reading 16 keys. Extending the key range makes the reciprocal factor grow; adding later queries only adds decay. At that initial per-token decay, a 16-key first-row window spans about 54 base-2 log units, so the bounded 16-token choice did not have the same overflow problem.
-
-</details>
 
 ## Decisions Decisions
 
@@ -334,6 +313,27 @@ These are separate kernel checks, not measurements from the browser graphic. Kee
 | GB200 `chunk_kda` regression, change future Q/K/V and gates | Prefix output elements | 851 / 9472 | $2.44\times10^{-4}$ |
 
 The causal-reference variant passed the latter bitwise prefix check. These probes measure different tensors, and their magnitudes are workload-specific. One checks Aqk values; the other checks the final prefix outputs.
+
+</details>
+
+## Back to tensor cores
+
+The $16\times16$ diagonal block is only part of the hardware work. The SM100 engine issues a strip of <span class="sidenote-pair"><a class="sidenote-ref" href="https://docs.nvidia.com/cuda/parallel-thread-execution/#tcgen05-matrix-shape" aria-describedby="kda-instruction-shape-note">64 query rows by 16 key columns</a>.<span id="kda-instruction-shape-note" class="sidenote" role="note">The <a href="https://github.com/meta-pytorch/attention-gym/blob/0653a9ba568f980df628652f372e394c233b43d8/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd_intra_engine.py">SM100 engine</a> issues <code>tcgen05.mma</code> with $M=64$, $N=16$, $K=16$: BF16 inputs and FP32 accumulation. Eight instructions cover the 128-channel reduction. The $16\times16$ diagonal block is only part of that rectangle.</span></span>
+
+With first-row rebasing, **each key group gets its own reference, and we rescale the query rows for each group.** Keys 0–15 use $G_0$, keys 16–31 use $G_{16}$, and so on.
+
+Query 63 reading key 15 has 48 steps of real decay, plus 15 extra steps that the key factor cancels. Reading its own write uses $G_{48}$ instead, so again only 15 steps need cancelling. **The 16 limits the extra decay and amplification, not how far back a query can read.**
+
+<iframe class="doc-widget widget-frame" src="./media/kda/mma-strip-map.html" title="A 64 by 16 tcgen05 MMA footprint over a 64-token Aqk matrix: query rows, key columns, and 16 channels per instruction." loading="lazy" style="height: 700px;"></iframe>
+
+Each strip covers the diagonal triangle and the causal squares below it. This bounds the growing gate factor; underflow, Q/K scaling, and later rounding still need accuracy checks.
+
+<details>
+<summary>Why not share one base across all 64 keys?</summary>
+
+I tried chunk-wide rebasing earlier. Even with the training module initialized near **−2.5 in natural-log units**, not the −5 bound, it exceeded the exponent range for every measured chunk/head/channel triple. My optimization harness used mild random gates and had missed it.
+
+That is different from 64 query rows reading 16 keys. Extending the key range makes the reciprocal factor grow; adding later queries only adds decay. At that initial per-token decay, a 16-key first-row window spans about 54 base-2 log units, so the bounded 16-token choice did not have the same overflow problem.
 
 </details>
 
