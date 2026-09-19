@@ -1,0 +1,1177 @@
+{
+  "version": 1,
+  "x": { "label": "Window size (tokens)", "domain": [1, 64] },
+  "y": { "label": "Gate-factor exponent (base 2)", "domain": [-480, 480] },
+  "series": [
+    {
+      "name": "Inverse factor",
+      "mode": "line",
+      "color": "amber",
+      "points": [
+        {
+          "x": 1,
+          "y": 0,
+          "details": {
+            "Steps from first row": 0,
+            "Unrounded factor": 1,
+            "FP32 cast": 1
+          }
+        },
+        {
+          "x": 2,
+          "y": 7.213475204444817,
+          "details": {
+            "Steps from first row": 1,
+            "Unrounded factor": 148.41315910257663,
+            "FP32 cast": 148.4131622314453
+          }
+        },
+        {
+          "x": 3,
+          "y": 14.426950408889635,
+          "details": {
+            "Steps from first row": 2,
+            "Unrounded factor": 22026.465794806725,
+            "FP32 cast": 22026.46484375
+          }
+        },
+        {
+          "x": 4,
+          "y": 21.64042561333445,
+          "details": {
+            "Steps from first row": 3,
+            "Unrounded factor": 3269017.372472109,
+            "FP32 cast": 3269017.25
+          }
+        },
+        {
+          "x": 5,
+          "y": 28.85390081777927,
+          "details": {
+            "Steps from first row": 4,
+            "Unrounded factor": 485165195.40979075,
+            "FP32 cast": 485165184
+          }
+        },
+        {
+          "x": 6,
+          "y": 36.06737602222409,
+          "details": {
+            "Steps from first row": 5,
+            "Unrounded factor": 72004899337.38605,
+            "FP32 cast": 72004902912
+          }
+        },
+        {
+          "x": 7,
+          "y": 43.2808512266689,
+          "details": {
+            "Steps from first row": 6,
+            "Unrounded factor": 10686474581524.451,
+            "FP32 cast": 10686474223616
+          }
+        },
+        {
+          "x": 8,
+          "y": 50.49432643111372,
+          "details": {
+            "Steps from first row": 7,
+            "Unrounded factor": 1586013452313431.5,
+            "FP32 cast": 1586013445029888
+          }
+        },
+        {
+          "x": 9,
+          "y": 57.70780163555854,
+          "details": {
+            "Steps from first row": 8,
+            "Unrounded factor": 235385266837020450,
+            "FP32 cast": 235385270340419600
+          }
+        },
+        {
+          "x": 10,
+          "y": 64.92127684000336,
+          "details": {
+            "Steps from first row": 9,
+            "Unrounded factor": 34934271057485214000,
+            "FP32 cast": 34934270576908304000
+          }
+        },
+        {
+          "x": 11,
+          "y": 72.13475204444818,
+          "details": {
+            "Steps from first row": 10,
+            "Unrounded factor": 5.184705528587097e21,
+            "FP32 cast": 5.184705457665547e21
+          }
+        },
+        {
+          "x": 12,
+          "y": 79.348227248893,
+          "details": {
+            "Steps from first row": 11,
+            "Unrounded factor": 7.694785265142066e23,
+            "FP32 cast": 7.694785471490595e23
+          }
+        },
+        {
+          "x": 13,
+          "y": 86.5617024533378,
+          "details": {
+            "Steps from first row": 12,
+            "Unrounded factor": 1.1420073898156818e26,
+            "FP32 cast": 1.1420073962419164e26
+          }
+        },
+        {
+          "x": 14,
+          "y": 93.77517765778262,
+          "details": {
+            "Steps from first row": 13,
+            "Unrounded factor": 1.6948892444103327e28,
+            "FP32 cast": 1.694889206675675e28
+          }
+        },
+        {
+          "x": 15,
+          "y": 100.98865286222744,
+          "details": {
+            "Steps from first row": 14,
+            "Unrounded factor": 2.515438670919169e30,
+            "FP32 cast": 2.515438700355918e30
+          }
+        },
+        {
+          "x": 16,
+          "y": 108.20212806667226,
+          "details": {
+            "Steps from first row": 15,
+            "Unrounded factor": 3.73324199679901e32,
+            "FP32 cast": 3.733241849647479e32
+          }
+        },
+        {
+          "x": 17,
+          "y": 115.41560327111708,
+          "details": {
+            "Steps from first row": 16,
+            "Unrounded factor": 5.540622384393531e34,
+            "FP32 cast": 5.540622484676759e34
+          }
+        },
+        {
+          "x": 18,
+          "y": 122.6290784755619,
+          "details": {
+            "Steps from first row": 17,
+            "Unrounded factor": 8.223012714622957e36,
+            "FP32 cast": 8.223013026843582e36
+          }
+        },
+        {
+          "x": 19,
+          "y": 129.84255368000672,
+          "details": {
+            "Steps from first row": 18,
+            "Unrounded factor": 1.220403294317849e39,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 20,
+          "y": 137.05602888445154,
+          "details": {
+            "Steps from first row": 19,
+            "Unrounded factor": 1.811239082889038e41,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 21,
+          "y": 144.26950408889635,
+          "details": {
+            "Steps from first row": 20,
+            "Unrounded factor": 2.6881171418161614e43,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 22,
+          "y": 151.48297929334117,
+          "details": {
+            "Steps from first row": 21,
+            "Unrounded factor": 3.98951957054726e45,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 23,
+          "y": 158.696454497786,
+          "details": {
+            "Steps from first row": 22,
+            "Unrounded factor": 5.9209720276647446e47,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 24,
+          "y": 165.9099297022308,
+          "details": {
+            "Steps from first row": 23,
+            "Unrounded factor": 8.787501635837147e49,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 25,
+          "y": 173.1234049066756,
+          "details": {
+            "Steps from first row": 24,
+            "Unrounded factor": 1.304180878393627e52,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 26,
+          "y": 180.33688011112042,
+          "details": {
+            "Steps from first row": 25,
+            "Unrounded factor": 1.9355760420357175e54,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 27,
+          "y": 187.55035531556524,
+          "details": {
+            "Steps from first row": 26,
+            "Unrounded factor": 2.8726495508178286e56,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 28,
+          "y": 194.76383052001006,
+          "details": {
+            "Steps from first row": 27,
+            "Unrounded factor": 4.263389948314722e58,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 29,
+          "y": 201.97730572445488,
+          "details": {
+            "Steps from first row": 28,
+            "Unrounded factor": 6.3274317071555965e60,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 30,
+          "y": 209.1907809288997,
+          "details": {
+            "Steps from first row": 29,
+            "Unrounded factor": 9.390741286647728e62,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 31,
+          "y": 216.40425613334452,
+          "details": {
+            "Steps from first row": 30,
+            "Unrounded factor": 1.3937095806663862e65,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 32,
+          "y": 223.61773133778934,
+          "details": {
+            "Steps from first row": 31,
+            "Unrounded factor": 2.06844841738226e67,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 33,
+          "y": 230.83120654223416,
+          "details": {
+            "Steps from first row": 32,
+            "Unrounded factor": 3.0698496406442658e69,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 34,
+          "y": 238.04468174667898,
+          "details": {
+            "Steps from first row": 33,
+            "Unrounded factor": 4.556060831379257e71,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 35,
+          "y": 245.2581569511238,
+          "details": {
+            "Steps from first row": 34,
+            "Unrounded factor": 6.761793810485081e73,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 36,
+          "y": 252.4716321555686,
+          "details": {
+            "Steps from first row": 35,
+            "Unrounded factor": 1.0035391806143415e76,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 37,
+          "y": 259.68510736001343,
+          "details": {
+            "Steps from first row": 36,
+            "Unrounded factor": 1.4893842007818585e78,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 38,
+          "y": 266.89858256445825,
+          "details": {
+            "Steps from first row": 37,
+            "Unrounded factor": 2.2104421435550217e80,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 39,
+          "y": 274.11205776890307,
+          "details": {
+            "Steps from first row": 38,
+            "Unrounded factor": 3.280587015384724e82,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 40,
+          "y": 281.3255329733479,
+          "details": {
+            "Steps from first row": 39,
+            "Unrounded factor": 4.868822826641407e84,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 41,
+          "y": 288.5390081777927,
+          "details": {
+            "Steps from first row": 40,
+            "Unrounded factor": 7.225973768125889e86,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 42,
+          "y": 295.75248338223753,
+          "details": {
+            "Steps from first row": 41,
+            "Unrounded factor": 1.0724295945199141e89,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 43,
+          "y": 302.96595858668235,
+          "details": {
+            "Steps from first row": 42,
+            "Unrounded factor": 1.5916266403779596e91,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 44,
+          "y": 310.17943379112717,
+          "details": {
+            "Steps from first row": 43,
+            "Unrounded factor": 2.3621833781031395e93,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 45,
+          "y": 317.392908995572,
+          "details": {
+            "Steps from first row": 44,
+            "Unrounded factor": 3.505790975238836e95,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 46,
+          "y": 324.6063842000168,
+          "details": {
+            "Steps from first row": 45,
+            "Unrounded factor": 5.2030551378849934e97,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 47,
+          "y": 331.8198594044616,
+          "details": {
+            "Steps from first row": 46,
+            "Unrounded factor": 7.722018499984053e99,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 48,
+          "y": 339.03333460890644,
+          "details": {
+            "Steps from first row": 47,
+            "Unrounded factor": 1.146049160231175e102,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 49,
+          "y": 346.2468098133512,
+          "details": {
+            "Steps from first row": 48,
+            "Unrounded factor": 1.700887763567572e104,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 50,
+          "y": 353.460285017796,
+          "details": {
+            "Steps from first row": 49,
+            "Unrounded factor": 2.5243412626998017e106,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 51,
+          "y": 360.67376022224084,
+          "details": {
+            "Steps from first row": 50,
+            "Unrounded factor": 3.746454614502653e108,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 52,
+          "y": 367.88723542668566,
+          "details": {
+            "Steps from first row": 51,
+            "Unrounded factor": 5.5602316477276536e110,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 53,
+          "y": 375.1007106311305,
+          "details": {
+            "Steps from first row": 52,
+            "Unrounded factor": 8.252115441813872e112,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 54,
+          "y": 382.3141858355753,
+          "details": {
+            "Steps from first row": 53,
+            "Unrounded factor": 1.2247225219987532e115,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 55,
+          "y": 389.5276610400201,
+          "details": {
+            "Steps from first row": 54,
+            "Unrounded factor": 1.817649385139101e117,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 56,
+          "y": 396.74113624446494,
+          "details": {
+            "Steps from first row": 55,
+            "Unrounded factor": 2.697630873893503e119,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 57,
+          "y": 403.95461144890976,
+          "details": {
+            "Steps from first row": 56,
+            "Unrounded factor": 4.0036392008717985e121,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 58,
+          "y": 411.1680866533546,
+          "details": {
+            "Steps from first row": 57,
+            "Unrounded factor": 5.941927417082998e123,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 59,
+          "y": 418.3815618577994,
+          "details": {
+            "Steps from first row": 58,
+            "Unrounded factor": 8.818602191275022e125,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 60,
+          "y": 425.5950370622442,
+          "details": {
+            "Steps from first row": 59,
+            "Unrounded factor": 1.3087966100760325e128,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 61,
+          "y": 432.80851226668904,
+          "details": {
+            "Steps from first row": 60,
+            "Unrounded factor": 1.942426395241274e130,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 62,
+          "y": 440.02198747113385,
+          "details": {
+            "Steps from first row": 61,
+            "Unrounded factor": 2.88281637641988e132,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 63,
+          "y": 447.2354626755787,
+          "details": {
+            "Steps from first row": 62,
+            "Unrounded factor": 4.278478855371176e134,
+            "FP32 cast": "Overflow"
+          }
+        },
+        {
+          "x": 64,
+          "y": 454.4489378800235,
+          "details": {
+            "Steps from first row": 63,
+            "Unrounded factor": 6.349825630792131e136,
+            "FP32 cast": "Overflow"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Decay factor",
+      "mode": "line",
+      "color": "green",
+      "points": [
+        {
+          "x": 1,
+          "y": 0,
+          "details": {
+            "Steps from first row": 0,
+            "Unrounded factor": 1,
+            "FP32 cast": 1
+          }
+        },
+        {
+          "x": 2,
+          "y": -7.213475204444817,
+          "details": {
+            "Steps from first row": 1,
+            "Unrounded factor": 0.006737946999085465,
+            "FP32 cast": 0.0067379469983279705
+          }
+        },
+        {
+          "x": 3,
+          "y": -14.426950408889635,
+          "details": {
+            "Steps from first row": 2,
+            "Unrounded factor": 0.00004539992976248483,
+            "FP32 cast": 0.00004539993096841499
+          }
+        },
+        {
+          "x": 4,
+          "y": -21.64042561333445,
+          "details": {
+            "Steps from first row": 3,
+            "Unrounded factor": 3.0590232050182594e-7,
+            "FP32 cast": 3.0590231858695915e-7
+          }
+        },
+        {
+          "x": 5,
+          "y": -28.85390081777927,
+          "details": {
+            "Steps from first row": 4,
+            "Unrounded factor": 2.061153622438556e-9,
+            "FP32 cast": 2.06115369216775e-9
+          }
+        },
+        {
+          "x": 6,
+          "y": -36.06737602222409,
+          "details": {
+            "Steps from first row": 5,
+            "Unrounded factor": 1.3887943864963987e-11,
+            "FP32 cast": 1.3887943746404563e-11
+          }
+        },
+        {
+          "x": 7,
+          "y": -43.2808512266689,
+          "details": {
+            "Steps from first row": 6,
+            "Unrounded factor": 9.357622968840185e-14,
+            "FP32 cast": 9.357622912219837e-14
+          }
+        },
+        {
+          "x": 8,
+          "y": -50.49432643111372,
+          "details": {
+            "Steps from first row": 7,
+            "Unrounded factor": 6.305116760146986e-16,
+            "FP32 cast": 6.305116853596367e-16
+          }
+        },
+        {
+          "x": 9,
+          "y": -57.70780163555854,
+          "details": {
+            "Steps from first row": 8,
+            "Unrounded factor": 4.248354255291581e-18,
+            "FP32 cast": 4.24835413113866e-18
+          }
+        },
+        {
+          "x": 10,
+          "y": -64.92127684000336,
+          "details": {
+            "Steps from first row": 9,
+            "Unrounded factor": 2.862518580549384e-20,
+            "FP32 cast": 2.862518609581133e-20
+          }
+        },
+        {
+          "x": 11,
+          "y": -72.13475204444818,
+          "details": {
+            "Steps from first row": 10,
+            "Unrounded factor": 1.9287498479639084e-22,
+            "FP32 cast": 1.9287498933537385e-22
+          }
+        },
+        {
+          "x": 12,
+          "y": -79.348227248893,
+          "details": {
+            "Steps from first row": 11,
+            "Unrounded factor": 1.2995814250074949e-24,
+            "FP32 cast": 1.2995813867822863e-24
+          }
+        },
+        {
+          "x": 13,
+          "y": -86.5617024533378,
+          "details": {
+            "Steps from first row": 12,
+            "Unrounded factor": 8.756510762696539e-27,
+            "FP32 cast": 8.75651089272076e-27
+          }
+        },
+        {
+          "x": 14,
+          "y": -93.77517765778262,
+          "details": {
+            "Steps from first row": 13,
+            "Unrounded factor": 5.900090541597065e-29,
+            "FP32 cast": 5.90009059760205e-29
+          }
+        },
+        {
+          "x": 15,
+          "y": -100.98865286222744,
+          "details": {
+            "Steps from first row": 14,
+            "Unrounded factor": 3.975449735908643e-31,
+            "FP32 cast": 3.975449954226706e-31
+          }
+        },
+        {
+          "x": 16,
+          "y": -108.20212806667226,
+          "details": {
+            "Steps from first row": 15,
+            "Unrounded factor": 2.6786369618080717e-33,
+            "FP32 cast": 2.678636997114156e-33
+          }
+        },
+        {
+          "x": 17,
+          "y": -115.41560327111708,
+          "details": {
+            "Steps from first row": 16,
+            "Unrounded factor": 1.8048513878454083e-35,
+            "FP32 cast": 1.8048513285848406e-35
+          }
+        },
+        {
+          "x": 18,
+          "y": -122.6290784755619,
+          "details": {
+            "Steps from first row": 17,
+            "Unrounded factor": 1.216099299252819e-37,
+            "FP32 cast": 1.2160992719555806e-37
+          }
+        },
+        {
+          "x": 19,
+          "y": -129.84255368000672,
+          "details": {
+            "Steps from first row": 18,
+            "Unrounded factor": 8.194012623990461e-40,
+            "FP32 cast": 8.194008692231508e-40
+          }
+        },
+        {
+          "x": 20,
+          "y": -137.05602888445154,
+          "details": {
+            "Steps from first row": 19,
+            "Unrounded factor": 5.521082277028487e-42,
+            "FP32 cast": 5.521115949439779e-42
+          }
+        },
+        {
+          "x": 21,
+          "y": -144.26950408889635,
+          "details": {
+            "Steps from first row": 20,
+            "Unrounded factor": 3.7200759760208e-44,
+            "FP32 cast": 3.783505853677006e-44
+          }
+        },
+        {
+          "x": 22,
+          "y": -151.48297929334117,
+          "details": {
+            "Steps from first row": 21,
+            "Unrounded factor": 2.506567475899925e-46,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 23,
+          "y": -158.696454497786,
+          "details": {
+            "Steps from first row": 22,
+            "Unrounded factor": 1.6889118802245112e-48,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 24,
+          "y": -165.9099297022308,
+          "details": {
+            "Steps from first row": 23,
+            "Unrounded factor": 1.137979873507852e-50,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 25,
+          "y": -173.1234049066756,
+          "details": {
+            "Steps from first row": 24,
+            "Unrounded factor": 7.667648073722031e-53,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 26,
+          "y": -180.33688011112042,
+          "details": {
+            "Steps from first row": 25,
+            "Unrounded factor": 5.166420632837875e-55,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 27,
+          "y": -187.55035531556524,
+          "details": {
+            "Steps from first row": 26,
+            "Unrounded factor": 3.481106839904315e-57,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 28,
+          "y": -194.76383052001006,
+          "details": {
+            "Steps from first row": 27,
+            "Unrounded factor": 2.345551338542914e-59,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 29,
+          "y": -201.97730572445488,
+          "details": {
+            "Steps from first row": 28,
+            "Unrounded factor": 1.5804200602736103e-61,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 30,
+          "y": -209.1907809288997,
+          "details": {
+            "Steps from first row": 29,
+            "Unrounded factor": 1.064878660241503e-63,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 31,
+          "y": -216.40425613334452,
+          "details": {
+            "Steps from first row": 30,
+            "Unrounded factor": 7.175095973164377e-66,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 32,
+          "y": -223.61773133778934,
+          "details": {
+            "Steps from first row": 31,
+            "Unrounded factor": 4.834541638053306e-68,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 33,
+          "y": -230.83120654223416,
+          "details": {
+            "Steps from first row": 32,
+            "Unrounded factor": 3.257488532207497e-70,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 34,
+          "y": -238.04468174667898,
+          "details": {
+            "Steps from first row": 33,
+            "Unrounded factor": 2.1948785080142791e-72,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 35,
+          "y": -245.2581569511238,
+          "details": {
+            "Steps from first row": 34,
+            "Unrounded factor": 1.4788975056431978e-74,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 36,
+          "y": -252.4716321555686,
+          "details": {
+            "Steps from first row": 35,
+            "Unrounded factor": 9.964733010103552e-77,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 37,
+          "y": -259.68510736001343,
+          "details": {
+            "Steps from first row": 36,
+            "Unrounded factor": 6.714184288211502e-79,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 38,
+          "y": -266.89858256445825,
+          "details": {
+            "Steps from first row": 37,
+            "Unrounded factor": 4.523981787606142e-81,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 39,
+          "y": -274.11205776890307,
+          "details": {
+            "Steps from first row": 38,
+            "Unrounded factor": 3.0482349509718066e-83,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 40,
+          "y": -281.3255329733479,
+          "details": {
+            "Steps from first row": 39,
+            "Unrounded factor": 2.0538845540407892e-85,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 41,
+          "y": -288.5390081777927,
+          "details": {
+            "Steps from first row": 40,
+            "Unrounded factor": 1.3838965267367108e-87,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 42,
+          "y": -295.75248338223753,
+          "details": {
+            "Steps from first row": 41,
+            "Unrounded factor": 9.324621449370407e-90,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 43,
+          "y": -302.96595858668235,
+          "details": {
+            "Steps from first row": 42,
+            "Unrounded factor": 6.282880511239322e-92,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 44,
+          "y": -310.17943379112717,
+          "details": {
+            "Steps from first row": 43,
+            "Unrounded factor": 4.23337158863175e-94,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 45,
+          "y": -317.392908995572,
+          "details": {
+            "Steps from first row": 44,
+            "Unrounded factor": 2.852423339163493e-96,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 46,
+          "y": -324.6063842000168,
+          "details": {
+            "Steps from first row": 45,
+            "Unrounded factor": 1.9219477278237978e-98,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 47,
+          "y": -331.8198594044616,
+          "details": {
+            "Steps from first row": 46,
+            "Unrounded factor": 1.2949981925089472e-100,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 48,
+          "y": -339.03333460890644,
+          "details": {
+            "Steps from first row": 47,
+            "Unrounded factor": 8.725629185036752e-103,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 49,
+          "y": -346.2468098133512,
+          "details": {
+            "Steps from first row": 48,
+            "Unrounded factor": 5.879282698245318e-105,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 50,
+          "y": -353.460285017796,
+          "details": {
+            "Steps from first row": 49,
+            "Unrounded factor": 3.961429521341709e-107,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 51,
+          "y": -360.67376022224084,
+          "details": {
+            "Steps from first row": 50,
+            "Unrounded factor": 2.6691902155412906e-109,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 52,
+          "y": -367.88723542668566,
+          "details": {
+            "Steps from first row": 51,
+            "Unrounded factor": 1.7984862202794705e-111,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 53,
+          "y": -375.1007106311305,
+          "details": {
+            "Steps from first row": 52,
+            "Unrounded factor": 1.2118104830828605e-113,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 54,
+          "y": -382.3141858355753,
+          "details": {
+            "Steps from first row": 53,
+            "Unrounded factor": 8.165114807948458e-116,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 55,
+          "y": -389.5276610400201,
+          "details": {
+            "Steps from first row": 54,
+            "Unrounded factor": 5.5016110817404545e-118,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 56,
+          "y": -396.74113624446494,
+          "details": {
+            "Steps from first row": 55,
+            "Unrounded factor": 3.7069563878348385e-120,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 57,
+          "y": -403.95461144890976,
+          "details": {
+            "Steps from first row": 56,
+            "Unrounded factor": 2.497727566915242e-122,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 58,
+          "y": -411.1680866533546,
+          "details": {
+            "Steps from first row": 57,
+            "Unrounded factor": 1.6829555964029574e-124,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 59,
+          "y": -418.3815618577994,
+          "details": {
+            "Steps from first row": 58,
+            "Unrounded factor": 1.1339665610377383e-126,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 60,
+          "y": -425.5950370622442,
+          "details": {
+            "Steps from first row": 59,
+            "Unrounded factor": 7.640606587007485e-129,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 61,
+          "y": -432.80851226668904,
+          "details": {
+            "Steps from first row": 60,
+            "Unrounded factor": 5.148200222411965e-131,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 62,
+          "y": -440.02198747113385,
+          "details": {
+            "Steps from first row": 61,
+            "Unrounded factor": 3.4688300239291787e-133,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 63,
+          "y": -447.2354626755787,
+          "details": {
+            "Steps from first row": 62,
+            "Unrounded factor": 2.3372792850071144e-135,
+            "FP32 cast": 0
+          }
+        },
+        {
+          "x": 64,
+          "y": -454.4489378800235,
+          "details": {
+            "Steps from first row": 63,
+            "Unrounded factor": 1.574846394443829e-137,
+            "FP32 cast": 0
+          }
+        }
+      ]
+    }
+  ],
+  "references": [
+    { "y": 128, "label": "FP32 overflow (+128)", "color": "red" },
+    { "y": -126, "label": "FP32 subnormal (−126)", "color": "purple" }
+  ]
+}

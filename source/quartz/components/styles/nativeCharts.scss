@@ -218,6 +218,31 @@
     stroke-linejoin: round;
   }
 
+  // Reference/cutoff rules: a finer, tighter dash than data lines, with a compact
+  // haloed label attached to the rule instead of a legend entry.
+  .native-chart-reference {
+    color: var(--darkgray);
+    pointer-events: none;
+  }
+
+  .native-chart-reference-line {
+    stroke: currentColor;
+    stroke-width: 1.1;
+    stroke-dasharray: 2 3;
+    stroke-opacity: 0.85;
+  }
+
+  .native-chart-reference-label {
+    fill: currentColor;
+    stroke: var(--light);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+    paint-order: stroke fill;
+    font-family: var(--codeFont);
+    font-size: 10px;
+    letter-spacing: 0.01em;
+  }
+
   .native-chart-error {
     fill: none;
     stroke: currentColor;
@@ -325,7 +350,9 @@
     min-width: 0;
   }
 
-  .native-chart-status {
+  .native-chart-status,
+  .native-chart-reference-summary {
+    margin: 0;
     position: absolute;
     width: 1px;
     height: 1px;

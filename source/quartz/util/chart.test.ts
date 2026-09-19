@@ -364,6 +364,95 @@ test("explicit domains are unpadded, increasing finite pairs encompassing data, 
   )
 })
 
+test("reference lines are preserved, widen automatic domains, and stay out of series", () => {
+  const references = [
+    { y: 128, label: "FP32 overflow (+128)", color: "red" },
+    { y: -126, label: "FP32 subnormal boundary (−126)" },
+  ]
+  const input = chart({ references })
+  freeze(input)
+  const parsed = parseChart(input)
+  assert.deepEqual(parsed, input)
+  assert.notEqual(parsed.references, references)
+  assert.equal(parsed.series.length, 1)
+  assert.deepEqual(numericDomain(parsed, "y"), [-138.7, 140.7])
+  assert.deepEqual(numericDomain(parsed, "x"), [0.9, 3.1])
+  assert.equal(parseChart(chart()).references, undefined)
+  assert.deepEqual(
+    numericDomain(parseChart(chart({ y: { label: "y", domain: [-126, 128] }, references })), "y"),
+    [-126, 128],
+  )
+})
+
+test("reference lines reject malformed entries, category axes, and excluded explicit domains", async (t) => {
+  const reference = { y: 1, label: "Limit" }
+  const cases: [string, unknown, RegExp][] = [
+    [
+      "object references",
+      chart({ references: {} }),
+      /chart\.references: expected a nonempty array/,
+    ],
+    ["empty references", chart({ references: [] }), /chart\.references: expected a nonempty array/],
+    ["null reference", chart({ references: [null] }), /chart\.references\[0\]: expected a plain/],
+    [
+      "unknown key",
+      chart({ references: [{ ...reference, dash: "dash" }] }),
+      /references\[0\]\.dash/,
+    ],
+    [
+      "series keys",
+      chart({ references: [{ ...reference, points: [] }] }),
+      /references\[0\]\.points/,
+    ],
+    [
+      "missing y",
+      chart({ references: [{ label: "Limit" }] }),
+      /references\[0\]\.y: expected a finite/,
+    ],
+    ["string y", chart({ references: [{ ...reference, y: "1" }] }), /references\[0\]\.y/],
+    ["nonfinite y", chart({ references: [{ ...reference, y: Infinity }] }), /references\[0\]\.y/],
+    ["NaN y", chart({ references: [{ ...reference, y: NaN }] }), /references\[0\]\.y/],
+    ["missing label", chart({ references: [{ y: 1 }] }), /references\[0\]\.label/],
+    [
+      "blank label",
+      chart({ references: [{ ...reference, label: " " }] }),
+      /references\[0\]\.label/,
+    ],
+    [
+      "duplicate label",
+      chart({ references: [reference, { ...reference, y: 2 }] }),
+      /references\[1\]\.label: duplicate/,
+    ],
+    [
+      "unknown color",
+      chart({ references: [{ ...reference, color: "#f00" }] }),
+      /references\[0\]\.color/,
+    ],
+    [
+      "category axis",
+      chart({
+        y: { label: "Run", categories: ["a"] },
+        series: [{ name: "runs", mode: "points", points: [{ x: 1, y: "a" }] }],
+        references: [reference],
+      }),
+      /chart\.references: category charts do not support/,
+    ],
+    [
+      "excluded by explicit domain",
+      chart({ y: { label: "y", domain: [0, 5] }, references: [{ y: 6, label: "Above" }] }),
+      /chart\.y\.domain: must encompass/,
+    ],
+    [
+      "padding overflow",
+      chart({ references: [{ y: Number.MAX_VALUE, label: "Max" }] }),
+      /chart\.y\.domain: padded range overflows/,
+    ],
+  ]
+  for (const [name, input, error] of cases) {
+    await t.test(name, () => assert.throws(() => parseChart(input), error))
+  }
+})
+
 test("reject data-range and padding overflow rather than emitting Infinity or NaN", () => {
   const max = Number.MAX_VALUE
   assert.throws(
