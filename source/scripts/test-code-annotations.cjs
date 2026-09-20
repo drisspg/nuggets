@@ -66,6 +66,36 @@ async function main() {
         .evaluateAll((nodes) => nodes.map((n) => n.id))
       assert.equal(new Set(ids).size, ids.length)
 
+      await markers.first().focus()
+      await markers.nth(1).hover()
+      assert(await popup.isVisible(), "hover opens a preview")
+      assert(await markers.first().evaluate((node) => node === document.activeElement))
+      assert.equal(await first.locator("[data-code-active]").count(), 2)
+      await popup.hover()
+      await page.waitForTimeout(250)
+      assert(await popup.isVisible(), "the pointer can cross into the note")
+      await page.mouse.move(0, 0)
+      await popup.waitFor({ state: "hidden" })
+      assert(await markers.first().evaluate((node) => node === document.activeElement))
+      assert.equal(await first.locator("[data-code-active]").count(), 0)
+
+      await markers.nth(1).hover()
+      const previewScroll = await page.evaluate(() => scrollY)
+      await page.keyboard.press("Escape")
+      assert.equal(await popup.isVisible(), false)
+      assert(await markers.first().evaluate((node) => node === document.activeElement))
+      assert.equal(await page.evaluate(() => scrollY), previewScroll)
+
+      await markers.first().hover()
+      await markers.first().click()
+      await page.mouse.move(0, 0)
+      await page.waitForTimeout(250)
+      assert(await popup.isVisible(), "click pins an existing hover preview")
+      await markers.nth(1).hover()
+      assert.equal(await popup.getAttribute("aria-label"), "Code annotation 1")
+      await page.keyboard.press("Escape")
+      assert.equal(await popup.isVisible(), false)
+
       for (const theme of ["light", "dark"]) {
         await page.evaluate(
           (value) => document.documentElement.setAttribute("saved-theme", value),
@@ -139,7 +169,7 @@ async function main() {
       }
       assert.deepEqual(errors, [])
       console.log(
-        `${width}px: themes, rich notes, highlight, keyboard/dismissal, copy, and SPA passed`,
+        `${width}px: hover preview/pinning, themes, rich notes, highlight, keyboard/dismissal, copy, and SPA passed`,
       )
       await context.close()
     }

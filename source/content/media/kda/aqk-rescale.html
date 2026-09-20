@@ -438,16 +438,8 @@
   <body>
     <main class="aqk" data-ref="mid">
       <p class="aqk-summary">
-        Here’s a 16×16 tile of A<sub>qk</sub> weights. We’ll follow the highlighted entry
-        <b>A<sub>qk</sub>[5,2]</b> and see what happens when we choose
-        <span data-ref="mid"
-          >row 8’s gate, <b>G<sub>8</sub></b
-          >, the block midpoint,</span
-        ><span data-ref="first"
-          >row 0’s gate, <b>G<sub>0</sub></b
-          >, the block’s first row,</span
-        >
-        as the shared reference.
+        Follow <b>A<sub>qk</sub>[5,2]</b> in this 16×16 tile as we switch between first-row and
+        midpoint references.
       </p>
       <div class="aqk-ref" role="radiogroup" aria-label="Shared reference row">
         <span id="ref-label">Shared reference</span>
@@ -648,7 +640,6 @@
               FP32.
             </p>
           </details>
-          <p class="fine">Computed in your browser, not collected from a GPU run.</p>
         </div>
       </div>
       <figure class="aqk-matrix" id="matrix"></figure>

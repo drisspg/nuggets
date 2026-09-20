@@ -3,7 +3,7 @@ title: Code Annotations
 draft: true
 ---
 
-Add `annotate` to a code fence, mark lines with numbered comments, then write the explanations as an ordered Markdown list immediately below it. Click or tap a marker to open its note; the associated lines light up together.
+Add `annotate` to a code fence, mark lines with numbered comments, then write the explanations as an ordered Markdown list immediately below it. Hover over a marker to preview its note; click or tap to keep it open. The associated lines light up together.
 
 ## Copy this pattern
 
@@ -60,7 +60,8 @@ Notes support normal Markdown: emphasis, links, inline code, math, paragraphs, a
 
 ## Reader behavior
 
-- Tab to a marker and press Enter or Space to open its note. Escape or Close dismisses it and returns focus; clicking outside also dismisses it.
+- Hover over a marker to preview its note without moving keyboard focus. Move into the note to keep reading; leaving both dismisses the preview. Escape also dismisses it without moving focus.
+- Click or tap to keep a note open, or tab to a marker and press Enter or Space. Escape or Close dismisses it and returns focus; clicking the same marker or outside also dismisses it.
 - Notes use native browser popovers so they aren't clipped by horizontally scrolling code blocks. Long notes scroll within the viewport.
 - The code copy button copies the **clean code**, without annotation comments or badge numbers.
 - With JavaScript disabled, or without browser popover support, notes remain visible below the code and the numbered markers link to them.

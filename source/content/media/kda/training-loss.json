@@ -1,7 +1,7 @@
 {
   "version": 1,
   "x": { "label": "Training step" },
-  "y": { "label": "Cross-entropy (nats/token; lower is better)" },
+  "y": { "label": "Cross-entropy (lower is better)" },
   "series": [
     {
       "name": "Causal",

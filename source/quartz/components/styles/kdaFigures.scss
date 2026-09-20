@@ -1,3 +1,24 @@
+.kda-paired-charts .native-chart .native-chart-interval-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.kda-punchline {
+  margin: 1.5rem 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--secondary) 60%, var(--editorial-rule));
+  border-radius: 2px;
+
+  p {
+    margin: 0;
+  }
+}
+
 .kda-figure {
   --kda-focus: #e3a15f;
   --kda-warning: #d36b62;

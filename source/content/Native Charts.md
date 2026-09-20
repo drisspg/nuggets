@@ -117,7 +117,7 @@ cd source && npm run charts:kda
 
 The training-loss chart includes all 7,600 logged steps per arm, without smoothing or downsampling. These are training cross-entropies, not held-out evaluation losses.
 
-The adapter preserves the logged values, paired versus sequence-level standard errors, and intervals computed as estimate ± 1.96 × logged SE. The two 1,024-sequence observations stay points-only; the four final-checkpoint categories keep their original order. Old Plotly exports and their Python renderer remain available for comparison, but KDA now embeds the native JSON files.
+The adapter preserves the logged values and paired versus sequence-level standard errors. Its error bars are estimate ± one logged SE, not 95% confidence intervals. The two 1,024-sequence observations stay points-only; the four final-checkpoint categories keep their original order. Old Plotly exports and their Python renderer retain their original ±1.96-SE intervals; KDA now embeds the native JSON files with ±1-SE bars.
 
 The separate `media/kda/rebase-range.json` chart is analytic, not measured. Regenerate it with `cd source && npx tsx visuals/kda/rebase-range.ts`; its vertical axis plots base-2 exponents on a linear scale, and the FP32 limits are `references` barriers rather than series.
 

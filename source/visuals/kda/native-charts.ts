@@ -4,9 +4,9 @@
  * Run from `source/`: npx tsx visuals/kda/native-charts.ts
  * Writes the training-loss and four evaluation charts under content/media/kda/.
  *
- * Values are copied from metrics.json and training-loss.json at full precision. Intervals are the estimate ± 1.96 ×
- * the logged standard error (sequence-level for arm gaps, paired for differences of gaps); the
- * logged SE is kept in each point's details. Nothing is smoothed, rescaled, or recomputed.
+ * Values are copied from metrics.json and training-loss.json at full precision. Error bars are
+ * the estimate ± one logged standard error (sequence-level for arm gaps, paired for differences
+ * of gaps). Estimates and SEs are unchanged; only interval endpoints are computed.
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
@@ -19,8 +19,6 @@ import {
   type ChartSeries,
   type ChartSpec,
 } from "../../quartz/util/chart"
-
-export const Z_95 = 1.96
 
 export interface ArmRow {
   _step: number
@@ -75,8 +73,8 @@ export const FINAL_CHECKPOINTS: ReadonlyArray<readonly [keyof KdaMetrics["series
 ]
 
 const STEP_AXIS = { label: "Training step" } as const
-const SEQUENCE_INTERVAL = "estimate ± 1.96 × logged sequence-level SE (approximate pointwise 95%)"
-const PAIRED_INTERVAL = "estimate ± 1.96 × logged paired SE (approximate pointwise 95%)"
+const SEQUENCE_INTERVAL = "Mean gap ± 1 standard error"
+const PAIRED_INTERVAL = "Mean paired difference ± 1 standard error"
 
 const KDA_DIR = dirname(fileURLToPath(import.meta.url))
 export const METRICS_PATH = resolve(KDA_DIR, "metrics.json")
@@ -95,7 +93,7 @@ function interval(estimate: number, se: number): [number, number] {
   if (!Number.isFinite(estimate) || !Number.isFinite(se) || se < 0) {
     throw new Error("Intervals require a finite estimate and a finite, nonnegative logged SE")
   }
-  return [estimate - Z_95 * se, estimate + Z_95 * se]
+  return [estimate - se, estimate + se]
 }
 
 function lossSeries(
@@ -175,7 +173,7 @@ export function buildKdaCharts(
   const scaledLoss: ChartSpec = {
     version: 1,
     x: STEP_AXIS,
-    y: { label: "NLL (nats/token; lower is better)" },
+    y: { label: "Cross-entropy (lower is better)" },
     series: [
       ...lossSeries(scaled_causal.rows, "Causal", "blue"),
       ...lossSeries(scaled_midpoint.rows, "Midpoint", "amber"),
@@ -185,7 +183,7 @@ export function buildKdaCharts(
   const scaledGap: ChartSpec = {
     version: 1,
     x: STEP_AXIS,
-    y: { label: "AR − parallel (nats/token)", format: "scientific", includeZero: true },
+    y: { label: "AR − parallel", format: "scientific", includeZero: true },
     intervalLabel: SEQUENCE_INTERVAL,
     series: [
       gapSeries(scaled_causal.rows, "Causal", "blue"),
@@ -196,7 +194,7 @@ export function buildKdaCharts(
   const pairedCheckpoints: ChartSpec = {
     version: 1,
     x: STEP_AXIS,
-    y: { label: "ΔG (nats/token)", format: "scientific", includeZero: true },
+    y: { label: "ΔG", format: "scientific", includeZero: true },
     intervalLabel: PAIRED_INTERVAL,
     series: [
       {
@@ -219,7 +217,7 @@ export function buildKdaCharts(
 
   const pairedSeeds: ChartSpec = {
     version: 1,
-    x: { label: "ΔG (nats/token)", format: "scientific", includeZero: true },
+    x: { label: "ΔG", format: "scientific", includeZero: true },
     y: { label: "Final checkpoint", categories: FINAL_CHECKPOINTS.map(([, label]) => label) },
     intervalLabel: PAIRED_INTERVAL,
     series: [
@@ -248,7 +246,7 @@ export function buildKdaCharts(
   const trainingLoss: ChartSpec = {
     version: 1,
     x: STEP_AXIS,
-    y: { label: "Cross-entropy (nats/token; lower is better)" },
+    y: { label: "Cross-entropy (lower is better)" },
     series: [
       {
         name: "Causal",

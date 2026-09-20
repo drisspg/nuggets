@@ -19,7 +19,6 @@ import {
   loadTrainingMetrics,
   METRICS_PATH,
   OUTPUT_DIR,
-  Z_95,
   type PairedRow,
 } from "./native-charts"
 
@@ -50,6 +49,7 @@ test("builder is pure and stable", () => {
 
 test("training loss retains every logged step at full precision without evaluation intervals", () => {
   const spec = charts["training-loss"]
+  assert.equal(spec.y.label, "Cross-entropy (lower is better)")
   assert.equal(spec.intervalLabel, undefined)
   assert.equal(spec.series.length, 2)
   for (const [index, key] of (["scaled_causal", "scaled_midpoint"] as const).entries()) {
@@ -75,7 +75,7 @@ test("training loss retains every logged step at full precision without evaluati
 
 test("scaled loss: four curves copy logged NLLs with the old color/dash distinctions", () => {
   const spec = charts["scaled-loss"]
-  assert.equal(spec.y.label, "NLL (nats/token; lower is better)")
+  assert.equal(spec.y.label, "Cross-entropy (lower is better)")
   assert.equal(spec.intervalLabel, undefined)
   assert.equal(spec.series.length, 4)
   const expected = [
@@ -106,15 +106,14 @@ test("scaled loss: four curves copy logged NLLs with the old color/dash distinct
   assert.equal(seriesByName(spec, "Midpoint / parallel").points[0].y, 3.941782731419268)
 })
 
-test("scaled gap: two curves with sequence-level 1.96 SE intervals", () => {
+test("scaled gap: two curves with one sequence-level standard error", () => {
   const spec = charts["scaled-gap"]
   assert.deepEqual(spec.y, {
-    label: "AR − parallel (nats/token)",
+    label: "AR − parallel",
     format: "scientific",
     includeZero: true,
   })
-  assert.match(spec.intervalLabel ?? "", /1\.96/)
-  assert.match(spec.intervalLabel ?? "", /sequence-level/)
+  assert.equal(spec.intervalLabel, "Mean gap ± 1 standard error")
   assert.equal(spec.series.length, 2)
   for (const [name, key, color] of [
     ["Causal reference", "scaled_causal", "blue"],
@@ -133,8 +132,8 @@ test("scaled gap: two curves with sequence-level 1.96 SE intervals", () => {
       const difference = row["eval/all/autoregressive_nll"] - row["eval/all/parallel_nll"]
       assert(Math.abs(numericY(point) - difference) < 1e-12, "logged gap matches NLL difference")
       assert.deepEqual(point.details, { "Sequence SE": se })
-      assert.equal(point.yLow, row["eval/all/gap_nats"] - Z_95 * se)
-      assert.equal(point.yHigh, row["eval/all/gap_nats"] + Z_95 * se)
+      assert.equal(point.yLow, row["eval/all/gap_nats"] - se)
+      assert.equal(point.yHigh, row["eval/all/gap_nats"] + se)
       assert(point.yLow! <= numericY(point) && numericY(point) <= point.yHigh!)
     })
   }
@@ -142,8 +141,8 @@ test("scaled gap: two curves with sequence-level 1.96 SE intervals", () => {
 
 test("paired checkpoints: 64-sequence line plus 1,024-sequence diamond points only", () => {
   const spec = charts["paired-checkpoints"]
-  assert.deepEqual(spec.y, { label: "ΔG (nats/token)", format: "scientific", includeZero: true })
-  assert.match(spec.intervalLabel ?? "", /paired SE/)
+  assert.deepEqual(spec.y, { label: "ΔG", format: "scientific", includeZero: true })
+  assert.equal(spec.intervalLabel, "Mean paired difference ± 1 standard error")
   assert.equal(spec.series.length, 2)
 
   const sweep = seriesByName(spec, "64 sequences")
@@ -174,8 +173,8 @@ test("paired checkpoints: 64-sequence line plus 1,024-sequence diamond points on
       assert.equal(point.x, row._step)
       assert.equal(point.y, row["paired/gap_did"])
       assert.deepEqual(point.details, { "Paired SE": se })
-      assert.equal(point.yLow, row["paired/gap_did"] - Z_95 * se)
-      assert.equal(point.yHigh, row["paired/gap_did"] + Z_95 * se)
+      assert.equal(point.yLow, row["paired/gap_did"] - se)
+      assert.equal(point.yHigh, row["paired/gap_did"] + se)
     })
   }
 
@@ -193,16 +192,16 @@ test("independent final scaled DiD and interval bounds", () => {
   assert.equal(sweepFinal.x, 7600)
   assert.equal(sweepFinal.y, -0.00030798983442430206)
   assert.equal(sweepFinal.details?.["Paired SE"], 0.00022530600260312265)
-  assert(Math.abs(sweepFinal.yLow! - -0.00074958959952642245) < 1e-18)
-  assert(Math.abs(sweepFinal.yHigh! - 0.00013360993067781833) < 1e-18)
-  assert(sweepFinal.yLow! < 0 && sweepFinal.yHigh! > 0, "final 64-seq interval spans zero")
+  assert(Math.abs(sweepFinal.yLow! - -0.00053329583702742471) < 1e-18)
+  assert(Math.abs(sweepFinal.yHigh! - -0.00008268383182117941) < 1e-18)
+  assert(sweepFinal.yHigh! < 0, "the one-SE bar need not include zero")
 
   const bigFinal = seriesByName(charts["paired-checkpoints"], "1,024 sequences").points[1]
   assert.equal(bigFinal.x, 7600)
   assert.equal(bigFinal.y, 8.819354240234556e-6)
   assert.equal(bigFinal.details?.["Paired SE"], 5.118582758300765e-5)
-  assert(Math.abs(bigFinal.yLow! - -0.00009150486782246044) < 1e-18)
-  assert(Math.abs(bigFinal.yHigh! - 0.00010914357630292955) < 1e-18)
+  assert(Math.abs(bigFinal.yLow! - -0.000042366473342773094) < 1e-18)
+  assert(Math.abs(bigFinal.yHigh! - 0.000060005181823242206) < 1e-18)
 
   // Forest row for the 1.45B model is the same final 1,024-sequence checkpoint, on the x axis.
   const forest = charts["paired-seeds"].series[0].points[3]
@@ -215,7 +214,8 @@ test("independent final scaled DiD and interval bounds", () => {
 
 test("paired seeds: forest of final checkpoints with horizontal intervals in the old order", () => {
   const spec = charts["paired-seeds"]
-  assert.deepEqual(spec.x, { label: "ΔG (nats/token)", format: "scientific", includeZero: true })
+  assert.equal(spec.intervalLabel, "Mean paired difference ± 1 standard error")
+  assert.deepEqual(spec.x, { label: "ΔG", format: "scientific", includeZero: true })
   assert("categories" in spec.y)
   const categories = (spec.y as { categories: string[] }).categories
   assert.deepEqual(categories, [
@@ -240,8 +240,8 @@ test("paired seeds: forest of final checkpoints with horizontal intervals in the
     const se = row["paired/gap_did_se"]
     assert.equal(point.y, label)
     assert.equal(point.x, row["paired/gap_did"])
-    assert.equal(point.xLow, row["paired/gap_did"] - Z_95 * se)
-    assert.equal(point.xHigh, row["paired/gap_did"] + Z_95 * se)
+    assert.equal(point.xLow, row["paired/gap_did"] - se)
+    assert.equal(point.xHigh, row["paired/gap_did"] + se)
     assert.equal(point.yLow, undefined)
     assert.equal(point.yHigh, undefined)
     assert.deepEqual(point.details, { "Training step": row._step, "Paired SE": se })

@@ -24,6 +24,8 @@ function enhanceCodeAnnotations(wrapper: HTMLElement) {
   panel.append(heading, notes, close)
   wrapper.append(panel)
   let active: HTMLButtonElement | undefined
+  let pinned = false
+  let dismissTimer: number | undefined
 
   const buttons = anchors.map((anchor) => {
     const button = document.createElement("button")
@@ -59,7 +61,7 @@ function enhanceCodeAnnotations(wrapper: HTMLElement) {
       target.right < pre.left ||
       target.left > pre.right
     ) {
-      panel.hidePopover()
+      dismiss(pinned)
       return
     }
     const left = Math.max(12, Math.min(target.left, innerWidth - bounds.width - 12))
@@ -69,62 +71,98 @@ function enhanceCodeAnnotations(wrapper: HTMLElement) {
     panel.style.top = `${Math.max(12, Math.min(top, innerHeight - bounds.height - 12))}px`
   }
 
+  function cancelDismiss() {
+    window.clearTimeout(dismissTimer)
+    dismissTimer = undefined
+  }
+
   function dismiss(restoreFocus: boolean) {
+    cancelDismiss()
+    pinned = false
     if (!panel.matches(":popover-open")) return
     panel.hidePopover()
     clearSelection()
     if (restoreFocus) active?.focus({ preventScroll: true })
   }
 
+  function scheduleDismiss() {
+    cancelDismiss()
+    if (!pinned) dismissTimer = window.setTimeout(() => dismiss(false), 200)
+  }
+
+  function show(button: HTMLButtonElement, focus: boolean) {
+    cancelDismiss()
+    active = button
+    const number = button.dataset.codeNote!
+    items.forEach((item) => {
+      item.hidden = item.dataset.codeNote !== number
+    })
+    heading.textContent = `Annotation ${number}`
+    panel.setAttribute("aria-label", `Code annotation ${number}`)
+    clearSelection()
+    buttons
+      .filter((candidate) => candidate.dataset.codeNote === number)
+      .forEach((candidate) => {
+        candidate.closest("[data-line]")?.setAttribute("data-code-active", "")
+      })
+    button.setAttribute("aria-expanded", "true")
+    if (!panel.matches(":popover-open")) panel.showPopover()
+    position()
+    if (focus) panel.focus({ preventScroll: true })
+  }
+
   buttons.forEach((button) => {
+    button.addEventListener(
+      "pointerenter",
+      (event) => {
+        if (event.pointerType === "mouse" && !pinned) show(button, false)
+      },
+      { signal },
+    )
+    button.addEventListener("pointerleave", scheduleDismiss, { signal })
     button.addEventListener(
       "click",
       (event) => {
         event.preventDefault()
-        if (active === button && panel.matches(":popover-open")) {
+        if (pinned && active === button && panel.matches(":popover-open")) {
           dismiss(true)
           return
         }
-        active = button
-        const number = button.dataset.codeNote!
-        items.forEach((item) => {
-          item.hidden = item.dataset.codeNote !== number
-        })
-        heading.textContent = `Annotation ${number}`
-        panel.setAttribute("aria-label", `Code annotation ${number}`)
-        clearSelection()
-        buttons
-          .filter((candidate) => candidate.dataset.codeNote === number)
-          .forEach((candidate) => {
-            candidate.closest("[data-line]")?.setAttribute("data-code-active", "")
-          })
-        button.setAttribute("aria-expanded", "true")
-        if (!panel.matches(":popover-open")) panel.showPopover()
-        position()
-        panel.focus({ preventScroll: true })
+        pinned = true
+        show(button, true)
       },
       { signal },
     )
   })
+  panel.addEventListener("pointerenter", cancelDismiss, { signal })
+  panel.addEventListener("pointerleave", scheduleDismiss, { signal })
+  panel.addEventListener(
+    "focusin",
+    () => {
+      pinned = true
+      cancelDismiss()
+    },
+    { signal },
+  )
   close.addEventListener("click", () => dismiss(true), { signal })
   panel.addEventListener(
     "toggle",
     () => {
-      if (!panel.matches(":popover-open")) clearSelection()
+      if (!panel.matches(":popover-open")) {
+        cancelDismiss()
+        pinned = false
+        clearSelection()
+      }
     },
     { signal },
   )
   document.addEventListener(
     "keydown",
     (event) => {
-      if (
-        event.key === "Escape" &&
-        panel.matches(":popover-open") &&
-        document.activeElement?.closest(".code-annotation-popover") === panel
-      ) {
+      if (event.key === "Escape" && panel.matches(":popover-open")) {
         event.preventDefault()
         event.stopPropagation()
-        dismiss(true)
+        dismiss(pinned)
       }
     },
     { signal, capture: true },

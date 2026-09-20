@@ -10,13 +10,13 @@ cd source && npm run charts:kda
 
 - `training-loss.json`: full training history for both scaled arms, exported with `scan_history` rather than sampled history. Each arm has all 7,600 steps (1–7,600), with no duplicates or missing steps. `loss_metrics/global_avg_loss` is training cross-entropy averaged over valid tokens across ranks, in nats/token—not evaluation NLL. No smoothing or downsampling.
 - `metrics.json`: exported checkpoint metrics at their logged precision. Series names distinguish the model/arm, paired evaluation size, or pilot seed.
-- `native-charts.ts`: offline adapter from the snapshot to the shared versioned chart schema. It preserves logged values and SEs, computes the same ±1.96-SE intervals, and validates all five specifications before writing.
+- `native-charts.ts`: offline adapter from the snapshot to the shared versioned chart schema. It preserves logged values and SEs, computes ±1-SE error bars, and validates all five specifications before writing.
 - `native-charts.test.ts`: exact snapshot/asset parity, independent final interval checks, checkpoint alignment, and preservation of modes, colors, markers, and category order. Runs in `npm test`.
 - Outputs under `source/content/media/kda/`: `training-loss.json`, `scaled-loss.json`, `scaled-gap.json`, `paired-checkpoints.json`, and `paired-seeds.json`.
 
 The article uses the reusable `chart` fenced embed described in `source/content/Native Charts.md`. Charts render directly in the page with D3/SVG and site CSS, without iframes or a Plotly CDN request. Hover, touch, and keyboard inspection update both-axis dashed guides and the legend; its tooltips expose full-precision values and uncertainty metadata. Ordinary wheel gestures scroll the article without forwarding messages between frames.
 
-The old Plotly `.html` exports, `render.py`, and `frame.html` remain available for comparison and existing embeds. Regenerate those separately with `uv run --with plotly==7.0.0 python source/visuals/kda/render.py`. Their iframe-height, theme synchronization, and wheel-forwarding machinery are not used by the new native charts.
+The old Plotly `.html` exports, `render.py`, and `frame.html` remain available for comparison and existing embeds. They retain their original ±1.96-SE intervals, unlike the native charts' ±1-SE bars. Regenerate those separately with `uv run --with plotly==7.0.0 python source/visuals/kda/render.py`. Their iframe-height, theme synchronization, and wheel-forwarding machinery are not used by the new native charts.
 
 ## Gate-factor range
 
@@ -44,6 +44,6 @@ NLLs and gaps are in nats/token, without rescaling. Gap axes use scientific nota
 
 The scaled arm sweeps use 64 held-out sequences, evaluation length 256, and recurrent-KDA autoregressive evaluation. They cover eight checkpoints from step 1000 through 7600. The 1024-sequence paired scaled run has only checkpoints 4000 and 7600. The pilot comparisons have checkpoints 2000 and 4000, for seeds 42, 11, and 23.
 
-Error bars are the estimate ± 1.96 times the **logged standard error**: sequence-level for arm gaps, paired for differences of gaps. These are approximate pointwise 95% intervals, not simultaneous intervals across checkpoints and not variation across training seeds. The script neither reconstructs per-sequence samples nor recomputes standard errors. The original analysis should be checked before publication.
+Error bars are the estimate ± one **logged standard error**: sequence-level for arm gaps, paired for differences of gaps. The SE estimates uncertainty in the mean from variation across held-out documents, not variation across training seeds. These bars are not 95% confidence intervals; excluding zero does not establish significance at that level. The adapter neither reconstructs per-sequence samples nor recomputes standard errors.
 
 No smoothing, interpolation of missing checkpoints, or averaging across training seeds is used. Connecting lines on the 64-sequence sweep only guide the eye between measured checkpoints. The precise private run-to-series mapping is retained in the agent-notes blog handoff rather than embedded in public assets.

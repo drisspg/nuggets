@@ -2,7 +2,7 @@
 title: KDA Doesn't Care About the Future
 date: 2026-09-15
 enableToc: false
-dek: A future-dependent rounding effect in KDA when enabling tensorcores and experiments investigating their affect
+dek: Exploring a future-dependent rounding effect in KDA
 tags:
   - pytorch
 cssclasses:
@@ -29,7 +29,7 @@ Another more `polished` answer is that the components we are offering are more s
 
 #### Pitch done - TLDR
 
- I was working on the intra-chunk kernels for Kimi Delta Attention(KDA) and found that there was a subtle implementation choice that has the potential to break `causality`.  I used [TorchTitan](https://github.com/pytorch/torchtitan) to test whether the model could learn to exploit it. I wont bury the need but turns out not; at least at the scales I tested; and I do a lil math to show why it seems unlikely to do so at larger runs.
+ I was working on the intra-chunk kernels for Kimi Delta Attention(KDA) and found that there was a subtle implementation choice that has the potential to break `causality`.  I used [TorchTitan](https://github.com/pytorch/torchtitan) to test whether the model could learn to exploit it.
 
 ### What is causality anyways
 
@@ -264,155 +264,100 @@ $$
 
 An $N$-token window spans $N-1$ steps. After just **18 steps**, the growing factor reaches about $2^{129.8}$, beyond the largest finite FP32 or BF16 value! Quite the pickle aint it.
 
-**The width limit here comes from overflow of the growing key-side factor.** To keep it finite at that bound, we pick the largest multiple of 8 that fits: **16 key columns**.
+We need to avoid 0(underflow) * `inf`(overflow) = `nan`.  we pick the largest <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-multiple-eight-note">multiple of 8</span> that fits: **16 key columns**.<span id="kda-multiple-eight-note" class="sidenote" role="note">Why 8, you ask? As we'll see in the hardware section, we need a width that fits the $N$ dimension of our <code>tcgen05.mma</code> instruction, which requires multiples of 8.</span></span>
 
 ## Decisions Decisions
 
-So how do we choose $r_d$ within that window? Reusing a gate that's already available is convenient and fast, so let's pick one from the block: either the **first row, $G_0$**, or the **midpoint, $G_8$**.
+So how do we choose $r_d$ within that window? Reusing a gate that's already available is convenient and fast, so let's pick one from the block. For reasons that may or may not be obvious; two natural choices are the **first row, $G_0$**, or the **midpoint, $G_8$**.
 
 With infinite precision, $r_d$ cancels perfectly, so it wouldn't matter which reference we chose. But these are floats: the operands are rounded separately, beware of ghosts in the machine.
 
-In the graphic, keep query 5 and its past fixed, then change the gates at tokens 6, 7, and 8. Switch the reference between the first row and midpoint. Does the earlier weight $A_{qk}[5,2]$ change?
+<div class="kda-punchline">
+
+The following graphic is basically the punchline of this whole post. What you should hopefully grok from it is that **any unmasked weight in query 5's row of $A_{qk}$ can change** with midpoint rebasing, purely by changing the gates at tokens 6, 7, and 8!
+
+</div>
 
 <iframe class="doc-widget widget-frame" src="./media/kda/aqk-rescale.html" title="Compare first-row and midpoint references for the same retained Aqk entry, query 5 reading token 2's write, while varying only future decay gates." loading="lazy" style="height: 900px;"></iframe>
 
-With $G_0$, those future gates never enter the operands for this entry. With $G_8$, they do, and rounding can keep them from cancelling.
+With $G_0$, those future gates never influence, with $G_8$, they do, and rounding can keep them from cancelling. <span class="sidenote-hover"><button type="button" class="sidenote-trigger" aria-describedby="kda-mask-reaction">No causal mask fixes this.</button><span id="kda-mask-reaction" class="sidenote sidenote--hover-media" role="note"><img src="./media/kda/doc-brown-future.png" alt="Doc Brown staring in disbelief." width="640" height="360" loading="lazy"><span class="sidenote-hover-caption"></span></span></span>
+## Can models even utilize this info?
 
-<span class="sidenote-hover"><button type="button" class="sidenote-trigger" aria-describedby="kda-mask-reaction">The mask does not fix this.</button><span id="kda-mask-reaction" class="sidenote sidenote--hover-media" role="note"><img src="./media/kda/doc-brown-future.png" alt="Doc Brown staring in disbelief." width="640" height="360" loading="lazy"><span class="sidenote-hover-caption">The causal mask was there the whole time.</span></span></span> It masks future key indices, not a future-dependent scale already used in a retained entry.
+Future gates can change earlier weights. But can a model learn to use that information to `cheat`? Let's train some models and find out!
 
-So we need both: **a short enough rebasing window, and no future reference.**
+Another small plug for [TorchTitan](https://github.com/pytorch/torchtitan): [Attention Gym's](https://github.com/meta-pytorch/attention-gym) KDA(and GDN) kernels are fully integrated into its training stack. Which made this a very straightforward experiment to run!
 
-<details>
-<summary>How does an Aqk change reach the output?</summary>
+### Training setup
 
-In this readout pseudocode, `bf16` means a cast and `mm_fp32` means a matrix multiply with FP32 accumulation. The write solve is omitted; `Z` contains the completed writes.
+I trained two smallish KDA model sizes on **GB300s**, using C4. For each size, I paired first-row (causal) and midpoint forward rebasing, holding the initialization seed, data order, and other training settings fixed.
 
-```python annotate title="From reference choice to output"
-r = G[reference_row]  # (1)!
-Q_scaled = bf16(Q * exp2(G - r))  # (2)!
-K_scaled = bf16(K * exp2(r - G))  # (2)!
-Aqk = bf16(causal_mask(mm_fp32(Q_scaled, K_scaled.T)))  # (3)!
-O = history + s * mm_fp32(Aqk, Z)  # (4)!
-```
-
-1. Choose one reference per channel for the whole tile. Row 8 includes future gates for query 5; row 0 does not.
-2. Each operand is rounded separately. The reference cancels algebraically, but the rounding errors need not.
-3. This is the Aqk accumulator followed by the BF16 cast shown in the graphic, not the final attention output. The mask removes entries with $j>i$; it does not repair retained entries.
-4. Aqk weights the writes in `Z`. Holding `history` and `Z` fixed, the exact-arithmetic change is $\Delta O=s\,\Delta A_{qk}Z$. A changed weight **can** change the output, but cancellation or later rounding can erase the difference.
-
-</details>
-
-<details>
-<summary>What changed in the actual kernel checks?</summary>
-
-These are separate kernel checks, not measurements from the browser graphic. Keep the shape and prefix fixed, change future inputs, and compare earlier results. Shortening the sequence could also change dispatch, tiling, or reduction order.
-
-| Check | Tensor compared | Changed elements | Maximum absolute difference |
-| --- | --- | ---: | ---: |
-| Isolated probe, change gates in rows 8–15 | BF16 Aqk values with rows 0–7 held fixed | 11 / 512 | $1.526\times10^{-5}$ |
-| GB200 `chunk_kda` regression, change future Q/K/V and gates | Prefix output elements | 851 / 9472 | $2.44\times10^{-4}$ |
-
-The causal-reference variant passed the latter bitwise prefix check. These probes measure different tensors, and their magnitudes are workload-specific. One checks Aqk values; the other checks the final prefix outputs.
-
-</details>
-
-## Back to tensor cores
-
-The $16\times16$ diagonal block is only part of the hardware work. The SM100 engine issues a strip of <span class="sidenote-pair"><a class="sidenote-ref" href="https://docs.nvidia.com/cuda/parallel-thread-execution/#tcgen05-matrix-shape" aria-describedby="kda-instruction-shape-note">64 query rows by 16 key columns</a>.<span id="kda-instruction-shape-note" class="sidenote" role="note">The <a href="https://github.com/meta-pytorch/attention-gym/blob/0653a9ba568f980df628652f372e394c233b43d8/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd_intra_engine.py">SM100 engine</a> issues <code>tcgen05.mma</code> with $M=64$, $N=16$, $K=16$: BF16 inputs and FP32 accumulation. Eight instructions cover the 128-channel reduction. The $16\times16$ diagonal block is only part of that rectangle.</span></span>
-
-With first-row rebasing, **each key group gets its own reference, and we rescale the query rows for each group.** Keys 0–15 use $G_0$, keys 16–31 use $G_{16}$, and so on.
-
-Query 63 reading key 15 has 48 steps of real decay, plus 15 extra steps that the key factor cancels. Reading its own write uses $G_{48}$ instead, so again only 15 steps need cancelling. **The 16 limits the extra decay and amplification, not how far back a query can read.**
-
-<iframe class="doc-widget widget-frame" src="./media/kda/mma-strip-map.html" title="A 64 by 16 tcgen05 MMA footprint over a 64-token Aqk matrix: query rows, key columns, and 16 channels per instruction." loading="lazy" style="height: 700px;"></iframe>
-
-Each strip covers the diagonal triangle and the causal squares below it. This bounds the growing gate factor; underflow, Q/K scaling, and later rounding still need accuracy checks.
-
-<details>
-<summary>Why not share one base across all 64 keys?</summary>
-
-I tried chunk-wide rebasing earlier. Even with the training module initialized near **−2.5 in natural-log units**, not the −5 bound, it exceeded the exponent range for every measured chunk/head/channel triple. My optimization harness used mild random gates and had missed it.
-
-That is different from 64 query rows reading 16 keys. Extending the key range makes the reciprocal factor grow; adding later queries only adds decay. At that initial per-token decay, a 16-key first-row window spans about 54 base-2 log units, so the bounded 16-token choice did not have the same overflow problem.
-
-</details>
-
-## Does the model learn to use it?
-
-A failed bitwise test is not evidence that a language model has learned to cheat.
-
-I trained paired causal-reference and midpoint-reference variants with the same model configuration, initialization seed, data order, and other settings within each pair. The reference choice also applied during forward recomputation.
-
-Here, “causal” means the **forward reference choice**. Both arms used the same backward intra kernel, with a midpoint reference. Gradients can legitimately depend on future losses, so this is not evidence of forward leakage. This A/B tests the forward reference under a shared backward policy, not two different forward-and-backward rebasing schemes.
-
-I evaluated each model in parallel and autoregressively. If the midpoint model learned to use a future signal available only in parallel, removing it should hurt that model more than the causal control.
-
-A target token assigned probability $p$ has negative log-likelihood $-\ln p$, in **nats**. Averaging over target tokens gives NLL in nats/token. Dividing by $\ln 2$ converts it to bits/token without changing the predictions. These are loss units, not gate values.
-
-Define the evaluation gap, in nats per token:
-
-$$
-G = \mathrm{NLL}_{\mathrm{autoregressive}} - \mathrm{NLL}_{\mathrm{parallel}}.
-$$
-
-Then compare the gaps:
-
-$$
-\Delta G = G_{\mathrm{midpoint}} - G_{\mathrm{causal}}.
-$$
-
-A positive $\Delta G$ means the midpoint arm has a larger autoregressive penalty. I subtract the causal arm because parallel and autoregressive implementations can differ numerically without a future-dependent reference. I also checked the recurrent-KDA evaluator against repeated prefix-only evaluation on trained pilot checkpoints.
-
-### What the runs showed
-
-| Experiment | Model size | Training tokens per arm | Result |
+| Model | Total params | C4 tokens per model | Tokens / param |
 | --- | --- | --- | --- |
-| Pilot, seeds 42, 11, 23 | 520M total / 208M non-embedding parameters | About 1.05B C4 tokens | No learned exploitation detected in any seed |
-| Scaled pair, seed 42 | 1.45B total / about 830M non-embedding parameters | About 4.0B C4 tokens | No learned exploitation detected |
+| Pilot | 520M | About 1.05B | ≈2.0 |
+| Scaled | 1.45B | About 4.0B | ≈2.8 |
 
-At the scaled pair’s final checkpoint, I evaluated **1024 matched held-out sequences, with 256 evaluated positions per sequence**, using recurrent KDA for the autoregressive mode. $\Delta G$ was **+0.0000088 nats/token**, with a logged paired standard error of **0.0000512 nats/token**. The approximate 95% interval (estimate ± 1.96 standard errors) is **[-0.000092, +0.000109] nats/token**. This is a pointwise interval for this checkpoint and evaluation, not uncertainty across training seeds or a bound on all possible models.
+### What we measure
 
-I also split each 16-token subchunk into positions before the midpoint and the remaining positions. The earlier rows can directly read a future reference, but showed no distinct exploitation signal.
+Once the models are trained we measure our cross-entropy on a held out set and see how much does it increase when we switch from parallel to autoregressive evaluation. Losses use natural logs and are averaged over valid tokens.
 
-As a positive control, I added $0.5\,v_{t+1}$, a scaled copy of the next token’s value vector, to the parallel KDA output. That model learned to exploit the future and showed a large autoregressive penalty. The evaluator could detect this obvious leak; that does not guarantee sensitivity to every small channel.
+$$
+\begin{aligned}
+G &= \mathrm{CE}_{\mathrm{autoregressive}} - \mathrm{CE}_{\mathrm{parallel}}, \\
+\Delta G &= G_{\mathrm{midpoint}} - G_{\mathrm{causal}}.
+\end{aligned}
+$$
 
-In the pilots, midpoint-versus-causal loss differences changed sign across seeds and metrics. A slightly better loss in one pair was not enough to conclude that midpoint rebasing helped.
+If the midpoint model learned to exploit the future, autoregressive evaluation should hurt it more: positive $\Delta G$. We can also use the first-row model to gives us a baseline for numerical differences between evaluation modes without future leakage (hopefully there is ~0).
 
 ```chart
 {"src":"media/kda/training-loss.json","title":"Training loss","height":300}
 ```
 
-*Scaled pair, all 7,600 logged steps per arm, without smoothing. This is training cross-entropy averaged over valid tokens, not held-out evaluation.*
-
 ```chart
 {"src":"media/kda/scaled-loss.json","title":"Held-out loss","height":300}
 ```
 
-*Scaled pair, 64 held-out sequences. Replotted from the logged W&B evaluation metrics, without smoothing. AR means autoregressive. The four curves nearly overlap; hover to update the legend, or click a legend entry to hide a trace. Hover over a legend entry for full-precision values. Lower NLL is better.*
+*1.45B models, 64 held-out sequences.*
 
 ```chart
 {"src":"media/kda/scaled-gap.json","title":"Autoregressive gap","height":300}
 ```
 
-*Scaled pair, 64 held-out sequences. Positive values mean an autoregressive penalty. Bars are estimate ± 1.96 times the logged sequence standard error. Separating the gap from the full loss curve makes the small differences visible.*
+*1.45B models, 64 held-out sequences. Positive means higher autoregressive loss.*
+
+<div class="kda-paired-charts">
 
 ```chart
 {"src":"media/kda/paired-checkpoints.json","title":"Excess autoregressive gap","height":300}
 ```
 
-*The 64-sequence sweep and the two 1024-sequence evaluations are separate traces; the latter are not a full checkpoint sweep. Positive ΔG means a larger autoregressive penalty under midpoint rebasing.*
+I also reran the smaller variants with seeds 11 and 23, alongside seed 42. This plot shows each pair's extra autoregressive penalty. Error bars show one standard error, estimated from different held-out documents.
 
 ```chart
 {"src":"media/kda/paired-seeds.json","title":"Final checkpoints","height":300}
 ```
 
-*1,024 matched sequences per comparison. Pilot comparisons are at step 4000; the scaled comparison is at step 7600. Bars on both paired charts use the logged **paired** standard errors, not independently combined arm errors. Every displayed pointwise **ΔG interval** includes zero; this is consistent with no detected excess autoregressive penalty, not proof of exact equivalence.*
+*Final checkpoints, 1,024 matched sequences per pair.*
+
+</div>
+
+### What this all mean?
+
+At first, midpoint even looked slightly better?! But after rerunning across the different seeds we can see that the delta G flips across different runs and the standard error tends to cover a delta g == 0. 
+
+The larger model's final $\Delta G$ was **+0.0000088 nats/token**, with a paired standard error of **0.0000512 nats/token** -> essentially 0.
+
+<div class="kda-punchline">
+
+**We found no detectable autoregressive penalty, and no consistent midpoint advantage across seeds and metrics.**
+
+</div>
 
 ## Why is it hard to extract the future signal?
 
-A tiny, reliable bit can carry useful information, and a model can sometimes amplify it. The question is whether this perturbation adds **predictive structure beyond the causal features**, and whether training can find it.
+Lets take a step back; we have empirically data to show that using the midpoint base doesn't seem to brick the model.. but could it in theory? Do we have any bounds on the strength of this signal?
 
-For a first-order model—not an assumption that GPU errors are random—define channel $d$’s exact contribution to one retained matrix entry:
+Define channel $d$’s exact contribution to one retained matrix entry:
 
 $$
 c_d = q_{i,d}k_{j,d}2^{G_{i,d}-G_{j,d}}.
@@ -460,6 +405,28 @@ These probes do not prove zero channel capacity. They covered two layers of one 
 
 > [!todo] Residual figures
 > Add the worklog's residual/ULP distribution and the future-gate and next-token probe comparisons, if available. Caption them as reference-choice residuals, not “percent of elements leaking the future.”
+
+## Why would we even want to use midpoint rebasing?
+
+The $16\times16$ diagonal block is only part of the hardware work. The SM100 engine issues a strip of <span class="sidenote-pair"><a class="sidenote-ref" href="https://docs.nvidia.com/cuda/parallel-thread-execution/#tcgen05-matrix-shape" aria-describedby="kda-instruction-shape-note">64 query rows by 16 key columns</a>.<span id="kda-instruction-shape-note" class="sidenote" role="note">The <a href="https://github.com/meta-pytorch/attention-gym/blob/0653a9ba568f980df628652f372e394c233b43d8/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd_intra_engine.py">SM100 engine</a> issues <code>tcgen05.mma</code> with $M=64$, $N=16$, $K=16$: BF16 inputs and FP32 accumulation. Eight instructions cover the 128-channel reduction. The $16\times16$ diagonal block is only part of that rectangle.</span></span>
+
+With first-row rebasing, **each key group gets its own reference, and we rescale the query rows for each group.** Keys 0–15 use $G_0$, keys 16–31 use $G_{16}$, and so on.
+
+Query 63 reading key 15 has 48 steps of real decay, plus 15 extra steps that the key factor cancels. Reading its own write uses $G_{48}$ instead, so again only 15 steps need cancelling. **The 16 limits the extra decay and amplification, not how far back a query can read.**
+
+<iframe class="doc-widget widget-frame" src="./media/kda/mma-strip-map.html" title="A 64 by 16 tcgen05 MMA footprint over a 64-token Aqk matrix: query rows, key columns, and 16 channels per instruction." loading="lazy" style="height: 700px;"></iframe>
+
+Each strip covers the diagonal triangle and the causal squares below it. This bounds the growing gate factor; underflow, Q/K scaling, and later rounding still need accuracy checks.
+
+<details>
+<summary>Why not share one base across all 64 keys?</summary>
+
+I tried chunk-wide rebasing earlier. Even with the training module initialized near **−2.5 in natural-log units**, not the −5 bound, it exceeded the exponent range for every measured chunk/head/channel triple. My optimization harness used mild random gates and had missed it.
+
+That is different from 64 query rows reading 16 keys. Extending the key range makes the reciprocal factor grow; adding later queries only adds decay. At that initial per-token decay, a 16-key first-row window spans about 54 base-2 log units, so the bounded 16-token choice did not have the same overflow problem.
+
+</details>
+
 
 ## Could midpoint rounding still be better?
 
@@ -509,26 +476,6 @@ A quantity that cancels in algebra can still carry information through finite-pr
 For this path, I kept the first-row reference as the default, with bounded rebasing windows and a prefix-invariance regression.
 
 **A causality violation, a learnable predictive signal, and a better numerical approximation are three different claims.** A test for one does not settle the other two.
-
-## Appendix: nats versus bits
-
-A **nat** uses the natural logarithm, $\ln$, with base $e$; a **bit** uses $\log_2$. They express the same quantity on different scales:
-
-$$
-\log_2 x = \frac{\ln x}{\ln 2} = \ln x\,\log_2 e.
-$$
-
-Attention Gym's public KDA API takes a per-token **natural-log decay**, not the multiplicative decay itself. If that log gate is $\ell$, the decay multiplier is $\alpha=e^{\ell}$. So a gate value of $-5$ means:
-
-$$
-\alpha=e^{-5}\approx0.006738,
-\qquad
-\log_2\alpha=-5\log_2 e\approx-7.2135.
-$$
-
-That channel's decay step retains about **0.67%** of the previous state, before KDA's other update terms. It is not $2^{-5}=1/32$, which would retain 3.125%. More-negative log gates mean stronger decay.
-
-The bounded gate transform uses `lower_bound=-5` as its floor; it does not set every gate to $-5$. Attention Gym handles the cumulative sum and conversion to base-2 units internally, so the kernels can use `exp2`. In the equations above, $G_{i,d}$ denotes that **chunk-local cumulative base-2 log gate**, not the per-token natural-log value passed to the API.
 
 ## Still to add before publishing
 
