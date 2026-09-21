@@ -712,6 +712,10 @@ footer {
 }
 
 @media all and (min-width: 960px) {
+  article.sidenotes {
+    display: flow-root;
+  }
+
   .page > #quartz-body:has(article.sidenotes) .center {
     box-sizing: border-box;
     padding-right: 15.2rem;
@@ -729,15 +733,18 @@ footer {
     display: block;
   }
 
-  .sidenote {
+  // Keep margin notes in one flow so a tall note pushes the next one down.
+  .sidenote:not(.sidenote--hover-media) {
     background: transparent;
     border-left: 0;
     border-top: 1px solid var(--editorial-rule);
-    left: calc(100% + 2.2rem);
-    margin: 0;
+    clear: right;
+    float: right;
+    left: auto;
+    margin: 0 calc(-13rem - 2.2rem) 1rem 0;
     padding: 0.55rem 0 0;
-    position: absolute;
-    top: 0;
+    position: relative;
+    top: auto;
     width: 13rem;
   }
 

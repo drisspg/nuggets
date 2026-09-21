@@ -20,7 +20,7 @@ Wrap the annotated phrase and its note in a `sidenote-pair`:
 This sentence needs <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="extra-context-note">extra context</span>.<span id="extra-context-note" class="sidenote" role="note">Keep the sidenote short and useful.</span></span>
 ```
 
-The phrase has a dotted underline, like Attention Gym's documentation. Hovering or focusing the phrase highlights both it and its note; hovering the note highlights the phrase too. Use a unique note ID and match it in `aria-describedby`. Notes remain visible in the margin on desktop and inline on smaller screens.
+The phrase has a dotted underline, like Attention Gym's documentation. Hovering or focusing the phrase highlights both it and its note; hovering the note highlights the phrase too. Use a unique note ID and match it in `aria-describedby`. Notes remain visible in the margin on desktop and inline on smaller screens. Nearby margin notes stack without overlapping; a long note can push the next note below its reference. The article contains the last note so it cannot spill into the footer. Hover-only media reveals remain separate popovers.
 
 The older numbered style is still supported:
 
@@ -42,3 +42,13 @@ For explanations attached to particular code lines, use [Code Annotations](./Cod
 - Use regular Markdown footnotes when the note is primarily a citation.
 
 The layout follows the margin-note pattern popularized by Edward Tufte and used by long-form sites such as Gwern. The right-margin layout activates on wide screens; tablets and phones show the same content as an inline callout.
+
+## Validation
+
+From `source/`, run the browser regression with an ephemeral Playwright installation:
+
+```sh
+pw_dir=$(mktemp -d) && npm install --prefix "$pw_dir" --no-save playwright@latest && "$pw_dir/node_modules/.bin/playwright" install chromium && NODE_PATH="$pw_dir/node_modules" npm run test:sidenotes:browser
+```
+
+It checks adjacent long notes, numbered notes, expanded disclosures, the desktop breakpoint, themes, hover-only media, article bounds, and SPA navigation.

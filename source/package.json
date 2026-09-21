@@ -27,6 +27,7 @@
     "test:charts:browser": "node scripts/test-native-charts.cjs",
     "test:annotations": "tsx --test quartz/plugins/transformers/codeAnnotations.test.ts",
     "test:annotations:browser": "node scripts/test-code-annotations.cjs",
+    "test:sidenotes:browser": "node scripts/test-sidenotes.cjs",
     "charts:kda": "tsx visuals/kda/native-charts.ts",
     "profile": "0x -D prof ./quartz/bootstrap-cli.mjs build --concurrency=1"
   },

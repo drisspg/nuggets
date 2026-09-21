@@ -23,7 +23,9 @@ It is hard to be nimble in pytorch/pytorch - this is a good and a bad thing. We 
 
 We are coalescing development of these fun new attention flavors here. We have built a number of primitives for gdn and kda and have been integrating them into torchtitan's training and RL(inference) stack. As well we have been adding more sparse primitives to enable performant DSv4 training in Titan.
 
-"But Driss why would I not just use FLA" That is a great question insightful reader! My honest answer: we pytorch developers are humans. We need a place to explore ideas, find common abstractions, figure out what works and what doesn't. Attention gym is that place for me and others. Long term I would love to develop something as extensible as `Flex Linear Attention` but right now - I don't see it. As well AI has kind of thrown a wrench into this all generalization thing we like doing. If you want to have some influence on where we invest our time; use the repo, open issues and give us feedback. We are dogfooding in torchtitan but would love to hear from other voices.
+If you want to try the pieces together, here's a [full end-to-end KDA/GDN training example](https://github.com/meta-pytorch/attention-gym/blob/main/examples/linear/delta_rule_training.py): a small single-device training loop with reference and fused backends, full-graph compilation, and profiling.
+
+"But Driss why would I not just use FLA" That is a great question insightful reader! My honest answer: we pytorch developers are humans. We need a place to explore ideas, find common abstractions, figure out what works and what doesn't. Attention gym is that place for me and others. Long term I would love to develop something as extensible as `Flex Linear Attention` but right now - I don't see it. As well, AI has kind of thrown a <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-abstraction-note">wrench into this generalization thing we like doing</span>.<span id="kda-abstraction-note" class="sidenote" role="note">I have not given up! And as Dijkstra says: “The purpose of abstracting is not to be vague, but to create a new semantic level in which one can be absolutely precise.”</span></span> If you want to have some influence on where we invest our time; use the repo, open issues and give us feedback. We are dogfooding in torchtitan but would love to hear from other voices.
 
 Another more `polished` answer is that the components we are offering are more specialized to the latest hardware and this allows us to eek <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-performance-note">non trivial out performance</span>.<span id="kda-performance-note" class="sidenote" role="note">These performance gains can be very large, but numbers are numbers, and I don't want to include comparisons in this particular blog post.</span></span> We have fully integrated CuDNN's uber mega kernels, a robust CP implementation, paid special attention to making everything cuda-graphable. But if you are using FLA and it works for you and don't want to switch I get it. Its an awesome project and I personally have learned so much from it :)
 
@@ -280,7 +282,7 @@ The following graphic is basically the punchline of this whole post. What you sh
 
 <iframe class="doc-widget widget-frame" src="./media/kda/aqk-rescale.html" title="Compare first-row and midpoint references for the same retained Aqk entry, query 5 reading token 2's write, while varying only future decay gates." loading="lazy" style="height: 900px;"></iframe>
 
-With $G_0$, those future gates never influence, with $G_8$, they do, and rounding can keep them from cancelling. <span class="sidenote-hover"><button type="button" class="sidenote-trigger" aria-describedby="kda-mask-reaction">No causal mask fixes this.</button><span id="kda-mask-reaction" class="sidenote sidenote--hover-media" role="note"><img src="./media/kda/doc-brown-future.png" alt="Doc Brown staring in disbelief." width="640" height="360" loading="lazy"><span class="sidenote-hover-caption"></span></span></span>
+With $G_0$, those future gates never influence, with $G_8$, they do, and <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-kernel-prefix-note">rounding can keep them from cancelling.</span><span id="kda-kernel-prefix-note" class="sidenote" role="note">This isn't just theoretical: with a noncausal reference, future tokens can change the actual kernel output at position $i$.</span></span> <span class="sidenote-hover"><button type="button" class="sidenote-trigger" aria-describedby="kda-mask-reaction">No causal mask fixes this.</button><span id="kda-mask-reaction" class="sidenote sidenote--hover-media" role="note"><img src="./media/kda/doc-brown-future.png" alt="Doc Brown staring in disbelief." width="640" height="360" loading="lazy"><span class="sidenote-hover-caption"></span></span></span>
 ## Can models even utilize this info?
 
 Future gates can change earlier weights. But can a model learn to use that information to `cheat`? Let's train some models and find out!
@@ -290,6 +292,8 @@ Another small plug for [TorchTitan](https://github.com/pytorch/torchtitan): [Att
 ### Training setup
 
 I trained two smallish KDA model sizes on **GB300s**, using C4. For each size, I paired first-row (causal) and midpoint forward rebasing, holding the initialization seed, data order, and other training settings fixed.
+
+All training comparisons below use **16-wide key tiles** in both arms: $G_0$ versus $G_8$. The 32-wide midpoint option discussed later was not used in these runs.
 
 | Model | Total params | C4 tokens per model | Tokens / param |
 | --- | --- | --- | --- |
@@ -413,7 +417,7 @@ $$
 \end{aligned}
 $$
 
-Then using the our tried and true freind: Cauchy–Schwarzt:
+Then using the our tried and true friend, Cauchy–Schwarz:
 $$
 \begin{aligned}
 \sum_d|q_{i,d}k_{j,d}|
@@ -442,9 +446,9 @@ All things being equal, why not just use the causal reference? Well, the referen
 
 Recall, that at our $-5$ gate bound, the max key span we support is 16 **key columns**, the largest multiple of eight before the growing factor can overflow.
 
-This limits the **key width**, not the number of query rows. For a key group starting at $a$, the query factor $2^{G_{i,d}-G_{a,d}}\le1$ shrinks, while the key factor $2^{G_{a,d}-G_{j,d}}\ge1$ grows. Later queries add more decay, they can underflow but not any more then they would have. Remember the problem we are trying to avoid is $0 * inf = nan$
+This limits the **key width**, not the number of query rows. For retained pairs in a key group starting at $a$, the query factor $2^{G_{i,d}-G_{a,d}}\le1$ shrinks, while the key factor $2^{G_{a,d}-G_{j,d}}\ge1$ grows. Later queries add more decay and can <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-query-underflow-note">underflow sooner after rebasing</span>.<span id="kda-query-underflow-note" class="sidenote" role="note">Rebasing isn't free: a query component can hit zero before the key-side boost cancels the extra decay. But the 16-key window caps that boost at $e^{75}$. Even if we pessimistically discard every rescaled query component below the normal range, $\tau=2^{-126}$, our L2 assumptions bound the lost contribution to one exact $A^{qk}$ entry by $\sqrt{D}\,\tau e^{75}$. For 128 channels, that's at most about $5\times10^{-5}$.</span></span>. Remember the problem we are trying to avoid is $0\cdot\infty=\mathrm{NaN}$.
 
-We now map this onto the specific tensor core op with <span class="sidenote-pair"><a class="sidenote-ref" href="https://docs.nvidia.com/cuda/parallel-thread-execution/#tcgen05-matrix-shape" aria-describedby="kda-instruction-shape-note">$M,N,K=64,16,16$</a><span id="kda-instruction-shape-note" class="sidenote" role="note">The <a href="https://github.com/meta-pytorch/attention-gym/blob/b2698381be3fe82d35888e4560c86267c333d186/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd_intra_engine.py#L254-L279">TCGeno05 </a> uses BF16 inputs and FP32 accumulation. $M$ counts query rows, $N$ counts key columns, and $K$ counts feature channels. Eight $K=16$ steps cover a 128-channel reduction.</span></span>.
+We now map this onto the specific tensor core op with <span class="sidenote-pair"><a class="sidenote-ref" href="https://docs.nvidia.com/cuda/parallel-thread-execution/#tcgen05-matrix-shape" aria-describedby="kda-instruction-shape-note">$M,N,K=64,16,16$</a><span id="kda-instruction-shape-note" class="sidenote" role="note"> <a href="https://github.com/meta-pytorch/attention-gym/blob/b2698381be3fe82d35888e4560c86267c333d186/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd_intra_engine.py#L254-L279">TCGen05 </a> uses BF16 inputs and FP32 accumulation. $M$ counts query rows, $N$ counts key columns, and $K$ counts feature channels. Eight $K=16$ steps cover a 128-channel reduction.</span></span>.
 
 **Each key group gets its own reference, and we rescale the queries again for each group.** Keys 0–15 use $G_0$, keys 16–31 use $G_{16}$, and so on. Query 63 reading key 15 has 48 steps of real decay plus 15 extra steps that the key factor cancels. Reading key 63 instead uses $G_{48}$, with only 15 cancelling steps.
 
@@ -465,7 +469,7 @@ N32 achieved **1.92× the arithmetic throughput**. Twice the work per instructio
 
 ### There is still more room to grow
 
-The intrepid reader will probably ontice that an $A^{qk}$ diagonal block keeps 136 of 256 entries at width 16, or 528 of 1024 at width 32. **Roughly half of each diagonal block is discarded**. This is only scratchign the surface of how deep this rabbit hole goes. Suffice it to say this is but 1 way to map KDA onto hardware and there be other more efficient ways.  As a sneak peak, we have fully integrated the [cuDNN implementation](https://github.com/meta-pytorch/attention-gym/blob/b2698381be3fe82d35888e4560c86267c333d186/attn_gym/linear/_delta_rule/cudnn/kernels/kda_prefill_f16.py) implementation which takes very different approach to this problem. And how it puts the pieces together deserves a much much deeper breakdown and many blog posts onto themselves. 
+The intrepid reader will probably ontice that an $A^{qk}$ diagonal block keeps 136 of 256 entries at width 16, or 528 of 1024 at width 32. **Roughly half of each diagonal block is discarded**. This is only scratchign the surface of how deep this rabbit hole goes. Suffice it to say this is but 1 way to map KDA onto hardware and there be other more efficient ways.  As a sneak peak, we have fully integrated the [cuDNN implementation](https://github.com/meta-pytorch/attention-gym/blob/b2698381be3fe82d35888e4560c86267c333d186/attn_gym/linear/_delta_rule/cudnn/kernels/kda_prefill_f16.py) implementation which takes very different approach to this problem. And how it puts the pieces together deserves a much much deeper breakdown and many blog posts onto themselves.   
 
 If you want to try it today though use:
 
