@@ -355,132 +355,138 @@ The larger model's final $\Delta G$ was **+0.0000088 nats/token**, with a paired
 
 ## Why is it hard to extract the future signal?
 
-Lets take a step back; we have empirically data to show that using the midpoint base doesn't seem to brick the model.. but could it in theory? Do we have any bounds on the strength of this signal?
+Let's take a step back. Using the midpoint base doesn't seem to brick the model, but how much can the future change a weight?
 
-Define channel $d$’s exact contribution to one retained matrix entry:
-
-$$
-c_d = q_{i,d}k_{j,d}2^{G_{i,d}-G_{j,d}}.
-$$
-
-Away from overflow and underflow, write the computed rescaled operands as their exact values times $(1+\epsilon^Q_d(r))$ and $(1+\epsilon^K_d(r))$. These errors include operand preparation and depend on the reference and inputs. To first order:
+Let's isolate the BF16 casts, assuming everything else is exact and the rescaled operands stay normal and finite. Lets first take an arbitrary reference $r_d$. One channel's contribution, before final output rounding, is:
 
 $$
-\widehat A_{qk}(r)-A_{qk}
-\approx
-\sum_d c_d\bigl(\epsilon^Q_d(r)+\epsilon^K_d(r)\bigr)
-+\epsilon_{\mathrm{dot}}(r),
+\begin{aligned}
+\widehat c_d(r)
+&=\operatorname{BF16}\!\left(q_{i,d}2^{G_{i,d}-r_d}\right)\\
+&\quad\times\operatorname{BF16}\!\left(k_{j,d}2^{r_d-G_{j,d}}\right).
+\end{aligned}
 $$
 
-Here, $\epsilon_{\mathrm{dot}}$ is the additive dot-product and output-rounding error. The future reference cancels out of each exact $c_d$; it affects only the errors.
+We can write a rounded operand as $x(1+\epsilon)$, where $\epsilon$ is its signed relative rounding error. For normal BF16 values, $|\epsilon|\le u$, with <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-unit-roundoff-note">$u=2^{-8}\approx0.39\%$</span><span id="kda-unit-roundoff-note" class="sidenote" role="note">BF16 has seven stored mantissa bits. For normal numbers, the absolute spacing is $2^{\mathrm{exponent}}\times2^{-7}$. Round-to-nearest-even (RNE) introduces at most half an ULP of absolute error, giving a relative error bound of $2^{-8}$.</span></span>.
 
-That is very different from handing the model a future value vector:
-
-- **The reference is not the next token.** It is a per-channel cumulative gate that may combine several future increments. The model would still have to recover a useful next-token feature from it.
-- **A changed output is not necessarily a predictive change.** Rounding also depends on the queries, keys, decay regime, and proximity to representable numbers. Counting changed elements does not measure future information.
-- **Channel contributions are mixed.** Signed contributions can cancel, reinforce, or be attenuated by later computation. I did not establish that the rounding errors are independent or zero-mean.
-- **The backward pass is not an exact derivative of the rounding channel.** The ideal expression has zero derivative with respect to the cancelling reference. Ordinary kernel gradients do not model every rounding boundary, though training might still exploit or amplify the signal indirectly.
-
-### Probe the residual, not just the loss
-
-I captured exact KDA inputs from layers 0 and 1 of the trained causal 1.45B model on 1024 held-out sequences, ran those same inputs through both reference variants, and formed:
+Without rounding, the two factors multiply to $c_d=q_{i,d}k_{j,d}2^{G_{i,d}-G_{j,d}}$. With the two rounding errors:
 
 $$
-R = O_{\mathrm{midpoint}} - O_{\mathrm{causal}}.
+\widehat c_d(r)=c_d\bigl(1+\epsilon_Q(r)\bigr)\bigl(1+\epsilon_K(r)\bigr).
 $$
 
-This residual is a **reference-choice difference**, not a pure measurement of future information. Changing references can change rounding even where both references are already available, and the state can carry those differences into later strips.
+The reciprocal factors have cancelled, but the rounding errors still depend on $r$. **Crucially same magnitude of error bound regardless of reference choice**. This bounds the product error by $(2u+u^2)|c_d|$, about **0.78% of that channel's magnitude**
 
-About **45–49% of output elements** differed in this capture, and about **60% of those differences were exactly one BF16 ULP**.
+We can also compare max possible difference in channel contribution for 2 possible rebase references. In the worst case lets assume one error causes to casts up e.g. $(1+u)$ * $(1+u)$ = $(1+u)^2$ and the other causes two casts down $(1-u)$ * $(1-u)$ = $(1-u)^2$. If that were to happen then the max difference =
+$$
+\big|\widehat c_d(r)-\widehat c_d(r')\big|
+\le4u|c_d|.
+$$
 
-| Probe | Recorded result | What it checks |
-| --- | --- | --- |
-| Ridge regression for the future gate | $R^2$ approximately zero | No useful linear readout in this probe |
-| MLP regression for the future gate | $R^2$ about 0.001, comparable to the current-gate control | A weak decay-regime signal is not necessarily future-specific |
-| Next-token prediction with real versus shuffled residuals | Paired cross-entropy difference about zero | No detected incremental predictive benefit from the residual |
+Across all channels, we can <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-triangle-inequality-note">bound the difference</span><span id="kda-triangle-inequality-note" class="sidenote" role="note">Triangle inequality.</span></span>:
+$$
+\begin{aligned}
+|\Delta A|
+&=\left|\sum_d\bigl(\widehat c_d(r)-\widehat c_d(r')\bigr)\right|\\
+&\le\sum_d\big|\widehat c_d(r)-\widehat c_d(r')\big|\\
+&\le4u\sum_d|c_d|.
+\end{aligned}
+\tag{2}
+$$
 
-The next-token probe used the top-1024-token task and sequence-separated splits. Its recorded paired cross-entropy difference was **0.000 ± 0.005 nats**; the uncertainty convention still needs checking against the original report before publication. The same probe family extracted **0.4–0.7 nats** of predictive information from ordinary causal features, so it could learn useful signals.
 
-These probes do not prove zero channel capacity. They covered two layers of one trained causal model with particular readouts, not every nonlinear decoder, midpoint-trained representation, or precision and training regime.
+We can go even futher! Since we assume that the q and k input to chunk_kda are L2-normalized, as in [our KDA training example](https://github.com/meta-pytorch/attention-gym/blob/main/examples/linear/delta_rule_training.py#L440-L453):
 
-> [!todo] Residual figures
-> Add the worklog's residual/ULP distribution and the future-gate and next-token probe comparisons, if available. Caption them as reference-choice residuals, not “percent of elements leaking the future.”
+$$
+\sum_d q_{i,d}^2=1,
+\qquad
+\sum_d k_{j,d}^2=1.
+$$
+
+ausal decay is at most one, so it cannot increase the magnitude of a channel contribution:
+
+$$
+\begin{aligned}
+\sum_d|c_d|
+&=\sum_d|q_{i,d}k_{j,d}|\,2^{G_{i,d}-G_{j,d}}\\
+&\le\sum_d|q_{i,d}k_{j,d}|.
+\end{aligned}
+$$
+
+Then using the our tried and true freind: Cauchy–Schwarzt:
+$$
+\begin{aligned}
+\sum_d|q_{i,d}k_{j,d}|
+&\le\sqrt{\sum_d q_{i,d}^2}\,\sqrt{\sum_d k_{j,d}^2}\\
+&=1.
+\end{aligned}
+$$
+
+We can finally convert this relative error into absoulte terms by subbing into equation (2).
+
+$$
+|\Delta A|\le4u\cdot1=4\cdot2^{-8}=0.015625.
+$$
+
+Two takeaways. **First, we have an absolute bound on what reference choice can change:** at most $0.015625$ for one $A^{qk}$ entry in this simplified model. That relies on exact L2 normalization and <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-normal-range-note">normal, finite rescaled operands</span><span id="kda-normal-range-note" class="sidenote" role="note">L2 normalization bounds the vector lengths, not how small an individual component can be. A tiny component can still underflow after rescaling.</span></span>. It is not a bound on the final network output.
+
+**Second, compare what can happen to an individual value.** Normal-range BF16 rounding changes each operand by at most about $0.39\%$. In MatX's shared-scale example, a future outlier can make an earlier value round to zero: **100% relative error for that value**.
+
+While this gives me some comfort - **small does not mean unlearnable**. The model could still be sneaky if the rounding errors carry a bias(pattern) that helps predict the next token, even if they average to zero.
 
 ## Why would we even want to use midpoint rebasing?
 
-The $16\times16$ diagonal block is only part of the hardware work. The SM100 engine issues a strip of <span class="sidenote-pair"><a class="sidenote-ref" href="https://docs.nvidia.com/cuda/parallel-thread-execution/#tcgen05-matrix-shape" aria-describedby="kda-instruction-shape-note">64 query rows by 16 key columns</a>.<span id="kda-instruction-shape-note" class="sidenote" role="note">The <a href="https://github.com/meta-pytorch/attention-gym/blob/0653a9ba568f980df628652f372e394c233b43d8/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd_intra_engine.py">SM100 engine</a> issues <code>tcgen05.mma</code> with $M=64$, $N=16$, $K=16$: BF16 inputs and FP32 accumulation. Eight instructions cover the 128-channel reduction. The $16\times16$ diagonal block is only part of that rectangle.</span></span>
+All things being equal, why not just use the causal reference? Well, the reference also limits which tile widths fit in range.
 
-With first-row rebasing, **each key group gets its own reference, and we rescale the query rows for each group.** Keys 0–15 use $G_0$, keys 16–31 use $G_{16}$, and so on.
+### Sixteen keys, sixty-four queries
 
-Query 63 reading key 15 has 48 steps of real decay, plus 15 extra steps that the key factor cancels. Reading its own write uses $G_{48}$ instead, so again only 15 steps need cancelling. **The 16 limits the extra decay and amplification, not how far back a query can read.**
+Recall, that at our $-5$ gate bound, the max key span we support is 16 **key columns**, the largest multiple of eight before the growing factor can overflow.
+
+This limits the **key width**, not the number of query rows. For a key group starting at $a$, the query factor $2^{G_{i,d}-G_{a,d}}\le1$ shrinks, while the key factor $2^{G_{a,d}-G_{j,d}}\ge1$ grows. Later queries add more decay, they can underflow but not any more then they would have. Remember the problem we are trying to avoid is $0 * inf = nan$
+
+We now map this onto the specific tensor core op with <span class="sidenote-pair"><a class="sidenote-ref" href="https://docs.nvidia.com/cuda/parallel-thread-execution/#tcgen05-matrix-shape" aria-describedby="kda-instruction-shape-note">$M,N,K=64,16,16$</a><span id="kda-instruction-shape-note" class="sidenote" role="note">The <a href="https://github.com/meta-pytorch/attention-gym/blob/b2698381be3fe82d35888e4560c86267c333d186/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd_intra_engine.py#L254-L279">TCGeno05 </a> uses BF16 inputs and FP32 accumulation. $M$ counts query rows, $N$ counts key columns, and $K$ counts feature channels. Eight $K=16$ steps cover a 128-channel reduction.</span></span>.
+
+**Each key group gets its own reference, and we rescale the queries again for each group.** Keys 0–15 use $G_0$, keys 16–31 use $G_{16}$, and so on. Query 63 reading key 15 has 48 steps of real decay plus 15 extra steps that the key factor cancels. Reading key 63 instead uses $G_{48}$, with only 15 cancelling steps.
 
 <iframe class="doc-widget widget-frame" src="./media/kda/mma-strip-map.html" title="A 64 by 16 tcgen05 MMA footprint over a 64-token Aqk matrix: query rows, key columns, and 16 channels per instruction." loading="lazy" style="height: 700px;"></iframe>
 
-Each strip covers the diagonal triangle and the causal squares below it. This bounds the growing gate factor; underflow, Q/K scaling, and later rounding still need accuracy checks.
+If however we were to use a midpoint reference we could use a 32 key window, our rescaled keys would not overflow, and the door is now open to use **$64\times32\times16$** instructions!
 
-<details>
-<summary>Why not share one base across all 64 keys?</summary>
+Why does this matter well check out this hand [TCGEN throughput benchmark](https://github.com/drisspg/transformer_nuggets/blob/6cb0ca2687d259f699a6b4b98e252332305761f6/benchmarks/tcgen05_throughput.py) on B200, giving both shapes the same amount of work:
 
-I tried chunk-wide rebasing earlier. Even with the training module initialized near **−2.5 in natural-log units**, not the −5 bound, it exceeded the exponent range for every measured chunk/head/channel triple. My optimization harness used mild random gates and had missed it.
+| Instruction | MMA count | TFLOP/s ↑ |
+| --- | ---: | ---: |
+| $64\times16\times16$ | 128 | 388.8 |
+| $64\times32\times16$ | 64 | 745.2 |
 
-That is different from 64 query rows reading 16 keys. Extending the key range makes the reciprocal factor grow; adding later queries only adds decay. At that initial per-token decay, a 16-key first-row window spans about 54 base-2 log units, so the bounded 16-token choice did not have the same overflow problem.
+We get basically twice the throughpout using this wider instruction.
 
-</details>
+N32 achieved **1.92× the arithmetic throughput**. Twice the work per instruction cost only about 4% more amortized issue time. That is why, in general, it is alwasy better to use wider tcgen instructions.
 
+### There is still more room to grow
 
-## Could midpoint rounding still be better?
+The intrepid reader will probably ontice that an $A^{qk}$ diagonal block keeps 136 of 256 entries at width 16, or 528 of 1024 at width 32. **Roughly half of each diagonal block is discarded**. This is only scratchign the surface of how deep this rabbit hole goes. Suffice it to say this is but 1 way to map KDA onto hardware and there be other more efficient ways.  As a sneak peak, we have fully integrated the [cuDNN implementation](https://github.com/meta-pytorch/attention-gym/blob/b2698381be3fe82d35888e4560c86267c333d186/attn_gym/linear/_delta_rule/cudnn/kernels/kda_prefill_f16.py) implementation which takes very different approach to this problem. And how it puts the pieces together deserves a much much deeper breakdown and many blog posts onto themselves. 
 
-Could changing the reference improve training through better numerics, without using future information?
+If you want to try it today though use:
 
-For one channel, let $G_{\min}$ and $G_{\max}$ be the smallest and largest cumulative gates in the rebasing window. Ignoring Q/K magnitudes, the unrestricted reference that minimizes the worst gate-factor exponent displacement is:
+```python
+from attn_gym.linear.kda import chunk_kda
 
-$$
-r^* = \frac{G_{\max}+G_{\min}}{2}.
-$$
+# BF16 Q/K/V on SM100/SM103; Q/K already L2-normalized.
+out, _ = chunk_kda(
+    q, k, v, gate, beta,
+    kernel_options={
+        "backend": "cudnn",
+        # Optional approximate splitting; both default to False. This one is fun :)
+        "split_forward": False,
+        "split_backward": False,
+    },
+)
+```
 
-The first-row reference sits at $G_{\max}$ and uses the full gate span on one side; $r^*$ uses half on either side. This buys factor headroom, but is not a causal algorithm: finding the extrema over the whole window reads the future for early queries.
+## Take aways
 
-**The midpoint token is not necessarily the midpoint gate value.** With roughly constant per-token gate deltas, row 8 in a 16-token window is close to halfway through the cumulative decay. With bursty deltas, most decay might occur before or after row 8, differently in each channel. Centering the token index need not center the exponents.
+While we didnt detect any learend explotation in these runs, out of an abundance of caution, I'm keeping the [causal first-row reference and 16-key windows](https://github.com/meta-pytorch/attention-gym/blob/b2698381be3fe82d35888e4560c86267c333d186/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd_intra_engine.py#L481-L531) as the default. I plan to make the 32-wide midpoint reference an option though.
 
-The Q/K magnitudes matter too. Ignoring exact zeros, the operand log-magnitudes are:
+Okay that was a long one with alot of math but I hope, like I, you learned something :)
 
-$$
-\log_2|\widetilde Q_{i,d}| = \log_2|q_{i,d}|+G_{i,d}-r_d,
-\qquad
-\log_2|\widetilde K_{j,d}| = \log_2|k_{j,d}|+r_d-G_{j,d}.
-$$
-
-Balancing the gates need not balance the operands. Their joint distribution, proximity to underflow/overflow, and the final sum’s conditioning all affect numerical error.
-
-Inside the normal range, moving a BF16 operand closer to one does not add relative precision: every normal binade has the same significand width. Rescaling changes which values round up or down; it can improve or worsen an answer without giving a systematic gain. Avoiding underflow or overflow is a separate range benefit.
-
-### What we measured for this hypothesis
-
-I compared both references against an FP64 recurrent reference with fixed BF16 inputs: sequence length 1024, four heads, and per-token gates uniform in $[-s,0]$ nats for $s$ in $\{0.5,1,2.5,4,5\}$. The ratio of midpoint to causal **mean error** stayed between **0.99 and 1.02**; below one favors midpoint. This sweep showed no systematic accuracy benefit, but does not cover every distribution of gate deltas.
-
-The trained model’s gate histograms were bimodal, near zero and the $-5$ nats/token bound. In layers 0 and 1, respectively, **9.0% and 17.6%** of captured per-token gates were below $-4.9$ nats. Near-bound values need not be exact point masses; the spread within each mode matters. I would not assume independent, uniformly distributed rounding errors.
-
-In a separate trained-model audit, causal-reference query operands very rarely reached the subnormal range; midpoint operands had no subnormal exposure in that capture. This supports a range advantage on those inputs, not a measured model-quality advantage.
-
-**Midpoint rebasing may help when important operands approach a range boundary, though these runs showed no systematic accuracy or quality benefit.** To test that, vary gate-delta distributions and operand magnitudes separately, compare against the same high-precision reference, and measure boundary exposure alongside error. Do not also change the gate bound or subchunk size.
-
-> [!todo] Precision figures
-> Add the worklog's error-versus-gate-range and gate/operand-distribution plots, if available. Distinguish per-token deltas, cumulative gate spans, and actual rescaled operand exponents in the captions.
-
-## What I take away
-
-The midpoint reference creates **numerical future dependence**. These experiments **did not detect learned exploitation**—not the same as showing there is no leak.
-
-A quantity that cancels in algebra can still carry information through finite-precision intermediates. The mask is only part of the causality contract; we also have to check where normalization and scaling values come from.
-
-For this path, I kept the first-row reference as the default, with bounded rebasing windows and a prefix-invariance regression.
-
-**A causality violation, a learnable predictive signal, and a better numerical approximation are three different claims.** A test for one does not settle the other two.
-
-## Still to add before publishing
-
-- A minimal suffix-gate counterfactual and public, commit-pinned links to the tested kernels, including the earlier isolated Aqk probe and initialization gate-range measurements.
-- The residual-probe and precision-distribution figures, which were not present in the retrieved W&B evaluation series.
-- Exact run manifests and the paired-analysis code. The figure snapshot preserves the logged standard errors; verify their construction against the original per-sequence analysis before publication.
-
-These results concern the implementation and configurations tested here, not every KDA implementation or production Kimi model.
