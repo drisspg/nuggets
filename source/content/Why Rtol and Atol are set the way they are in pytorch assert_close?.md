@@ -1,5 +1,8 @@
 ---
 title: Why Rtol and Atol are set the way they are in pytorch assert_close?
+description: "Where torch.testing.assert_close's default rtol and atol come from: floating point rounding error, ULPs, binades, and an interactive visualization."
+socialImage: media/social/ulp-binades.png
+socialImageAlt: "The article's ULP visualization, with representable floats spreading farther apart across adjacent binades."
 date: 2025-10-13
 tags:
   - pytorch

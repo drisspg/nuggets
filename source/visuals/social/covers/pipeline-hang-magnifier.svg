@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="286" viewBox="0 0 1080 286">
+  <!-- Debugging pipeline hangs — standalone lower banner for the 1200x630 social card. Palette: paper #f4f0e8, ink #1a2e22, sage #5f7f67, amber #b98049, red #aa413a. -->
+  <rect width="1080" height="286" fill="#f4f0e8"/>
+  <path d="M0 34H1080 M0 68H1080 M0 102H1080 M0 136H1080 M0 170H1080 M0 204H1080 M0 238H1080 M0 272H1080" stroke="#d0ccc4" stroke-width="1" opacity="0.35"/>
+  <defs>
+    <clipPath id="lens"><circle cx="614" cy="118" r="76"/></clipPath>
+  </defs>
+  <path d="M20 152h8" stroke="#b98049" stroke-width="3" stroke-linecap="round" opacity=".7"/><path d="M36 152h8" stroke="#b98049" stroke-width="3" stroke-linecap="round" opacity=".7"/><path d="M52 152h8" stroke="#b98049" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+  <rect x="70" y="120" width="130" height="64" rx="12" fill="#ebe6dc" stroke="#1a2e22" stroke-width="2.4" />
+  <path d="M200 152H280" stroke="#1a2e22" stroke-width="4"  stroke-linecap="round"/>
+  <rect x="280" y="120" width="130" height="64" rx="12" fill="#ebe6dc" stroke="#1a2e22" stroke-width="2.4" />
+  <path d="M410 152H490" stroke="#1a2e22" stroke-width="4"  stroke-linecap="round"/>
+  <rect x="490" y="120" width="130" height="64" rx="12" fill="#ebe6dc" stroke="#1a2e22" stroke-width="2.4" />
+  <path d="M620 152H700" stroke="#1a2e22" stroke-width="1.6" stroke-dasharray="6 6" opacity=".5" stroke-linecap="round"/>
+  <rect x="700" y="120" width="130" height="64" rx="12" fill="#f4f0e8" stroke="#1a2e22" stroke-width="1.6" stroke-dasharray="6 6" opacity=".6"/>
+  <path d="M830 152H910" stroke="#1a2e22" stroke-width="1.6" stroke-dasharray="6 6" opacity=".5" stroke-linecap="round"/>
+  <rect x="910" y="120" width="130" height="64" rx="12" fill="#f4f0e8" stroke="#1a2e22" stroke-width="1.6" stroke-dasharray="6 6" opacity=".6"/>
+  <circle cx="98" cy="152" r="13" fill="#b98049"/><circle cx="98" cy="152" r="5" fill="#f4f0e8" opacity=".9"/>
+  <circle cx="136" cy="152" r="13" fill="#b98049"/><circle cx="136" cy="152" r="5" fill="#f4f0e8" opacity=".9"/>
+  <circle cx="174" cy="152" r="13" fill="#b98049"/><circle cx="174" cy="152" r="5" fill="#f4f0e8" opacity=".9"/>
+  <circle cx="318" cy="152" r="13" fill="#b98049"/><circle cx="318" cy="152" r="5" fill="#f4f0e8" opacity=".9"/>
+  <circle cx="356" cy="152" r="13" fill="#b98049"/><circle cx="356" cy="152" r="5" fill="#f4f0e8" opacity=".9"/>
+  <circle cx="390" cy="152" r="13" fill="#b98049"/><circle cx="390" cy="152" r="5" fill="#f4f0e8" opacity=".9"/>
+  <!-- the stalled token, seen from outside the lens -->
+  <circle cx="516" cy="152" r="13" fill="#aa413a"/>
+  <circle cx="516" cy="152" r="20" fill="none" stroke="#aa413a" stroke-width="2" stroke-dasharray="4 4" opacity=".7"/>
+  <!-- magnifier: coredump + cuda-gdb view -->
+  <path d="M671.6 175.6 L752 250" stroke="#1a2e22" stroke-width="18" stroke-linecap="round"/>
+  <path d="M671.6 175.6 L752 250" stroke="#f4f0e8" stroke-width="4" stroke-linecap="round" opacity=".25"/>
+  <circle cx="614" cy="118" r="80" fill="#f4f0e8" stroke="#1a2e22" stroke-width="8"/>
+  <g clip-path="url(#lens)">
+    <!-- zoomed: three source lines, the wait instruction highlighted -->
+    <path d="M584 84h40" stroke="#1a2e22" stroke-width="5" stroke-linecap="round" opacity=".45"/>
+    <path d="M584 118h96" stroke="#aa413a" stroke-width="7" stroke-linecap="round"/>
+    <path d="M584 152h60" stroke="#1a2e22" stroke-width="5" stroke-linecap="round" opacity=".45"/>
+    <!-- pc marker -->
+    <path d="M558 108l14 10-14 10z" fill="#b98049"/>
+    <!-- the spinning wait -->
+    <circle cx="648" cy="76" r="18" fill="none" stroke="#aa413a" stroke-width="3.5" stroke-dasharray="20 9" stroke-linecap="round"/>
+    <path d="M662 62l4 8-9 2" fill="none" stroke="#aa413a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- lens glint -->
+    <path d="M556 88 A62 62 0 0 1 592 58" fill="none" stroke="#1a2e22" stroke-width="3" stroke-linecap="round" opacity=".18"/>
+  </g>
+  <circle cx="614" cy="118" r="72" fill="none" stroke="#1a2e22" stroke-width="1" opacity=".3"/>
+</svg>

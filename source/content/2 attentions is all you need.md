@@ -1,5 +1,8 @@
 ---
 title: 2 attentions is all you need
+description: "How to choose between F.scaled_dot_product_attention and FlexAttention in PyTorch, with a 2026 update on FA3/FA4, varlen, and linear attention."
+socialImage: media/social/two-attentions-split-ribbon.png
+socialImageAlt: "Two attention paths: a regular dense ribbon and a flexible, selectively connected ribbon."
 date: 2025-10-01
 tags:
   - pytorch

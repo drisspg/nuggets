@@ -1,5 +1,8 @@
 ---
 title: A Small PyTorch Benchmarking Trap
+description: "Why a torch.compile microbenchmark flipped its conclusion: the dynamo cache_size_limit silently skewed compiled timings against a Triton kernel."
+socialImage: media/social/benchmark-trap-stopwatch.png
+socialImageAlt: "A stopwatch beside a cache trap, illustrating how compilation caching can mislead a benchmark."
 date: 2024-08-11
 tags:
   - tool-tips

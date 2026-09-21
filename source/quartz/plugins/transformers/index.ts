@@ -1,6 +1,7 @@
 export { DocEmbeds } from "./docEmbeds"
 export { NativeCharts } from "./nativeCharts"
 export { FrontMatter } from "./frontmatter"
+export { SocialImage } from "./socialImage"
 export { GitHubFlavoredMarkdown } from "./gfm"
 export { Citations } from "./citations"
 export { CreatedModifiedDate } from "./lastmod"

@@ -1,5 +1,8 @@
 ---
 title: Utilizing the nightlies for bisect
+description: "A small script that binary-searches PyTorch nightly wheels against a repro to bracket the commits that broke or fixed a bug, ahead of git bisect."
+socialImage: media/social/nightly-bisect-timeline.png
+socialImageAlt: "Successive binary-search brackets narrow a timeline of nightly builds to a regression."
 date: 2025-10-04
 tags:
   - tool-tips

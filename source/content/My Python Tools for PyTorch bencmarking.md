@@ -1,5 +1,8 @@
 ---
 title: My Python Tools for PyTorch bencmarking
+description: "The transformer_nuggets benchmark helpers I reach for: CUDA-event timing, CUDA graph replay, bootstrap medians and percentiles, and clock locking."
+socialImage: media/social/benchmark-toolkit-roll.png
+socialImageAlt: "An illustrated toolkit of instruments for timing, profiling, and repeatable GPU benchmarks."
 date: 2026-04-25
 tags:
   - tool-tips

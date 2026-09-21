@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="286" viewBox="0 0 1080 286">
+  <rect width="1080" height="286" rx="10" fill="#222321"/>
+  <path d="M540 25V261" stroke="#51564e"/>
+  <g font-family="IBM Plex Sans" font-weight="600" font-size="25">
+    <text x="44" y="54" fill="#d49a77">BEFORE</text>
+    <text x="584" y="54" fill="#a4be9f">AFTER</text>
+  </g>
+  <g font-family="IBM Plex Sans" font-size="17" fill="#b9c0b4">
+    <text x="44" y="89">Default reductions</text>
+    <text x="584" y="89">Deterministic reductions</text>
+  </g>
+  <path d="m88 146 40 40m0-40-40 40" stroke="#d49a77" stroke-width="6" stroke-linecap="round"/>
+  <path d="m640 169 21 21 40-49" stroke="#a4be9f" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <svg x="265" y="18" width="242" height="250" viewBox="940 65 274 276">
+    <image href="../../../content/media/Screenshot 2025-10-17 at 11.34.06 AM.png" width="1414" height="346"/>
+  </svg>
+  <svg x="800" y="18" width="242" height="250" viewBox="940 43 274 278">
+    <image href="../../../content/media/Screenshot 2025-10-17 at 12.11.58 PM.png" width="1838" height="322"/>
+  </svg>
+</svg>

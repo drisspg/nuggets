@@ -15,6 +15,7 @@ import {
 import { defaultListPageLayout, sharedPageComponents } from "../../../quartz.layout"
 import { TagContent } from "../../components"
 import { write } from "./helpers"
+import { writeSocialImage } from "./socialImages"
 import { i18n } from "../../i18n"
 import DepGraph from "../../depgraph"
 
@@ -131,7 +132,7 @@ export const TagPage: QuartzEmitterPlugin<Partial<TagPageOptions>> = (userOpts) 
           ext: ".html",
         })
 
-        fps.push(fp)
+        fps.push(fp, await writeSocialImage(ctx, cfg, file.data))
       }
       return fps
     },

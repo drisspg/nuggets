@@ -1,5 +1,8 @@
 ---
 title: Debugging pipeline hangs
+description: "A cuda-hang-dump skill that triggers a CUDA coredump and maps the stuck kernel PC to a source line via cuda-gdb; it found an FA4 stall in 20 minutes."
+socialImage: media/social/pipeline-hang-magnifier.png
+socialImageAlt: "A magnifying glass isolates a stalled token in a GPU pipeline."
 date: 2026-02-13
 tags:
   - tool-tips

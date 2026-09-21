@@ -1,5 +1,8 @@
 ---
 title: QLoRA in Pure PyTorch
+description: "Implementing QLoRA's NF4 quantization and double quantization in pure PyTorch as an NF4Tensor, and reaching ~2x speedups with torch.compile."
+socialImage: media/social/qlora-nf4-adapter.png
+socialImageAlt: "NF4 quantization compresses weights alongside a frozen matrix and a small low-rank adapter."
 date: 2024-08-11
 tags:
   - pytorch

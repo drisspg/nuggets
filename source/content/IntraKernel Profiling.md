@@ -1,5 +1,8 @@
 ---
 title: IntraKernel Profiling
+description: "Timing regions inside a CuTeDSL kernel with a small profiling buffer: atomic or static event indexing, nested regions, and where it actually helped."
+socialImage: media/social/intrakernel-nested-spans.png
+socialImageAlt: "Nested colored timing spans reveal regions inside a single kernel; an illustrative timeline, not measured data."
 date: 2025-12-05
 tags:
   - tool-tips

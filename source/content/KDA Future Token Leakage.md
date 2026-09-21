@@ -1,5 +1,8 @@
 ---
 title: KDA Doesn't Care About the Future
+description: "Where Attention Gym is heading, a future-dependent rounding effect in the chunkwise KDA kernel, and TorchTitan runs asking whether models exploit it."
+socialImage: media/social/kda-reference.png
+socialImageAlt: "The article's token-reference decal: green connections to the past and red connections to the future around an orange midpoint."
 date: 2026-09-15
 enableToc: false
 dek: Exploring a future-dependent rounding effect in KDA

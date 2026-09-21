@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="286" viewBox="0 0 1080 286">
+  <rect width="1080" height="286" fill="#f4f0e8"/>
+  <g fill="none" stroke="#d0ccc4" stroke-width="1"><path d="M30 234H1050"/><path d="M70 37H650"/></g>
+  <g font-family="IBM Plex Sans" font-size="18" letter-spacing="2" fill="#5f7f67"><text x="74" y="73">BIGA</text><text x="285" y="73">MIX</text><text x="493" y="73">PROOF</text></g>
+  <ellipse cx="114" cy="222" rx="66" ry="9" fill="#d0ccc4" opacity=".45"/>
+  <path d="M55 202Q43 145 96 132Q137 112 170 168Q190 211 140 218Q88 228 55 202Z" fill="#e9d2a0" stroke="#b98049" stroke-width="2"/>
+  <g fill="#b98049" opacity=".4"><circle cx="82" cy="164" r="5"/><circle cx="111" cy="145" r="4"/><circle cx="143" cy="180" r="6"/><circle cx="97" cy="200" r="5"/></g>
+  <path d="M294 157c-16-24-1-48 20-53m9 44c-12-27 6-43 20-52" fill="none" stroke="#5f7f67" stroke-width="2" opacity=".6"/>
+  <path d="M260 159H378L360 217H278Z" fill="#eae6de" stroke="#5f7f67" stroke-width="2"/>
+  <path d="M267 165Q319 143 371 165" fill="#e9d2a0" stroke="#b98049" stroke-width="2"/>
+  <ellipse cx="547" cy="217" rx="84" ry="12" fill="#d0ccc4" opacity=".45"/>
+  <path d="M470 207C467 112 626 108 626 207Q548 237 470 207Z" fill="#e9d2a0" stroke="#b98049" stroke-width="2"/>
+  <path d="M500 160Q526 140 553 145" fill="none" stroke="#f4f0e8" stroke-width="7" stroke-linecap="round"/>
+  <g fill="none" stroke="#5f7f67" stroke-width="2"><path d="M206 181h26m-6-5 6 5-6 5M407 181h26m-6-5 6 5-6 5M668 181h26m-6-5 6 5-6 5"/></g>
+  <circle cx="881" cy="143" r="123" fill="#b98049"/>
+  <circle cx="881" cy="143" r="111" fill="#e5ba72"/>
+  <circle cx="881" cy="143" r="97" fill="#aa413a"/>
+  <path d="M806 97Q827 52 866 63L905 57Q955 80 962 118L969 156Q951 222 905 226L856 231Q794 216 788 174L783 134Z" fill="#efd9a3"/>
+  <g fill="#b98049" opacity=".7"><circle cx="835" cy="89" r="10"/><circle cx="907" cy="94" r="8"/><circle cx="949" cy="146" r="8"/><circle cx="858" cy="183" r="13"/><circle cx="903" cy="208" r="7"/><circle cx="807" cy="159" r="7"/></g>
+  <g fill="#52766c"><path d="M850 132Q815 93 808 134Q817 153 850 132Z"/><path d="M891 155Q932 115 934 158Q918 180 891 155Z"/><path d="M878 108Q856 80 885 72Q903 86 878 108Z"/><path d="M865 213Q838 189 825 215Q842 232 865 213Z"/></g>
+  <path d="M881 143 1004 143M881 143 942 249" stroke="#b98049" stroke-width="3"/>
+</svg>

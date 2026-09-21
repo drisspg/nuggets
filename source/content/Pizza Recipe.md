@@ -1,5 +1,8 @@
 ---
 title: Pizza Recipe
+description: "My go-to pizza dough: a 65% hydration biga recipe adapted from Julian Sisofo, with a dough ball calculator and a day-by-day schedule."
+socialImage: media/social/pizza.png
+socialImageAlt: "An illustrated progression from biga to mixing and proofing dough, ending with a basil-topped pizza."
 date: 2026-07-11
 tags:
   - tool-tips

@@ -1,5 +1,8 @@
 ---
 title: A Tale of Two Schedulers
+description: "Cluster Launch Control for grouped GEMMs on Blackwell: sm_carveout background, padded-buffer quirks, and a CLC pattern for CUDA-graphable kernels."
+socialImage: media/social/clc-workers.png
+socialImageAlt: "A frame from the article's Cluster Launch Control widget, showing work tiles distributed across twelve SM workers."
 date: 2026-05-03
 tags:
   - pytorch

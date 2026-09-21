@@ -14,6 +14,8 @@ import { defaultContentPageLayout, sharedPageComponents } from "../../../quartz.
 import { Content } from "../../components"
 import chalk from "chalk"
 import { write } from "./helpers"
+import { writeSocialImage } from "./socialImages"
+import { socialMetadata } from "../../util/social"
 import DepGraph from "../../depgraph"
 
 // get all the dependencies for the markdown file
@@ -86,7 +88,15 @@ export const ContentPage: QuartzEmitterPlugin<Partial<FullPageLayout>> = (userOp
         const sourcePath = file.data.filePath!
         const slug = file.data.slug!
         graph.addEdge(sourcePath, joinSegments(ctx.argv.output, slug + ".html") as FilePath)
+        graph.addEdge(
+          sourcePath,
+          joinSegments(
+            ctx.argv.output,
+            socialMetadata(ctx.cfg.configuration, file.data).imageSlug + ".png",
+          ) as FilePath,
+        )
 
+        if (file.data.socialImage) graph.addEdge(file.data.socialImage.sourcePath, sourcePath)
         parseDependencies(ctx.argv, tree as Root, file).forEach((dep) => {
           graph.addEdge(dep as FilePath, sourcePath)
         })
@@ -125,7 +135,7 @@ export const ContentPage: QuartzEmitterPlugin<Partial<FullPageLayout>> = (userOp
           ext: ".html",
         })
 
-        fps.push(fp)
+        fps.push(fp, await writeSocialImage(ctx, cfg, file.data))
       }
 
       if (!containsIndex && !ctx.argv.fastRebuild) {

@@ -7,6 +7,16 @@
 - Call out removed or questionable sections separately so the user can decide what to keep, edit, or publish.
 - Keep filename/title changes minimal and source-faithful unless the user asks for a public-facing title.
 
+## Social Cover Images
+
+- Give each published post its own cover artwork. Reuse that post's existing decal, diagram, or reference image first; capture a deterministic still from animated widgets. Do not replace distinct article visuals with the same generic diagram on every card.
+- If no suitable image exists, create a bespoke, topic-specific banner. Keep it recognizable at thumbnail size, with strong shapes and little embedded text. Illustrative timing bars/charts must not look like new measured results. Preserve original article bodies and titles unless editorial changes are requested.
+- Use a 1200×630 final card with the Nuggets mark, a large readable title, and a full-width banner underneath. Maintain the paper/green/amber palette and safe crop margins. No bottom attribution, URL, or divider strip; the top branding is sufficient.
+- Artwork sources and capture/render recipes live under `source/visuals/social/`; selected PNG banners live under `source/content/media/social/`. Use `socialImage: media/social/<name>.png`, `socialImageAlt:`, and a concise `description:` in frontmatter. The image path is content-root-relative, even for nested notes.
+- From `source/`, run `node visuals/social/render.mjs` for SVG covers; use `visuals/social/capture.cjs` with an ephemeral Playwright install on `NODE_PATH` for existing widget stills. Then run `npm run build`. Generated final cards under `public/static/social/` are not committed. Cover-byte changes automatically invalidate card URLs; increment the design version in `quartz/util/social.ts` when changing the template.
+- Inspect a contact sheet of all covers plus the featured card at desktop and phone-feed sizes. Check long titles, cropping, legibility, actual artwork identity, and before/after screenshots. Run `npm run test:social` and verify emitted HTML has absolute Open Graph/X image URLs, large-image-card metadata, image dimensions and alt text; fetch the PNGs as a crawler would, without JavaScript.
+- X and other platforms may cache page metadata or crop previews differently. Verify deployed assets and distinguish that from an actual X composer check; don't promise a particular platform rendering without observing it.
+
 ## TouchDesigner Motion Graphics Workflow
 
 - TouchDesigner source builders live under `source/visuals/touchdesigner/`; this is a repo-local visual generation workflow, not published blog content by itself.

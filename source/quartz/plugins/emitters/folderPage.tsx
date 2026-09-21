@@ -18,6 +18,7 @@ import {
 import { defaultListPageLayout, sharedPageComponents } from "../../../quartz.layout"
 import { FolderContent } from "../../components"
 import { write } from "./helpers"
+import { writeSocialImage } from "./socialImages"
 import { i18n } from "../../i18n"
 import DepGraph from "../../depgraph"
 
@@ -127,7 +128,7 @@ export const FolderPage: QuartzEmitterPlugin<Partial<FolderPageOptions>> = (user
           ext: ".html",
         })
 
-        fps.push(fp)
+        fps.push(fp, await writeSocialImage(ctx, cfg, file.data))
       }
       return fps
     },

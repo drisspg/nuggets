@@ -1,5 +1,8 @@
 ---
 title: FlexAttention Determinism
+description: "Making FlexAttention bitwise deterministic run to run: static shapes, inductor default mode, and torch._inductor.config.deterministic for backward."
+socialImage: media/social/flex-determinism.png
+socialImageAlt: "Before-and-after crops of the article's actual test output: backward determinism failures become passes."
 date: 2025-10-17
 tags:
   - pytorch

@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="286" viewBox="0 0 1080 286">
+  <!-- Microbenchmarks from Macrobenchmarks — standalone lower banner for the 1200x630 social card. Palette: paper #f4f0e8, ink #1a2e22, sage #5f7f67, amber #b98049, red #aa413a. -->
+  <rect width="1080" height="286" fill="#f4f0e8"/>
+  <path d="M0 34H1080 M0 68H1080 M0 102H1080 M0 136H1080 M0 170H1080 M0 204H1080 M0 238H1080 M0 272H1080" stroke="#d0ccc4" stroke-width="1" opacity="0.35"/>
+  <!-- macro trace ribbon -->
+  <rect x="0" y="32" width="1080" height="128" fill="#ebe6dc"/>
+  <path d="M0 32H1080M0 160H1080" stroke="#1a2e22" stroke-width="1.4" opacity=".5"/>
+  <rect x="24" y="46" width="48.33" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="80.38" y="46" width="45.02" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="132.96" y="46" width="55.26" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="194.92" y="46" width="60.02" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="258.63" y="46" width="61.04" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="324.08" y="46" width="26.33" height="28" rx="4" fill="#5f7f67" opacity="0.3"/>
+  <rect x="353.87" y="46" width="22.45" height="28" rx="4" fill="#5f7f67" opacity="0.16"/>
+  <rect x="383.32" y="46" width="43.35" height="28" rx="4" fill="#5f7f67" opacity="0.16"/>
+  <rect x="434.62" y="46" width="25.93" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="472.42" y="46" width="52.29" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="530.69" y="46" width="38.62" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="575.45" y="46" width="30.71" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="617.12" y="46" width="56.21" height="28" rx="4" fill="#5f7f67" opacity="0.3"/>
+  <rect x="679.94" y="46" width="23.52" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="708.48" y="46" width="17.34" height="28" rx="4" fill="#5f7f67" opacity="0.3"/>
+  <rect x="732.52" y="46" width="80.86" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="819.31" y="46" width="44.72" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="874.57" y="46" width="32.48" height="28" rx="4" fill="#5f7f67" opacity="0.16"/>
+  <rect x="912.19" y="46" width="32.92" height="28" rx="4" fill="#5f7f67" opacity="0.3"/>
+  <rect x="955.01" y="46" width="78.88" height="28" rx="4" fill="#5f7f67" opacity="0.3"/>
+  <rect x="24" y="84" width="36.65" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="66.87" y="84" width="62.01" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="138.52" y="84" width="14.49" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="159.25" y="84" width="20.26" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="191.42" y="84" width="55.12" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="253.77" y="84" width="76.74" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="335.89" y="84" width="62" height="28" rx="4" fill="#b98049"/>
+  <rect x="407.17" y="84" width="60.22" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="478.22" y="84" width="25.81" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="507.36" y="84" width="51.6" height="28" rx="4" fill="#5f7f67" opacity="0.16"/>
+  <rect x="569.43" y="84" width="48.58" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="621.48" y="84" width="18.49" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="646.17" y="84" width="69.34" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="719.74" y="84" width="57.68" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="781.2" y="84" width="47.46" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="835.39" y="84" width="45.6" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="890.64" y="84" width="64.19" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="963.58" y="84" width="19.4" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="993.91" y="84" width="27.04" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="24" y="122" width="51.79" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="86.95" y="122" width="22.42" height="28" rx="4" fill="#5f7f67" opacity="0.16"/>
+  <rect x="120.46" y="122" width="77.45" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="207.01" y="122" width="76.02" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="289.77" y="122" width="69.11" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="370.11" y="122" width="58.46" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="439.04" y="122" width="82.09" height="28" rx="4" fill="#5f7f67" opacity="0.16"/>
+  <rect x="529.12" y="122" width="66.54" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="605.71" y="122" width="75.77" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="690.97" y="122" width="46.68" height="28" rx="4" fill="#5f7f67" opacity="0.16"/>
+  <rect x="749.57" y="122" width="61.38" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <rect x="815.47" y="122" width="36.04" height="28" rx="4" fill="#5f7f67" opacity="0.16"/>
+  <rect x="854.71" y="122" width="16.46" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="877.67" y="122" width="30.3" height="28" rx="4" fill="#1a2e22" opacity="0.3"/>
+  <rect x="917.63" y="122" width="55.94" height="28" rx="4" fill="#5f7f67" opacity="0.16"/>
+  <rect x="980.13" y="122" width="38.09" height="28" rx="4" fill="#5f7f67" opacity="0.16"/>
+  <rect x="1024.98" y="122" width="19.95" height="28" rx="4" fill="#1a2e22" opacity="0.16"/>
+  <!-- lift the one call we care about -->
+  <rect x="329.89" y="78" width="74" height="40" rx="7" fill="none" stroke="#b98049" stroke-width="2.2"/>
+  <path d="M403.89 90 C560 90 640 176 780 184" fill="none" stroke="#b98049" stroke-width="2" stroke-dasharray="6 5"/>
+  <path d="M403.89 114 C560 144 640 268 780 260" fill="none" stroke="#b98049" stroke-width="2" stroke-dasharray="6 5"/>
+  <!-- the miniature: same op, isolated, with its real shapes -->
+  <rect x="780" y="176" width="264" height="92" rx="10" fill="#f4f0e8" stroke="#1a2e22" stroke-width="2.4"/>
+  <rect x="802" y="200" width="112" height="44" rx="6" fill="#b98049"/>
+  <path d="M820 222h76" stroke="#f4f0e8" stroke-width="2.5" stroke-linecap="round" opacity=".85"/>
+  <!-- shape brackets: B, H, S, D as bars -->
+  <g transform="translate(940 196)">
+    <rect x="0" y="0" width="18" height="52" rx="3" fill="#5f7f67"/>
+    <rect x="24" y="14" width="18" height="38" rx="3" fill="#5f7f67" opacity=".8"/>
+    <rect x="48" y="30" width="18" height="22" rx="3" fill="#5f7f67" opacity=".6"/>
+    <rect x="72" y="40" width="18" height="12" rx="3" fill="#5f7f67" opacity=".45"/>
+  </g>
+  <!-- dispatch tap: the hook under the ribbon that records the call's inputs -->
+  <g transform="translate(366.89 184)">
+    <path d="M0 -24V-11" stroke="#1a2e22" stroke-width="1.8"/>
+    <circle r="11" fill="#f4f0e8" stroke="#1a2e22" stroke-width="2"/>
+    <path d="M-4 0h8M0 -4v8" stroke="#1a2e22" stroke-width="2" stroke-linecap="round"/>
+    <path d="M-16 26h32M-16 38h22M-16 50h28" stroke="#1a2e22" stroke-width="2.4" stroke-linecap="round" opacity=".5"/>
+  </g>
+</svg>

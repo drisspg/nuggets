@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="286" viewBox="0 0 1080 286">
+  <!-- My Python Tools for PyTorch bencmarking — standalone lower banner for the 1200x630 social card. Palette: paper #f4f0e8, ink #1a2e22, sage #5f7f67, amber #b98049, red #aa413a. -->
+  <rect width="1080" height="286" fill="#f4f0e8"/>
+  <path d="M0 34H1080 M0 68H1080 M0 102H1080 M0 136H1080 M0 170H1080 M0 204H1080 M0 238H1080 M0 272H1080" stroke="#d0ccc4" stroke-width="1" opacity="0.35"/>
+  <!-- tool roll -->
+  <rect x="34" y="30" width="1012" height="226" rx="16" fill="#ebe6dc"/>
+  <rect x="44" y="40" width="992" height="206" rx="12" fill="none" stroke="#1a2e22" stroke-width="1.4" stroke-dasharray="3 6" opacity=".55"/>
+  <path d="M70 232v-14M80 232v-7M90 232v-7M100 232v-7M110 232v-7M120 232v-14M130 232v-7M140 232v-7M150 232v-7M160 232v-7M170 232v-14M180 232v-7M190 232v-7M200 232v-7M210 232v-7M220 232v-14M230 232v-7M240 232v-7M250 232v-7M260 232v-7M270 232v-14M280 232v-7M290 232v-7M300 232v-7M310 232v-7M320 232v-14M330 232v-7M340 232v-7M350 232v-7M360 232v-7M370 232v-14M380 232v-7M390 232v-7M400 232v-7M410 232v-7M420 232v-14M430 232v-7M440 232v-7M450 232v-7M460 232v-7M470 232v-14M480 232v-7M490 232v-7M500 232v-7M510 232v-7M520 232v-14M530 232v-7M540 232v-7M550 232v-7M560 232v-7M570 232v-14M580 232v-7M590 232v-7M600 232v-7M610 232v-7M620 232v-14M630 232v-7M640 232v-7M650 232v-7M660 232v-7M670 232v-14M680 232v-7M690 232v-7M700 232v-7M710 232v-7M720 232v-14M730 232v-7M740 232v-7M750 232v-7M760 232v-7M770 232v-14M780 232v-7M790 232v-7M800 232v-7M810 232v-7M820 232v-14M830 232v-7M840 232v-7M850 232v-7M860 232v-7M870 232v-14M880 232v-7M890 232v-7M900 232v-7M910 232v-7M920 232v-14M930 232v-7M940 232v-7M950 232v-7M960 232v-7M970 232v-14M980 232v-7M990 232v-7M1000 232v-7M1010 232v-7" stroke="#1a2e22" stroke-width="1.2"/>
+  <path d="M60 232H1020" stroke="#1a2e22" stroke-width="1.6"/>
+  <!-- calipers: measuring one kernel -->
+  <g transform="translate(78 82)">
+    <path d="M0 0H190" stroke="#1a2e22" stroke-width="10" stroke-linecap="round"/>
+    <path d="M12 6v84M12 90h24" stroke="#1a2e22" stroke-width="6" stroke-linecap="round"/>
+    <path d="M118 6v84M118 90h24" stroke="#1a2e22" stroke-width="6" stroke-linecap="round"/>
+    <rect x="104" y="-16" width="40" height="32" rx="5" fill="#b98049"/>
+    <path d="M20 4v-8M30 4v-4M40 4v-4M50 4v-4M60 4v-8M70 4v-4M80 4v-4M90 4v-4M100 4v-8M110 4v-4M120 4v-4M130 4v-4M140 4v-8M150 4v-4M160 4v-4M170 4v-4M180 4v-8" stroke="#f4f0e8" stroke-width="1.4" opacity=".9"/>
+    <!-- the measured object -->
+    <rect x="44" y="40" width="46" height="46" rx="6" fill="#5f7f67"/>
+    <path d="M56 63h22M67 52v22" stroke="#f4f0e8" stroke-width="2.2" stroke-linecap="round"/>
+  </g>
+  <!-- dial gauge: p05 / p50 / p95 -->
+  <path d="M322 178 A78 78 0 0 1 478 178" fill="none" stroke="#1a2e22" stroke-width="5" stroke-linecap="round"/>
+  <path d="M328 178L342 178M328.89 166.74L334.81 167.68M331.52 155.75L337.23 157.6M335.85 145.31L341.19 148.04M341.75 135.68L346.6 139.21M349.09 127.09L358.99 136.99M357.68 119.75L361.21 124.6M367.31 113.85L370.04 119.19M377.75 109.52L379.6 115.23M388.74 106.89L389.68 112.81M400 106L400 120M411.26 106.89L410.32 112.81M422.25 109.52L420.4 115.23M432.69 113.85L429.96 119.19M442.32 119.75L438.79 124.6M450.91 127.09L441.01 136.99M458.25 135.68L453.4 139.21M464.15 145.31L458.81 148.04M468.48 155.75L462.77 157.6M471.11 166.74L465.19 167.68M472 178L458 178" stroke="#1a2e22" stroke-width="1.6"/>
+  <path d="M358.09 101.76 A87 87 0 0 1 441.91 101.76" fill="none" stroke="#5f7f67" stroke-width="7" stroke-linecap="round"/>
+  <path d="M400 178L403.64 120.11" stroke="#b98049" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="400" cy="178" r="8" fill="#b98049"/>
+  <circle cx="400" cy="178" r="3" fill="#f4f0e8"/>
+  <path d="M370 182h60" stroke="#1a2e22" stroke-width="3" stroke-linecap="round"/>
+  <!-- bootstrap median and its CI -->
+  <path d="M570 189.39 L575 188.78 L580 187.67 L585 185.78 L590 182.74 L595 178.15 L600 171.62 L605 162.92 L610 152.11 L615 139.67 L620 126.49 L625 113.91 L630 103.42 L635 96.45 L640 94 L645 96.45 L650 103.42 L655 113.91 L660 126.49 L665 139.67 L670 152.11 L675 162.92 L680 171.62 L685 178.15 L690 182.74 L695 185.78 L700 187.67 L705 188.78 L710 189.39" fill="none" stroke="#1a2e22" stroke-width="2.4" stroke-linejoin="round"/>
+  <path d="M570 190H710" stroke="#1a2e22" stroke-width="1.4"/>
+  <path d="M640 190V94" stroke="#b98049" stroke-width="3" stroke-linecap="round"/>
+  <path d="M618 206v10h44v-10" fill="none" stroke="#5f7f67" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- CUDA graph: captured once, replayed -->
+  <g transform="translate(790 76)">
+    <path d="M0 40 C0 -10 110 -10 110 40 C110 90 0 90 0 40Z" fill="none" stroke="#5f7f67" stroke-width="5"/>
+    <circle cx="0" cy="40" r="10" fill="#f4f0e8" stroke="#1a2e22" stroke-width="3"/>
+    <circle cx="55" cy="3" r="10" fill="#f4f0e8" stroke="#1a2e22" stroke-width="3"/>
+    <circle cx="110" cy="40" r="10" fill="#f4f0e8" stroke="#1a2e22" stroke-width="3"/>
+    <circle cx="55" cy="77" r="10" fill="#b98049"/>
+  </g>
+  <!-- clock lock -->
+  <g transform="translate(958 96)">
+    <path d="M-20 34 V14 A20 20 0 0 1 20 14 V34" fill="none" stroke="#5f7f67" stroke-width="7" stroke-linecap="round"/>
+    <rect x="-34" y="34" width="68" height="56" rx="9" fill="#1a2e22"/>
+    <circle cx="0" cy="58" r="8" fill="#f4f0e8"/>
+    <path d="M0 58v16" stroke="#f4f0e8" stroke-width="5" stroke-linecap="round"/>
+  </g>
+</svg>

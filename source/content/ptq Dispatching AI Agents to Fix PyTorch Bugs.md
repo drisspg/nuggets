@@ -1,5 +1,8 @@
 ---
 title: "ptq: Dispatching AI Agents to Fix PyTorch Bugs"
+description: "ptq dispatches Claude, Codex, or Cursor agents to remote GPU boxes to fix PyTorch issues in parallel, plus a reflection on DFS versus BFS agent work."
+socialImage: media/social/ptq-dispatch.png
+socialImageAlt: "The article's ptq conveyor: issue cards move through queue, clone, run, review, and ship."
 date: 2026-03-12
 tags:
   - ai

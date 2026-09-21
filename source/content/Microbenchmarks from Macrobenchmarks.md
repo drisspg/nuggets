@@ -1,5 +1,8 @@
 ---
 title: Microbenchmarks from Macrobenchmarks
+description: "Using a __torch_dispatch__ logging mode to harvest real operator input shapes from TorchBench so SDPA microbenchmarks track what models actually run."
+socialImage: media/social/micro-from-macro-trace.png
+socialImageAlt: "A focused operator microbenchmark is extracted from a larger model execution trace."
 date: 2024-08-11
 tags:
   - tool-tips

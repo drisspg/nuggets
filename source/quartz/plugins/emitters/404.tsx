@@ -8,6 +8,7 @@ import { sharedPageComponents } from "../../../quartz.layout"
 import { NotFound } from "../../components"
 import { defaultProcessedContent } from "../vfile"
 import { write } from "./helpers"
+import { writeSocialImage } from "./socialImages"
 import { i18n } from "../../i18n"
 import DepGraph from "../../depgraph"
 
@@ -56,6 +57,7 @@ export const NotFoundPage: QuartzEmitterPlugin = () => {
       }
 
       return [
+        await writeSocialImage(ctx, cfg, vfile.data),
         await write({
           ctx,
           content: renderPage(cfg, slug, componentData, opts, externalResources),

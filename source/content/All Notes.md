@@ -1,5 +1,6 @@
 ---
 title: All Notes
+description: "Every published nugget by topic and date: PyTorch internals, GPU kernels, attention, benchmarking tricks, AI agent workflows, and one pizza recipe."
 cssclasses:
   - all-notes
 ---

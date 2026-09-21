@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="286" viewBox="0 0 1080 286">
+  <!-- Utilizing the nightlies for bisect — standalone lower banner for the 1200x630 social card. Palette: paper #f4f0e8, ink #1a2e22, sage #5f7f67, amber #b98049, red #aa413a. -->
+  <rect width="1080" height="286" fill="#f4f0e8"/>
+  <path d="M0 34H1080 M0 68H1080 M0 102H1080 M0 136H1080 M0 170H1080 M0 204H1080 M0 238H1080 M0 272H1080" stroke="#d0ccc4" stroke-width="1" opacity="0.35"/>
+  <!-- what we know after the search -->
+  <rect x="56" y="166" width="289.52" height="60" rx="8" fill="#aa413a" opacity=".08"/>
+  <rect x="345.52" y="166" width="678.48" height="60" rx="8" fill="#5f7f67" opacity=".12"/>
+  <path d="M50 196H1030" stroke="#1a2e22" stroke-width="2"/>
+  <circle cx="70" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="74.5" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="102.41" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="106.91" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="134.83" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="139.33" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="167.24" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="171.74" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="199.66" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="204.16" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="232.07" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="236.57" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="264.48" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="268.98" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="296.9" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="301.4" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="329.31" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="333.81" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="361.72" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="366.22" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="394.14" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="398.64" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="426.55" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="431.05" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="458.97" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="463.47" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="491.38" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="495.88" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="523.79" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="528.29" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="556.21" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="560.71" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="588.62" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="593.12" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="621.03" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="625.53" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="653.45" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="657.95" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="685.86" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="690.36" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="718.28" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="722.78" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="750.69" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="755.19" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="783.1" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="787.6" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="815.52" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="820.02" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="847.93" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="852.43" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="880.34" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="884.84" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="912.76" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="917.26" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="945.17" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="949.67" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="977.59" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="982.09" cy="192.5" r="7" fill="#f4f0e8"/>
+  <circle cx="1010" cy="196" r="8" fill="#1a2e22" opacity=".9"/><circle cx="1014.5" cy="192.5" r="7" fill="#f4f0e8"/>
+  <path d="M556.21 184 Q426.55 36 296.9 184" fill="none" stroke="#1a2e22" stroke-width="1.8" stroke-dasharray="6 5" opacity="0.35"/>
+  <path d="M296.9 184 Q361.72 100 426.55 184" fill="none" stroke="#1a2e22" stroke-width="1.8" stroke-dasharray="6 5" opacity="0.5"/>
+  <path d="M426.55 184 Q394.14 138.4 361.72 184" fill="none" stroke="#1a2e22" stroke-width="1.8" stroke-dasharray="6 5" opacity="0.6499999999999999"/>
+  <path d="M361.72 184 Q345.52 161.44 329.31 184" fill="none" stroke="#1a2e22" stroke-width="1.8" stroke-dasharray="none" opacity="0.7999999999999999"/>
+  <!-- start of the search -->
+  <path d="M556.21 130V166" stroke="#1a2e22" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M550.21 156l6 8 6-8" fill="none" stroke="#1a2e22" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="556.21" cy="196" r="15" fill="#f4f0e8"/><circle cx="556.21" cy="196" r="11" fill="#5f7f67"/><path d="M551.21 196l4 4 7-8" fill="none" stroke="#f4f0e8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="296.9" cy="196" r="15" fill="#f4f0e8"/><circle cx="296.9" cy="196" r="11" fill="#aa413a"/><path d="M292.4 191.5l9 9M301.4 191.5l-9 9" stroke="#f4f0e8" stroke-width="2.6" stroke-linecap="round"/>
+  <circle cx="426.55" cy="196" r="15" fill="#f4f0e8"/><circle cx="426.55" cy="196" r="11" fill="#5f7f67"/><path d="M421.55 196l4 4 7-8" fill="none" stroke="#f4f0e8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="361.72" cy="196" r="15" fill="#f4f0e8"/><circle cx="361.72" cy="196" r="11" fill="#5f7f67"/><path d="M356.72 196l4 4 7-8" fill="none" stroke="#f4f0e8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="329.31" cy="196" r="15" fill="#f4f0e8"/><circle cx="329.31" cy="196" r="11" fill="#aa413a"/><path d="M324.81 191.5l9 9M333.81 191.5l-9 9" stroke="#f4f0e8" stroke-width="2.6" stroke-linecap="round"/>
+  <!-- the bracketed pair: last bad, first good -->
+  <path d="M313.31 240v-14M313.31 240H377.72v-14" fill="none" stroke="#b98049" stroke-width="3" stroke-linecap="round"/>
+  <path d="M345.52 240v18" stroke="#b98049" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="345.52" cy="262" r="5" fill="#b98049"/>
+</svg>

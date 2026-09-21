@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="286" viewBox="0 0 1080 286">
+  <!-- 2 attentions is all you need — standalone lower banner for the 1200x630 social card. Palette: paper #f4f0e8, ink #1a2e22, sage #5f7f67, amber #b98049, red #aa413a. -->
+  <rect width="1080" height="286" fill="#f4f0e8"/>
+  <path d="M0 34H1080 M0 68H1080 M0 102H1080 M0 136H1080 M0 170H1080 M0 204H1080 M0 238H1080 M0 272H1080" stroke="#d0ccc4" stroke-width="1" opacity="0.35"/>
+  <defs>
+    <mask id="maskRibbon">
+      <path d="M330 143 C440 143 470 210 590 210 H1120" fill="none" stroke="white" stroke-width="64" stroke-linecap="butt"/>
+      <rect x="604" y="212" width="18" height="16" rx="4" fill="black"/>
+      <rect x="652" y="186" width="18" height="16" rx="4" fill="black"/>
+      <rect x="676" y="212" width="18" height="16" rx="4" fill="black"/>
+      <rect x="700" y="186" width="18" height="16" rx="4" fill="black"/>
+      <rect x="724" y="186" width="18" height="16" rx="4" fill="black"/>
+      <rect x="724" y="212" width="18" height="16" rx="4" fill="black"/>
+      <rect x="796" y="212" width="18" height="16" rx="4" fill="black"/>
+      <rect x="820" y="186" width="18" height="16" rx="4" fill="black"/>
+      <rect x="844" y="212" width="18" height="16" rx="4" fill="black"/>
+      <rect x="868" y="186" width="18" height="16" rx="4" fill="black"/>
+      <rect x="916" y="212" width="18" height="16" rx="4" fill="black"/>
+      <rect x="940" y="186" width="18" height="16" rx="4" fill="black"/>
+      <rect x="964" y="186" width="18" height="16" rx="4" fill="black"/>
+      <rect x="964" y="212" width="18" height="16" rx="4" fill="black"/>
+      <rect x="640" y="178" width="90" height="7" rx="3.5" fill="black"/>
+      <rect x="860" y="235" width="110" height="7" rx="3.5" fill="black"/>
+    </mask>
+    <mask id="upperMask"><path d="M330 143 C440 143 470 76 590 76 H1120" fill="none" stroke="white" stroke-width="60"/></mask>
+  </defs>
+  <!-- shared Q/K/V trunk -->
+  <path d="M-40 143 H330" fill="none" stroke="#1a2e22" stroke-width="76"/>
+  <g>
+    <path d="M-40 123 H310" stroke="#f4f0e8" stroke-width="1.6" opacity=".5"/>
+    <path d="M-40 143 H310" stroke="#f4f0e8" stroke-width="1.6" opacity=".5"/>
+    <path d="M-40 163 H310" stroke="#f4f0e8" stroke-width="1.6" opacity=".5"/>
+  </g>
+  <!-- dense SDPA ribbon: fully populated -->
+  <path d="M330 143 C440 143 470 76 590 76 H1120" fill="none" stroke="#5f7f67" stroke-width="64"/>
+  <g mask="url(#upperMask)">
+    <path d="M330 143 C440 143 470 76 590 76 H1120" transform="translate(0 -22)" fill="none" stroke="#f4f0e8" stroke-width="1.4" opacity=".55"/>
+    <path d="M330 143 C440 143 470 76 590 76 H1120" transform="translate(0 -11)" fill="none" stroke="#f4f0e8" stroke-width="1.4" opacity=".55"/>
+    <path d="M330 143 C440 143 470 76 590 76 H1120" transform="translate(0 0)" fill="none" stroke="#f4f0e8" stroke-width="1.4" opacity=".55"/>
+    <path d="M330 143 C440 143 470 76 590 76 H1120" transform="translate(0 11)" fill="none" stroke="#f4f0e8" stroke-width="1.4" opacity=".55"/>
+    <path d="M330 143 C440 143 470 76 590 76 H1120" transform="translate(0 22)" fill="none" stroke="#f4f0e8" stroke-width="1.4" opacity=".55"/>
+  </g>
+  <!-- flexible ribbon: same flow, perforated by a block mask -->
+  <rect width="1080" height="286" fill="#b98049" mask="url(#maskRibbon)"/>
+  <path d="M330 143 C440 143 470 210 590 210 H1120" fill="none" stroke="#b98049" stroke-width="64" opacity=".18"/>
+  <!-- fork node -->
+  <circle cx="330" cy="143" r="30" fill="#f4f0e8"/>
+  <circle cx="330" cy="143" r="22" fill="#1a2e22"/>
+  <path d="M319 143h22M330 132v22" stroke="#f4f0e8" stroke-width="3" stroke-linecap="round"/>
+  <!-- endpoint glyphs: solid dot vs. masked dot -->
+  <circle cx="1024" cy="76" r="17" fill="#f4f0e8"/>
+  <circle cx="1024" cy="76" r="11" fill="#1a2e22"/>
+  <circle cx="1024" cy="210" r="17" fill="#f4f0e8"/>
+  <circle cx="1024" cy="210" r="11" fill="none" stroke="#1a2e22" stroke-width="3" stroke-dasharray="6 5"/>
+</svg>

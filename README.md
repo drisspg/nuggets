@@ -63,6 +63,17 @@ Only embed trusted HTML: these same-origin frames run JavaScript with access to 
 
 Implementation: `source/quartz/plugins/transformers/docEmbeds.ts`, `source/quartz/components/scripts/docEmbeds.inline.ts`, and `source/quartz/static/widgets/perfetto-trace/`. Embed styles are imported by `source/quartz/styles/custom.scss`.
 
+## Social link previews
+
+Every published page gets a 1200×630 PNG during the normal Quartz build, including the homepage, posts, and tag/folder pages. Cards use the Nuggets mark, a light editorial palette, and the page title above a full-width, post-specific banner. Existing article decals/diagrams are captured where available; other posts have bespoke illustrations. Collection pages and posts without a cover use a branded fallback. The HTML advertises an X/Twitter large-image card and Open Graph title, description, image, dimensions, alt text, and canonical URL. These tags are server-rendered; crawlers don't need JavaScript.
+
+- Set a short, plain-text `description:` in a note's frontmatter to control its preview copy. Without one, cards use `dek`, then Quartz's automatic excerpt. The note body and visible title are not rewritten.
+- Set `socialImage: media/social/example.png` and `socialImageAlt:` in frontmatter to select the banner. Paths are relative to the content root, even on nested notes; PNG, JPEG, and WebP are supported. Covers stay local and symlinks cannot escape the content root. See `source/visuals/social/` for artwork sources and capture/render recipes.
+- Run `cd source && npm run build` to regenerate. Generated cards live under `source/public/static/social/` and are not committed; selected banner assets under `source/content/media/social/` are committed. The card filename changes with preview copy or cover-image bytes, avoiding stale image URLs; X may still cache the page's metadata.
+- The design lives in `source/quartz/plugins/emitters/socialImages.tsx`; metadata and the design-version cache key live in `source/quartz/util/social.ts`. Increment the version when changing the image design. `source/quartz/static/og-image.png` is the branded legacy fallback for older shared links, not the image used by new page cards.
+- Satori and resvg render the images at build time. IBM Plex Sans regular/semibold fonts are bundled in `source/quartz/fonts/` with their SIL OFL license, from the [IBM Plex repository](https://github.com/IBM/plex/tree/master/packages/plex-sans/fonts/complete/ttf). Image generation needs no font downloads or system fonts in CI.
+- Run `cd source && npm run test:social` for metadata, URL, and PNG-generation checks. Before sharing, inspect the actual composer preview: platform caching/cropping can differ from the source image, and previews aren't guaranteed on every surface.
+
 ## Deploy
 - Push to `main` to trigger the GitHub Actions build.
 - Published site: https://drisspg.github.io/nuggets/

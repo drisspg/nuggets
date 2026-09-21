@@ -1,5 +1,8 @@
 ---
 title: Adding kernels to PyTorch core is the least leveraged thing
+description: "A hot take that adding kernels to PyTorch core is the least leveraged thing we can do, plus a 2026 addendum on DeepSeek, scale, and abstractions."
+socialImage: media/social/least-leveraged-lever.png
+socialImageAlt: "A lever and fulcrum connecting a small implementation effort to a larger stack of abstractions."
 date: 2026-04-26
 tags:
   - pytorch
