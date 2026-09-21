@@ -27,7 +27,7 @@ If you want to try the pieces together, here's a [full end-to-end KDA/GDN traini
 
 "But Driss why would I not just use FLA" That is a great question insightful reader! My honest answer: we pytorch developers are humans. We need a place to explore ideas, find common abstractions, figure out what works and what doesn't. Attention gym is that place for me and others. Long term I would love to develop something as extensible as `Flex Linear Attention` but right now - I don't see it. As well, AI has kind of thrown a <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-abstraction-note">wrench into this generalization thing we like doing</span>.<span id="kda-abstraction-note" class="sidenote" role="note">I have not given up! And as Dijkstra says: “The purpose of abstracting is not to be vague, but to create a new semantic level in which one can be absolutely precise.”</span></span> If you want to have some influence on where we invest our time; use the repo, open issues and give us feedback. We are dogfooding in torchtitan but would love to hear from other voices.
 
-Another more `polished` answer is that the components we are offering are more specialized to the latest hardware and this allows us to eek <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-performance-note">non trivial out performance</span>.<span id="kda-performance-note" class="sidenote" role="note">These performance gains can be very large, but numbers are numbers, and I don't want to include comparisons in this particular blog post.</span></span> We have fully integrated CuDNN's uber mega kernels, a robust CP implementation, paid special attention to making everything cuda-graphable. But if you are using FLA and it works for you and don't want to switch I get it. Its an awesome project and I personally have learned so much from it :)
+Another more `polished` answer is that the components we are offering are more specialized to the latest hardware and this allows us to eke out <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-performance-note">non trivial out performance</span>.<span id="kda-performance-note" class="sidenote" role="note">These performance gains can be very large, but numbers are numbers, and I don't want to include comparisons in this particular blog post.</span></span> We have fully integrated CuDNN's uber mega kernels, a robust CP implementation, paid special attention to making everything cuda-graphable. But if you are using FLA and it works for you and don't want to switch I get it. It's an awesome project and I personally have learned so much from it :)
 
 #### Pitch done - TLDR
 
@@ -35,14 +35,14 @@ Another more `polished` answer is that the components we are offering are more s
 
 ### What is causality anyways
 
-I think this phrase is is a little to anthropomorphized. A better one is; training inference mismatch. Thats it. We call it causality because this particular form of mismatch is when you let a token at position $N$ receive information from token $M$, for some $M > N$. And in essence $N$ can see the future. This unsurprisingly really helps with the task of next token prediction. What are some ways this might happen;
-1. you forget to invoke `F.scaled_dot_product_attention(... causal=True)`. That is an obvious one. There are some other more subtle forms; 
+I think this phrase is a little too anthropomorphized. A better one is; training inference mismatch. That's it. We call it causality because this particular form of mismatch is when you let a token at position $N$ receive information from token $M$, for some $M > N$. And in essence $N$ can see the future. This unsurprisingly really helps with the task of next token prediction. What are some ways this might happen;
+1. you forget to invoke `F.scaled_dot_product_attention(..., is_causal=True)`. That is an obvious one. There are some other more subtle forms; 
 2. Expert choice routing
 3. Blockwise scaling of inputs during training
 
 etc etc
 
-This can be subtle, because during training there isnt anything actually `wrong` with this. Either you have a massive information leak and you will see your loss decrease very very rapidly; or it will be a slow trickle. You might even think `damn i really did something with this datamix!`. Dont be fooled, the problems only show up when you try to serve this model using auto-regressive token generation. The model learned that it's only going to see batches of tokens and that this information from token $M$ will always be there to influence what it should predict at token $N$. That's what it learned during training, but at inference, token $M$ doesn't exist yet. We're building up the sequence one token at a time, and the result is you've trained this cracked model, but at inference time, it's going to underperform relative to what you saw during training!
+This can be subtle, because during training there isn't anything actually `wrong` with this. Either you have a massive information leak and you will see your loss decrease very very rapidly; or it will be a slow trickle. You might even think `damn i really did something with this datamix!`. Don't be fooled, the problems only show up when you try to serve this model using auto-regressive token generation. The model learned that it's only going to see batches of tokens and that this information from token $M$ will always be there to influence what it should predict at token $N$. That's what it learned during training, but at inference, token $M$ doesn't exist yet. We're building up the sequence one token at a time, and the result is you've trained this cracked model, but at inference time, it's going to underperform relative to what you saw during training!
 
 <figure class="kda-figure kda-token-modes" aria-label="Possible prediction mismatch between parallel training and autoregressive inference">
 <div class="kda-token-mode">
@@ -97,7 +97,7 @@ MatX's [“Future leakage in block-quantized attention”](https://matx.com/rese
 
 MX quantization shares one scale across 32 elements along the reduction dimension. In attention's second GEMM, $PV$, we multiply $(N_q \times N_{kv})$ by $(N_{kv} \times D_v)$. So the reduction runs across **token positions**.
 
-In the picture, rows are queries and columns are values. Green blocks are entirely in the past -> all query indices > all  kv indices; gray blocks are fully masked. The **red diagonal blocks** have mixed sign. If we naively quantized there would be a path for info to flow form kv_index > q_index.
+In the picture, rows are queries and columns are values. Green blocks are entirely in the past -> all query indices > all  kv indices; gray blocks are fully masked. The **red diagonal blocks** have mixed sign. If we naively quantized there would be a path for info to flow from kv_index > q_index.
 
 We shall see this future leakage ends up looking very similar to our KDA example but not through low precision quantization but a rescale factor.
 
@@ -105,7 +105,7 @@ MatX describes a really nice experimental process for finding this leak: train a
 
 ## Chunkwise KDA in Broad Strokes
 
-KDA is a delta-rule linear attention variant. Like many other linear attention variants it stores info in a recurrent state that is calculated earlier tokens:
+KDA is a delta-rule linear attention variant. Like many other linear attention variants it stores info in a recurrent state that is calculated from earlier tokens:
 
 <div id="kda-base-recurrence">
 
@@ -139,13 +139,13 @@ This recurrent form is great when we are decoding 1 token at a time but for trai
 
 The chunked implementation reorganizes that recurrence into local matrix operations plus a state update across chunks, this shortens our sequential depth at the cost of explicitly computing pairwise terms within each chunk. 
 
-The math is really fun but im hesitant to dive super deep here cause it can be distracting. SO stick with me and let's follow one of those pairwise terms: how query $i$ reads the correction written at token $j$; which comes from `step 5` in this recurrence.
+The math is really fun but I'm hesitant to dive super deep here cause it can be distracting. SO stick with me and let's follow one of those pairwise terms: how query $i$ reads the correction written at token $j$; which comes from `step 5` in this recurrence.
 
 ## Chunkwise Aqk
 
 We will store these scalar weights in a matrix $A_{qk}[i,j].$ How do we calculate this? Well that depends on how the query and key line up (dot prod), and how much each channel has decayed between the two tokens.
 
-From here on, $G_{i,d}=\sum_{t=0}^{i}\delta_{t,d}$ is the <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-gate-units-note">cumulative log-base-2 gate</span> at token $i$, <span class="sidenote-ref" tabindex="0" aria-describedby="kda-channel-gate-note">channel $d$</span>, measured within the chunk.<span class="sidenote" role="note"><span id="kda-gate-units-note">Attention Gym's KDA API uses natural-log gates. The lower bound is currently capped at $-5,$ that means means the strongest decay =  $e^{-5}\approx0.006738$: or in other words only about 0.67% of the previous state is retained before the other update terms.</span><br><br><span id="kda-channel-gate-note">Notice that extra $d$ index. GDN uses one decay per token per head; KDA gives every key channel its own. Seems like a small change, but as we'll see it makes a big difference to how we implement the chunkwise kernel.</span></span></span> The increments $\delta_{t,d}$ are the per-token log2 gates called $g$ in the recurrence above.
+From here on, $G_{i,d}=\sum_{t=0}^{i}\delta_{t,d}$ is the <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-gate-units-note">cumulative log-base-2 gate</span> at token $i$, <span class="sidenote-ref" tabindex="0" aria-describedby="kda-channel-gate-note">channel $d$</span>, measured within the chunk.<span class="sidenote" role="note"><span id="kda-gate-units-note">Attention Gym's KDA API uses natural-log gates. The lower bound is currently capped at $-5,$ that means the strongest decay =  $e^{-5}\approx0.006738$: or in other words only about 0.67% of the previous state is retained before the other update terms.</span><br><br><span id="kda-channel-gate-note">Notice that extra $d$ index. GDN uses one decay per token per head; KDA gives every key channel its own. Seems like a small change, but as we'll see it makes a big difference to how we implement the chunkwise kernel.</span></span></span> The increments $\delta_{t,d}$ are the per-token log2 gates called $g$ in the recurrence above.
 
 Suppose $j<i$. Token $j$ writes a correction into the state. By the time query $i$ reads it, that correction has been decayed at every step from $j+1$ through $i$. We start at $j+1$ because each token decays the existing state *before* adding its own correction.
 
@@ -230,7 +230,7 @@ $$
 We then re-associate these terms -> the first factor on the query and the second on the key, and we have a GEMM!
 
 
-The catch is that the split factors can be <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-decay-range-note">tiny and huge even although their product is well behaved</span><span id="kda-decay-range-note" class="sidenote" role="note">Unsplit, $2^{G_{i,d}-G_{j,d}}$ measures decay only from $j+1$ to $i$. Split, $2^{G_{i,d}}\cdot2^{-G_{j,d}}$ uses two cumulative gates measured from the start of this chunk.</span></span>.
+The catch is that the split factors can be <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-decay-range-note">tiny and huge even though their product is well behaved</span><span id="kda-decay-range-note" class="sidenote" role="note">Unsplit, $2^{G_{i,d}-G_{j,d}}$ measures decay only from $j+1$ to $i$. Split, $2^{G_{i,d}}\cdot2^{-G_{j,d}}$ uses two cumulative gates measured from the start of this chunk.</span></span>.
 
 After splitting, we choose a reference gate $r_d$, shared across the block for each channel, to tame those extremes without changing the product:
 
@@ -248,7 +248,7 @@ $$
 
 With that reference fixed, the left operand uses only $(i,d)$ and the right only $(j,d)$. Multiply $\widetilde Q\widetilde K^T$, then mask future entries. And like magic we can finally use these tensorcores!
 
-## Whats the catch?
+## What's the catch?
 
 While we tend to use a chunk size of 64 for the state updates, splitting the decay this way has broader ramifications. **How far can we get from our reference before the growing factor overflows?**
 
@@ -264,7 +264,7 @@ $$
 {"src":"media/kda/rebase-range.json","title":"What if every gate is at −5","height":280}
 ```
 
-An $N$-token window spans $N-1$ steps. After just **18 steps**, the growing factor reaches about $2^{129.8}$, beyond the largest finite FP32 or BF16 value! Quite the pickle aint it.
+An $N$-token window spans $N-1$ steps. After just **18 steps**, the growing factor reaches about $2^{129.8}$, beyond the largest finite FP32 or BF16 value! Quite the pickle ain't it.
 
 We need to avoid 0(underflow) * `inf`(overflow) = `nan`.  we pick the largest <span class="sidenote-pair"><span class="sidenote-ref" tabindex="0" aria-describedby="kda-multiple-eight-note">multiple of 8</span> that fits: **16 key columns**.<span id="kda-multiple-eight-note" class="sidenote" role="note">Why 8, you ask? As we'll see in the hardware section, we need a width that fits the $N$ dimension of our <code>tcgen05.mma</code> instruction, which requires multiples of 8.</span></span>
 
@@ -311,7 +311,7 @@ G &= \mathrm{CE}_{\mathrm{autoregressive}} - \mathrm{CE}_{\mathrm{parallel}}, \\
 \end{aligned}
 $$
 
-If the midpoint model learned to exploit the future, autoregressive evaluation should hurt it more: positive $\Delta G$. We can also use the first-row model to gives us a baseline for numerical differences between evaluation modes without future leakage (hopefully there is ~0).
+If the midpoint model learned to exploit the future, autoregressive evaluation should hurt it more: positive $\Delta G$. We can also use the first-row model to give us a baseline for numerical differences between evaluation modes without future leakage (hopefully there is ~0).
 
 ```chart
 {"src":"media/kda/training-loss.json","title":"Training loss","height":300}
@@ -347,7 +347,7 @@ I also reran the smaller variants with seeds 11 and 23, alongside seed 42. This 
 
 ### What this all mean?
 
-At first, midpoint even looked slightly better?! But after rerunning across the different seeds we can see that the delta G flips across different runs and the standard error tends to cover a delta g == 0. 
+At first, midpoint even looked slightly better?! Across seeds, $\Delta G$ changes sign, and most of the one-standard-error intervals include zero.
 
 The larger model's final $\Delta G$ was **+0.0000088 nats/token**, with a paired standard error of **0.0000512 nats/token** -> essentially 0.
 
@@ -361,7 +361,7 @@ The larger model's final $\Delta G$ was **+0.0000088 nats/token**, with a paired
 
 Let's take a step back. Using the midpoint base doesn't seem to brick the model, but how much can the future change a weight?
 
-Let's isolate the BF16 casts, assuming everything else is exact and the rescaled operands stay normal and finite. Lets first take an arbitrary reference $r_d$. One channel's contribution, before final output rounding, is:
+Let's isolate the BF16 casts, assuming everything else is exact and the rescaled operands stay normal and finite. Let's first take an arbitrary reference $r_d$. One channel's contribution, before final output rounding, is:
 
 $$
 \begin{aligned}
@@ -381,7 +381,7 @@ $$
 
 The reciprocal factors have cancelled, but the rounding errors still depend on $r$. **Crucially same magnitude of error bound regardless of reference choice**. This bounds the product error by $(2u+u^2)|c_d|$, about **0.78% of that channel's magnitude**
 
-We can also compare max possible difference in channel contribution for 2 possible rebase references. In the worst case lets assume one error causes to casts up e.g. $(1+u)$ * $(1+u)$ = $(1+u)^2$ and the other causes two casts down $(1-u)$ * $(1-u)$ = $(1-u)^2$. If that were to happen then the max difference =
+We can also compare max possible difference in channel contribution for 2 possible rebase references. In the worst case let's assume one error causes two casts up e.g. $(1+u)$ * $(1+u)$ = $(1+u)^2$ and the other causes two casts down $(1-u)$ * $(1-u)$ = $(1-u)^2$. If that were to happen then the max difference =
 $$
 \big|\widehat c_d(r)-\widehat c_d(r')\big|
 \le4u|c_d|.
@@ -399,7 +399,7 @@ $$
 $$
 
 
-We can go even futher! Since we assume that the q and k input to chunk_kda are L2-normalized, as in [our KDA training example](https://github.com/meta-pytorch/attention-gym/blob/main/examples/linear/delta_rule_training.py#L440-L453):
+We can go even further! Since we assume that the q and k input to chunk_kda are L2-normalized, as in [our KDA training example](https://github.com/meta-pytorch/attention-gym/blob/main/examples/linear/delta_rule_training.py#L440-L453):
 
 $$
 \sum_d q_{i,d}^2=1,
@@ -407,7 +407,7 @@ $$
 \sum_d k_{j,d}^2=1.
 $$
 
-ausal decay is at most one, so it cannot increase the magnitude of a channel contribution:
+Causal decay is at most one, so it cannot increase the magnitude of a channel contribution:
 
 $$
 \begin{aligned}
@@ -417,7 +417,7 @@ $$
 \end{aligned}
 $$
 
-Then using the our tried and true friend, Cauchy–Schwarz:
+Then using our tried and true friend, Cauchy–Schwarz:
 $$
 \begin{aligned}
 \sum_d|q_{i,d}k_{j,d}|
@@ -426,7 +426,7 @@ $$
 \end{aligned}
 $$
 
-We can finally convert this relative error into absoulte terms by subbing into equation (2).
+We can finally convert this relative error into absolute terms by subbing into equation (2).
 
 $$
 |\Delta A|\le4u\cdot1=4\cdot2^{-8}=0.015625.
@@ -456,20 +456,20 @@ We now map this onto the specific tensor core op with <span class="sidenote-pair
 
 If however we were to use a midpoint reference we could use a 32 key window, our rescaled keys would not overflow, and the door is now open to use **$64\times32\times16$** instructions!
 
-Why does this matter well check out this hand [TCGEN throughput benchmark](https://github.com/drisspg/transformer_nuggets/blob/6cb0ca2687d259f699a6b4b98e252332305761f6/benchmarks/tcgen05_throughput.py) on B200, giving both shapes the same amount of work:
+Why does this matter well check out this handy [TCGEN throughput benchmark](https://github.com/drisspg/transformer_nuggets/blob/6cb0ca2687d259f699a6b4b98e252332305761f6/benchmarks/tcgen05_throughput.py) on B200, giving both shapes the same amount of work:
 
 | Instruction | MMA count | TFLOP/s ↑ |
 | --- | ---: | ---: |
 | $64\times16\times16$ | 128 | 388.8 |
 | $64\times32\times16$ | 64 | 745.2 |
 
-We get basically twice the throughpout using this wider instruction.
+We get basically twice the throughput using this wider instruction.
 
-N32 achieved **1.92× the arithmetic throughput**. Twice the work per instruction cost only about 4% more amortized issue time. That is why, in general, it is alwasy better to use wider tcgen instructions.
+N32 achieved **1.92× the arithmetic throughput**. Twice the work per instruction cost only about 4% more amortized issue time. That is why, in general, it is always better to use wider tcgen instructions.
 
 ### There is still more room to grow
 
-The intrepid reader will probably ontice that an $A^{qk}$ diagonal block keeps 136 of 256 entries at width 16, or 528 of 1024 at width 32. **Roughly half of each diagonal block is discarded**. This is only scratchign the surface of how deep this rabbit hole goes. Suffice it to say this is but 1 way to map KDA onto hardware and there be other more efficient ways.  As a sneak peak, we have fully integrated the [cuDNN implementation](https://github.com/meta-pytorch/attention-gym/blob/b2698381be3fe82d35888e4560c86267c333d186/attn_gym/linear/_delta_rule/cudnn/kernels/kda_prefill_f16.py) implementation which takes very different approach to this problem. And how it puts the pieces together deserves a much much deeper breakdown and many blog posts onto themselves.   
+The intrepid reader will probably notice that an $A^{qk}$ diagonal block keeps 136 of 256 entries at width 16, or 528 of 1024 at width 32. **Roughly half of each diagonal block is discarded**. This is only scratching the surface of how deep this rabbit hole goes. Suffice it to say this is but 1 way to map KDA onto hardware and there be other more efficient ways.  As a sneak peek, we have fully integrated the [cuDNN implementation](https://github.com/meta-pytorch/attention-gym/blob/b2698381be3fe82d35888e4560c86267c333d186/attn_gym/linear/_delta_rule/cudnn/kernels/kda_prefill_f16.py) implementation which takes very different approach to this problem. And how it puts the pieces together deserves a much much deeper breakdown and many blog posts onto themselves.   
 
 If you want to try it today though use:
 
@@ -488,9 +488,9 @@ out, _ = chunk_kda(
 )
 ```
 
-## Take aways
+## Takeaways
 
-While we didnt detect any learend explotation in these runs, out of an abundance of caution, I'm keeping the [causal first-row reference and 16-key windows](https://github.com/meta-pytorch/attention-gym/blob/b2698381be3fe82d35888e4560c86267c333d186/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd_intra_engine.py#L481-L531) as the default. I plan to make the 32-wide midpoint reference an option though.
+While we didn't detect any learned exploitation in these runs, out of an abundance of caution, I'm keeping the [causal first-row reference and 16-key windows](https://github.com/meta-pytorch/attention-gym/blob/b2698381be3fe82d35888e4560c86267c333d186/attn_gym/linear/kda/fwd/cute/chunk_kda_fwd_intra_engine.py#L481-L531) as the default. I plan to make the 32-wide midpoint reference an option though.
 
-Okay that was a long one with alot of math but I hope, like I, you learned something :)
+Okay that was a long one with a lot of math but I hope, like I, you learned something :)
 
