@@ -47,7 +47,25 @@ async function main() {
         "body{margin:0} main{padding:8px 20px;max-width:none} .hero,.queue-panel,.footer-note{display:none} .worker-panel{margin:0;padding:4px 0;border:0} .workers{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 24px} .worker{min-height:0;padding:3px;grid-template-columns:42px minmax(0,1fr) 55px} .lane{min-height:24px;padding:3px;gap:3px} .tile{width:20px;height:20px;font-size:10px} h2{margin:0 0 12px}",
     })
     await page.locator(".worker-panel").screenshot({ path: path.join(output, "clc-workers.png") })
-    console.log("Captured KDA, ptq, ULP, and CLC artwork from the original widgets.")
+    // Fast math: the explorer's sin heatmaps (CUDA default vs --use_fast_math), rows 2^-23..2^23.
+    await page.setViewportSize({ width: 1080, height: 900 })
+    await page.goto(pathToFileURL(path.join(content, "media/fast-math/fast-math-explorer.html")).href)
+    await page.waitForFunction(() => window.__fm)
+    await page.evaluate(() => {
+      window.__fm.setOp("sin")
+      window.__fm.setView(104, 150)
+      window.__fm.hideCursor()
+    })
+    await page.addStyleTag({
+      content:
+        "body{margin:0} main{padding:0;max-width:none} main>*:not(#fig){display:none!important} #fig{border:0;padding:0} #fig>*:not(.pair){display:none!important} .pair{gap:0} .side>*:not(canvas){display:none!important} canvas.heat{width:540px!important}",
+    })
+    const pair = await page.locator("#fig .pair").boundingBox()
+    await page.screenshot({
+      path: path.join(output, "fast-math-sin.png"),
+      clip: { x: 0, y: pair.y + (pair.height - 286) / 2, width: 1080, height: 286 },
+    })
+    console.log("Captured KDA, ptq, ULP, CLC, and fast-math artwork from the original widgets.")
   } finally {
     await browser.close()
   }

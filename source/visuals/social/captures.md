@@ -10,9 +10,10 @@ The final 1200×630 cards are assembled automatically by Quartz. This directory 
 | `ptq-dispatch.png` | `content/widgets/ptq-conveyor-board.html` | The actual dispatch canvas at `render(2400)`. |
 | `ulp-binades.png` | `content/widgets/ulp-binades.html` | The existing overview SVG, including its original dark palette. |
 | `clc-workers.png` | `content/widgets/clc-work-distribution.html` | Eight steps of the existing simulation; controls hidden and workers arranged in two columns for the banner. No work values changed. |
+| `fast-math-sin.png` | `content/media/fast-math/fast-math-explorer.html` | The actual `sin` heatmaps (CUDA default vs `--use_fast_math`), zoomed to rows 2^-23..2^23, controls and cursor hidden. |
 | `flex-determinism.png` | Two screenshots already in `content/media/`, dated 2025-10-17 at 11.34.06 AM and 12.11.58 PM | Cropped forward/backward result columns, with before/after labels. The SVG embeds the original pixels during rendering. |
 
-Regenerate the four widget captures with an **ephemeral** Playwright install exposed through `NODE_PATH`, from `source/`:
+Regenerate the five widget captures with an **ephemeral** Playwright install exposed through `NODE_PATH`, from `source/`:
 
 ```sh
 NODE_PATH=/path/to/temp-playwright/node_modules node visuals/social/capture.cjs
