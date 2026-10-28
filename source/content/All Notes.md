@@ -13,7 +13,7 @@ cssclasses:
 
 ### 2026
 
-- [[What Does Fast Math Actually Do|What Does Fast Math Actually Do?]] — October 27, 2026
+- [[What Does Fast Math Actually Do|A Visual Tour of Fast Math]] — October 27, 2026
 - [[KDA Future Token Leakage|KDA Doesn't Care About the Future]] — September 15, 2026
 - [[Pizza Recipe]] — July 11, 2026
 - [[A Tale of Two Schedulers]] — May 3, 2026

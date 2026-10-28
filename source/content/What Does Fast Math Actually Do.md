@@ -1,5 +1,5 @@
 ---
-title: What Does Fast Math Actually Do?
+title: A Visual Tour of Fast Math
 description: "Every float32 value through NVIDIA's fast-math instructions, with and without --use_fast_math."
 socialImage: media/social/fast-math-sin.png
 socialImageAlt: "A slice of the article's all-float32 error map for sin: the default CUDA build is almost uniformly correct while the fast-math build is red across nearly every binade."
