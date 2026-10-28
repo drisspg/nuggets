@@ -177,8 +177,8 @@
       </details>
     </div>
   </div>
-  <p class="caption">Rows: exponent, small at the bottom, large at the top (subnormal and inf/NaN rows enlarged for visibility). Columns: mantissa 1.0 → 2.0 (0 → 1 for subnormals).
-  Left half +x, right half −x. Hover or use arrow keys (Shift ×8); drag to zoom, double-click or Esc to reset.</p>
+  <p class="caption">Rows: exponent, low to high bottom to top; subnormal and inf/NaN rows enlarged for visibility. Columns: mantissa 1.0 → 2.0 (subnormals 0 → 1). Left: +x; right: −x.
+  Hover or use arrow keys (Shift ×8); drag to zoom; double-click or Esc to reset.</p>
 
   <h2>Error by magnitude</h2>
   <div class="figure">
@@ -216,7 +216,6 @@
 
   <div class="punch standalone"><b>Fast math is a bundle of instruction choices.</b> Each one trades accuracy differently; compare the instructions, not the flag.</div>
 
-  <div class="prov" id="prov"></div>
 </main>
 
 <script>
@@ -692,10 +691,6 @@
   const setTheme = (t) => { root.dataset.theme = t; themeBtn.textContent = t === "dark" ? "Light" : "Dark"; readColors(); legend(); render(false); };
   themeBtn.onclick = () => setTheme(root.dataset.theme === "dark" ? "light" : "dark");
 
-  document.getElementById("prov").innerHTML =
-    `All 2^32 inputs on ${meta.gpu}; PyTorch ${meta.torch}, CUDA ${meta.cuda}, nvcc ${meta.nvcc} (<code>-O3</code> ± <code>--use_fast_math</code>). ` +
-    `Reference: float64 evaluation rounded to float32 (near-correctly rounded, not a proven oracle). Comparisons are numeric: ±0 count as equal, NaN mismatches are counted separately. ` +
-    `Cell values are quantized; totals are exact.`;
 
   document.getElementById("nvccv").textContent = meta.nvcc;
   // ---- standalone vs embedded (Nuggets iframe: follow the site theme, pass wheel to the page, fit height)

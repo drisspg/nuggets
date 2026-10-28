@@ -15,8 +15,4 @@ tags:
 
 Fast math is a weird term. There are only 2³² float32s, so I just ran all of them.
 
-Rows are exponents, columns are mantissa, color is the worst error in each cell vs the correctly rounded answer. No fill means exact. Drag to zoom.
-
 <iframe class="doc-widget widget-frame" src="./media/fast-math/fast-math-explorer.html" title="Error maps over all float32 inputs for a chosen function, comparing two implementations against a correctly rounded reference, with source and PTX for each." loading="lazy" style="height: 2600px;"></iframe>
-
-Try: **sin**, **exp**, and **relu** with **Zoom to subnormals**.
