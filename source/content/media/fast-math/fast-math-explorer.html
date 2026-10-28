@@ -101,6 +101,13 @@
   pre.ptxview .pr { color: var(--muted); }
   pre.ptxview .pi { color: var(--green); }
   pre.ptxview .pc, pre.ptxview .pl { color: var(--muted); }
+  #rick { position: fixed; inset: 0; background: color-mix(in srgb, var(--paper) 30%, transparent); backdrop-filter: blur(2px); display: grid; place-items: center; z-index: 50; }
+  #rick[hidden] { display: none; }
+  .embedded #rick { align-items: start; padding-top: 120px; }  /* the frame is page-height; keep the card near the controls */
+  .rickcard { background: var(--panel); border: 1px solid var(--amber); border-radius: 3px; padding: 10px; width: min(720px, 92vw); }
+  .rickhead { display: flex; justify-content: space-between; align-items: center; font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--amber); margin-bottom: 8px; }
+  .rickframe { aspect-ratio: 16 / 9; }
+  .rickframe iframe { width: 100%; height: 100%; border: 0; }
   .refchip { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; border: 1px solid var(--amber); border-radius: 3px; padding: 4px 10px; color: var(--ink); }
   .refchip b { color: var(--amber); font-weight: 600; }
   .muted { color: var(--muted); } .small { font-size: 12.5px; }
@@ -215,6 +222,12 @@
   <div class="punch standalone"><b>Fast math is a bundle of instruction choices.</b> Each one trades accuracy differently; compare the instructions, not the flag.</div>
 
 </main>
+<div id="rick" hidden role="dialog" aria-label="You have been rick rolled">
+  <div class="rickcard">
+    <div class="rickhead"><span>rick(x) = never gonna give you up · 0 ULP</span><button class="tool rickclose">Close (Esc)</button></div>
+    <div class="rickframe"></div>
+  </div>
+</div>
 
 <script>
 (async () => {
@@ -584,8 +597,26 @@
       parent.appendChild(b);
     }
   }
+  // Gag: the "rick" op opens an autoplaying video. The click is the user gesture that allows autoplay with sound.
+  function rickroll() {
+    const box = document.getElementById("rick");
+    box.querySelector(".rickframe").innerHTML =
+      '<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0" title="Never gonna give you up" referrerpolicy="strict-origin-when-cross-origin" ' +
+      'allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
+    box.hidden = false;
+  }
+  function closeRick() {
+    const box = document.getElementById("rick");
+    box.hidden = true;
+    box.querySelector(".rickframe").innerHTML = "";  // stop playback
+  }
+  document.getElementById("rick").addEventListener("click", (ev) => { if (ev.target.id === "rick" || ev.target.closest(".rickclose")) closeRick(); });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !document.getElementById("rick").hidden) closeRick(); });
   function sync() {
-    seg(opsEl, ops.map((o) => [opName(o), o]), (v) => v === op, (v) => { op = v; pickDefaults(); sync(); render(true); });
+    seg(opsEl, [...ops.map((o) => [opName(o), o]), ["rick", "__rick"]], (v) => v === op, (v) => {
+      if (v === "__rick") { rickroll(); return; }
+      op = v; pickDefaults(); sync(); render(true);
+    });
     const list = seriesFor(op).map(([x, i]) => [[nameOf(x), instr(x)], i]);
     seg(aEl, list, (v) => v === A, (v) => { A = v; sync(); render(true); });
     seg(bEl, list, (v) => v === B, (v) => { B = v; sync(); render(true); });
