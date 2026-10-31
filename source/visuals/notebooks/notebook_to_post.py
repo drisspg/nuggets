@@ -3,6 +3,7 @@
 
 Markdown cells are copied verbatim. Code cells become ```python cell fences and their
 text outputs become ```output fences rendered by the NotebookCells transformer.
+Keep the generated post out of Prettier so the prose stays byte-for-byte.
 The Colab copy drops outputs and host-specific metadata and can prepend setup cells.
 """
 
@@ -46,7 +47,7 @@ def fence(lang: str, body: str) -> str:
     return f"{ticks}{lang}\n{body}\n{ticks}"
 
 
-def to_markdown(notebook: dict, collapse_over: int, drop: list[re.Pattern[str]]) -> str:
+def to_markdown(notebook: dict, output_language: str, drop: list[re.Pattern[str]]) -> str:
     blocks = []
     for cell in notebook["cells"]:
         source = text(cell["source"]).strip("\n")
@@ -57,8 +58,7 @@ def to_markdown(notebook: dict, collapse_over: int, drop: list[re.Pattern[str]])
             continue
         blocks.append(fence("python cell", source))
         if output := cell_output(cell, drop):
-            collapsed = " collapsed" if output.count("\n") + 1 > collapse_over else ""
-            blocks.append(fence(f"output{collapsed}", output))
+            blocks.append(fence(f"output {output_language}".rstrip(), output))
     return "\n\n".join(blocks) + "\n"
 
 
@@ -94,7 +94,7 @@ def main() -> None:
         "--colab-setup", type=Path, help="notebook whose cells are prepended to the Colab copy"
     )
     parser.add_argument(
-        "--collapse-over", type=int, default=40, help="collapse outputs longer than this"
+        "--output-language", default="", help="highlight outputs as this language (default: text)"
     )
     parser.add_argument(
         "--drop-line",
@@ -108,7 +108,7 @@ def main() -> None:
     notebook = json.loads(args.notebook.read_text())
     if args.markdown:
         drop = [re.compile(pattern) for pattern in args.drop_line]
-        args.markdown.write_text(to_markdown(notebook, args.collapse_over, drop))
+        args.markdown.write_text(to_markdown(notebook, args.output_language, drop))
     if args.colab:
         setup = json.loads(args.colab_setup.read_text())["cells"] if args.colab_setup else []
         args.colab.write_text(json.dumps(to_colab(notebook, setup), indent=1) + "\n")

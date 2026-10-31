@@ -2,25 +2,25 @@
 
 // Jupyter-style cells produced by the NotebookCells transformer.
 .nb-cell {
-  --nb-gutter: 4.75rem;
   --nb-in: var(--secondary);
   --nb-out: var(--callout-color-caveat);
+  --nb-output-height: 24rem;
+  display: grid;
+  gap: 0.6rem 1rem;
   margin-block: 1.75rem;
 
   .nb-input,
   .nb-output {
-    display: grid;
-    grid-template-columns: var(--nb-gutter) minmax(0, 1fr);
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
   }
 
   .nb-prompt {
     font-family: var(--codeFont);
-    font-size: 0.75rem;
-    line-height: 1.7;
-    padding-top: 0.85rem;
-    padding-right: 0.6rem;
-    text-align: right;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    margin-bottom: 0.25rem;
     white-space: nowrap;
   }
 
@@ -37,107 +37,83 @@
     margin: 0;
   }
 
+  pre {
+    margin: 0;
+  }
+
   // Notebook cells read as runnable snippets, not referenced listings.
   pre > code > [data-line]::before {
     display: none;
-  }
-
-  pre {
-    margin: 0;
   }
 
   .nb-input pre {
     border-left: 3px solid color-mix(in srgb, var(--nb-in) 55%, transparent);
   }
 
-  .nb-output {
-    margin-top: 0.4rem;
+  .nb-output pre {
+    background: color-mix(in srgb, var(--nb-out) 4%, var(--light)) !important;
+    border-left: 3px solid color-mix(in srgb, var(--nb-out) 45%, transparent);
+    max-height: var(--nb-output-height);
+    overflow: auto;
 
-    > summary {
-      display: contents;
-      cursor: pointer;
-      list-style: none;
-
-      &::-webkit-details-marker {
-        display: none;
-      }
-
-      .nb-prompt {
-        grid-column: 1;
-      }
-    }
-
-    &:not([open]) > summary .nb-output-size {
-      grid-column: 2;
-      margin-top: 0.5rem;
-    }
-
-    &[open] > summary .nb-output-size {
-      display: none;
-    }
-
-    .nb-output-size {
-      font-family: var(--codeFont);
-      font-size: 0.75rem;
-      font-style: normal;
-      color: var(--editorial-muted);
-      border: 1px dashed var(--editorial-rule);
-      border-radius: 2px;
-      padding: 0.35rem 0.75rem;
-
-      &::before {
-        content: "▸ show output · ";
-      }
-    }
-
-    > summary:hover .nb-prompt-out::before,
-    > summary:focus-visible .nb-prompt-out::before {
-      content: "▾ ";
-    }
-
-    &:not([open]) > summary:hover .nb-prompt-out::before {
-      content: "▸ ";
-    }
-
-    > summary:focus-visible {
-      outline: none;
-
-      .nb-prompt-out {
-        text-decoration: underline;
-      }
-    }
-
-    pre {
-      background: transparent !important;
-      border: 0;
-      border-left: 3px solid color-mix(in srgb, var(--nb-out) 45%, transparent);
-      border-radius: 0;
-      max-height: 26rem;
-      overflow: auto;
-
-      > code {
-        font-size: 0.75rem;
-        line-height: 1.55;
-        padding: 0.6rem 0;
-      }
+    > code {
+      font-size: 0.74rem;
+      line-height: 1.55;
+      padding: 0.6rem 0;
     }
   }
 
-  @media all and #{$mobile} {
-    .nb-input,
+  [data-line] {
+    transition:
+      background-color 140ms ease,
+      opacity 140ms ease;
+  }
+
+  // While prose points at lines, fade the rest of the cell so they stand out.
+  &[data-nb-referenced] pre > code > [data-line]:not([data-nb-hit]) {
+    opacity: 0.35;
+  }
+
+  pre > code > [data-line][data-nb-hit] {
+    background: color-mix(in srgb, var(--nb-out) 32%, transparent);
+    border-left-color: var(--nb-out);
+  }
+
+  // Wide screens: code on the left, its logs scrolling beside it.
+  @media all and (min-width: 1000px) {
+    &:has(> .nb-output) {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
     .nb-output {
-      grid-template-columns: minmax(0, 1fr);
-    }
+      position: relative;
+      min-height: var(--nb-output-height);
 
-    .nb-prompt {
-      text-align: left;
-      padding: 0 0 0.2rem;
-    }
+      figure[data-rehype-pretty-code-figure] {
+        position: absolute;
+        inset: 1.4rem 0 0 0;
+        display: flex;
+      }
 
-    .nb-output:not([open]) > summary .nb-output-size {
-      grid-column: 1;
-      margin-top: 0;
+      pre {
+        flex: 1;
+        max-height: none;
+      }
     }
+  }
+}
+
+article code.nb-quote {
+  cursor: help;
+  text-decoration: underline dotted color-mix(in srgb, var(--callout-color-caveat) 70%, transparent);
+  text-underline-offset: 0.2em;
+  transition: background-color 140ms ease;
+
+  &:hover,
+  &:focus-visible,
+  &.nb-quote-pinned {
+    background: color-mix(in srgb, var(--callout-color-caveat) 22%, var(--lightgray));
+    outline: none;
   }
 }
 
@@ -157,7 +133,7 @@ a.colab-badge.colab-badge {
   margin: 0 0.5rem 0.5rem 0;
 
   &:hover {
-    border-color: var(--nb-out, var(--callout-color-caveat));
+    border-color: var(--callout-color-caveat);
     color: var(--dark);
   }
 

@@ -9,27 +9,26 @@ tags:
 
 #### Written: October 31, 2026 · Guest post by Elias Ellison
 
-This is Elias's notebook, more or less as he wrote it. Every code cell below shows the logs it produced on an H100 with `torch 2.16.0.dev20261031+cu132`; long outputs are folded, so click to expand them. To run it yourself:
+This is Elias's notebook, as he wrote it. Each code cell sits beside the logs it produced on an H100 with `torch 2.16.0.dev20261031+cu132`. Hover over quoted code in the text to highlight it in the cell. To run it yourself:
 
 <a class="colab-badge" href="https://colab.research.google.com/github/drisspg/nuggets/blob/main/source/content/media/inductor-walkthrough/inductor_walkthrough.ipynb">Open in Colab</a> <a class="colab-badge" href="./media/inductor-walkthrough/inductor_walkthrough.ipynb" download>Download .ipynb</a>
 
-# Torchinductor Walkthrough
+# Torchinductor Walkthrough 
 
-We are going to walk through the various stages of torch.compile IR.
+We are going to walk through the various stages of torch.compile IR. 
 
-## Pre-grad:
+## Pre-grad: 
 
 Dynamo, as it traces the graph, builds up an IR representation that is essentially equivalent to what exists in user code. At
 this point:
-
-- IR has not been normalized: both `torch.nn.functional.relu()` and `x.relu()` may both exist
+- IR has not been normalized: both `torch.nn.functional.relu()` and `x.relu()` may both exist 
 - Mutation and unclear aliasing relationships still remain. For instance - operators like `.to` may return the input or clone it.
 - Decompositions have not yet been applied. Pytorch's [2000](https://dev-discuss.pytorch.org/t/where-do-the-2000-pytorch-operators-come-from-more-than-you-wanted-to-know/373) operators still exist, as opposed to the much more limited set operators post decomposition.
 - the forward and backward have not been traced out. It's unclear which operators will require what saved activations.
 - Tensor Subclasses may exist in the graph with their semantics not yet traced through
 - Similarly, Automated Mixed Precision, or other global modes which affect dispatching, will not yet be present.
 
-For all of the above reasons, we discourage graph manipulation on this stage of the ir.
+For all of the above reasons, we discourage graph manipulation on this stage of the ir. 
 
 ```python cell
 import os
@@ -50,7 +49,7 @@ inp = torch.rand([256, 256], device="cuda", requires_grad=True)
 out = matmul(inp)
 ```
 
-```output
+```output python
 [DEBUG]:TRACED GRAPH
  ===== BEFORE PRE GRAD =====
  torch/fx/_lazy_graph_module.py class GraphModule(torch.nn.Module):
@@ -68,20 +67,21 @@ out = matmul(inp)
         return (relu, to)
 ```
 
-## Joint Graph
+## Joint Graph 
 
 To convert from the pre grad to joint graph representation, we trace through the graph with a custom `TorchDispatchMode` that builds up a graph on the fly. See [ProxyTorchDispatchMode](https://github.com/pytorch/pytorch/blob/6f6acb412828844ee3bcdbf277283144faba2524/torch/fx/experimental/proxy_tensor.py#L1379-L1410). During this tracing, we also functionalize the graph. For a more detailed overview of Tensor Subclasses, check out this existing [colab presentation](https://colab.research.google.com/drive/1zjAisRrc8R6uixKsrs1DRm3lwz5MWN68).
 
-The Joint Graph is functional and made up of aten-IR. `torch.nn.functional.relu` is transformed to `aten.relu`, and the specific overload `aten.relu.default` corresponding to a particular input schemas has been determined. [CompositeImplicit Operators](https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/README.md#dispatch), which internally dispatch to operators (`.to` for instance), will have been removed from the graph. Decompositions have also been applied.
 
-The Joint Graph is the first stage of the IR that inductor applies transformations to.
+The Joint Graph is functional and made up of aten-IR. `torch.nn.functional.relu` is transformed to `aten.relu`, and the specific overload `aten.relu.default` corresponding to a particular input schemas has been determined. [CompositeImplicit Operators](https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/README.md#dispatch), which internally dispatch to operators (`.to` for instance), will have been removed from the graph. Decompositions have also been applied. 
+
+The Joint Graph is the first stage of the IR that inductor applies transformations to. 
 
 **When to use joint graph passes:**
 
-- **if you need to change both the forward and backward implementation of an operator**
-- **if you expect your pass to decisions the partitioner makes about what tensors are saved, and what is recomputed**
+* **if you need to change both the forward and backward implementation of an operator**
+* **if you expect your pass to decisions the partitioner makes about what tensors are saved, and what is recomputed**
 
-Joint Graph passes should keep the graph functional, and composed of aten-ir.
+Joint Graph passes should keep the graph functional, and composed of aten-ir. 
 
 [Inductor Joint Graph Passes](https://github.com/pytorch/pytorch/blob/41de0f2eaf97fa9419190b93dc0b5b3b051a9adf/torch/_inductor/fx_passes/joint_graph.py).
 
@@ -92,7 +92,7 @@ torch._logging.set_logs(pre_grad_graphs=False, aot_joint_graph=True)
 out = matmul(inp)
 ```
 
-```output
+```output python
 [INFO]:TRACED GRAPH
  ===== Joint graph 1 =====
  torch/fx/_lazy_graph_module.py class inner_f(torch.nn.Module):
@@ -137,13 +137,13 @@ out = matmul(inp)
 
 # (WIP) Post Grad Passes
 
-After the partitioner has partitioned the joint graph into a separate forward and backward graph, we apply our post grad passes.
+After the partitioner has partitioned the joint graph into a separate forward and backward graph, we apply our post grad passes. 
 
-There are two stages of post grad passes: functional and non-functional.
+There are two stages of post grad passes: functional and non-functional. 
 
 # TorchInductor Scheduler
 
-To start, lets look at a very simple example, a decomposed gelu.
+To start, lets look at a very simple example, a decomposed gelu. 
 
 ```python cell
 torch._logging.set_logs(ir_pre_fusion=True, ir_post_fusion=True)
@@ -162,7 +162,7 @@ def foo(x):
 _ = foo(torch.rand([32, 32], device="cuda"))
 ```
 
-```output collapsed
+```output python
 [INFO]:BEFORE FUSION
 op0: SchedulerNode(ComputedBuffer)
 op0.writes = [MemoryDep('buf0', 32*d0 + d1, {d0: 32, d1: 32})]
@@ -242,26 +242,32 @@ class op0_loop_body:
 
 Oops, no fusion occurred - there was only a single Scheduler Node before and after fusion.
 
-That is because during aten IR lowering to Inductor IR, we do some amount of inlining as we lower. We only inline pointwise objects.
+That is because during aten IR lowering to Inductor IR, we do some amount of inlining as we lower. We only inline pointwise objects. 
 
-Recomputing operations can allow us to improve fusion. Here, on the left, we assume that `clone` cannot be fused. By inlining `cos` and `relu` into their use in `add`, we avoid having to materialize them in global memory.
+Recomputing operations can allow us to improve fusion. Here, on the left, we assume that `clone` cannot be fused. By inlining `cos` and `relu` into their use in `add`, we avoid having to materialize them in global memory. 
 
 This can be especially important when broadcasts result in a output of pointwise node being much larger than its inputs, and in the backward, where we often save smaller tensors that get reused multiple times, and broadcasted/converted to a larger dtype.
 
 <!-- TODO: inlining diagram (clone not fusible; cos and relu inlined into add) is not yet exported from the internal notebook. -->
 
-In some cases, inlining also avoids current scheduler-level limitations where we wouldn't fuse two nodes.
+
+
+
+
+
+In some cases, inlining also avoids current scheduler-level limitations where we wouldn't fuse two nodes. 
+
 
 To update the inlining heuristcs, see `config.realize_reads_threshold`, `config.realize_opcount_threshold`, and `realize_acc_reads_threshold` [here](https://github.com/pytorch/pytorch/blob/f0c9b3385d99a74075dae3cc3e53d79b619bee7f/torch/_inductor/config.py#L505-L512).
 
 ## Scheduler
 
-The scheduler has 2 components. There’s the back-end agnostic component (Scheduler in scheduler.py), and the back-end specific component (TritonScheduling in codegen/triton.py). Different backends may have different heuristics on what is fusable and how profitable the fusions might be.
+The scheduler has 2 components. There’s the back-end agnostic component (Scheduler in scheduler.py), and the back-end specific component (TritonScheduling in codegen/triton.py). Different backends may have different heuristics on what is fusable and how profitable the fusions might be. 
+
 
 The first thing the scheduler does is convert lowering IR `ComputedBuffer` nodes into schedule.SchedulerNode nodes with corresponding `SchedulerBuffer`. (this happens [here](https://github.com/pytorch/pytorch/blob/main/torch/_inductor/scheduler.py#L1025-L1068))
 
 There are a few important fields on the SchedulerNode, in addition to various use/def metadata you might be familiar.
-
 ```
 class SchedulerNode:
     _sizes: tuple[Sequence[sympy.Expr], ...]
@@ -269,13 +275,13 @@ class SchedulerNode:
     read_writes: dependencies.ReadWrites
 ```
 
-`_sizes` correspond to the iteration variables inductor will codegen. The first sequence is the pointwise iteration sizes, and the second sequence is the reduction iteration size.
+`_sizes` correspond to the iteration variables inductor will codegen. The first sequence is the pointwise iteration sizes, and the second sequence is the reduction iteration size. 
 
 `_body` is the persistent representation of Inductor IR that we will do loop level modifications to. For instance, [applying a new loop order](https://github.com/pytorch/pytorch/blob/8cb6957e019086c1f6e39941047ead6e29f6f402/torch/_inductor/scheduler.py#L1108-L1113).
 
-`_read_writes`: are the global reads and writes of the ir.
+`_read_writes`: are the global reads and writes of the ir. 
 
-In order to fuse we need to have compatible iteration variables, and we need a matching read and write which indicates fusing the two nodes would result in reduced global memory access.
+In order to fuse we need to have compatible iteration variables, and we need a matching read and write which indicates fusing the two nodes would result in reduced global memory access. 
 
 Lets take a look at an example.
 
@@ -289,7 +295,7 @@ def foo(x, y):
 _ = foo(torch.rand([10, 50], device="cuda"), torch.rand([10, 60], device="cuda"))
 ```
 
-```output collapsed
+```output python
 [INFO]:BEFORE FUSION
 op0: SchedulerNode(ComputedBuffer)
 op0.writes = [MemoryDep('buf0', d0, {d0: s77})]
@@ -513,9 +519,9 @@ class op2_loop_body:
         return store
 ```
 
-There are three nodes before fusion, corresponding to the two sums, and the addition of the sum. Note, that the `y + 3` was inlined into the reduction.
+There are three nodes before fusion, corresponding to the two sums, and the addition of the sum. Note, that the `y + 3` was inlined into the reduction. 
 
-We were able to fuse one of the reductions with the add, then, we are unable to fuse the subsequent reduction.
+We were able to fuse one of the reductions with the add, then, we are unable to fuse the subsequent reduction. 
 
 See: `[DEBUG]:cannot fuse op0 with op1_op2: numel/rnumel mismatch (reduce) (s77, s77), (s27, s94)`
 
@@ -533,7 +539,7 @@ def foo(x, y):
 _ = foo(torch.rand([10, 60], device="cuda"), torch.rand([10, 60], device="cuda"))
 ```
 
-```output
+```output python
 [DEBUG]:===== attempting fusion (1/10): 3 nodes =====
 [DEBUG]:fuse_nodes_once, candidates:
 [DEBUG]:  SchedulerNode(name='op0'), Reduction(['[s27]', 'sum', 'origins=OrderedSet([sum_1])', 'stack_traces = {', '  File "<cell>", line 5, in foo', '    return x.sum(dim=1) + (y + 3).sum(dim=1)', '           ^^^^^^^^^^^^', '', '}'])
@@ -552,11 +558,11 @@ _ = foo(torch.rand([10, 60], device="cuda"), torch.rand([10, 60], device="cuda")
 
 Similarly, if the, reads and writes were accessed differently, we might not fuse. We do have an option to reorder loops in the scheduler to make fusion occur, which we are working on enabling by defualt. `loop_ordering_after_fusion`.
 
-Now that we have the basics of SchedulerNode down, lets take a higher level look at how the Scheduler works. At a high level, the Scheduler has a single objective: minimize global reads and writes.
+Now that we have the basics of SchedulerNode down, lets take a higher level look at how the Scheduler works. At a high level, the Scheduler has a single objective: minimize global reads and writes. 
 
 There are essentially three parts:
 
-- [Generate possible fusions](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L3164-L3212) by grouping nodes which access the same buffer
+-  [Generate possible fusions](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L3164-L3212) by grouping nodes which access the same buffer
 
 ```
 buffer_names_grouping = collections.defaultdict(list)
@@ -569,7 +575,9 @@ for node_grouping in buffer_names_grouping.values():
     check_all_pairs(node_grouping)
 ```
 
-- [Rank possible fusions](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/choices.py#L378-L413) by amount of global memory saved,
+
+- [Rank possible fusions](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/choices.py#L378-L413) by amount of global memory saved, 
+
 
 ```
 Assign a score (higher comes first) to the fusion of node1 and node2.
@@ -581,6 +589,7 @@ Our current score is based on:
 - Estimate of the saved memory operations
 - Fusions closer together in original graph order
 ```
+
 
 - [Try to fuse nodes in order of the above ranking](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L3070-L3080)
 
@@ -597,6 +606,7 @@ for node1, node2 in self.get_possible_fusions(nodes):
 
 When we successfully fuse two SchedulerNodes, we create a [FusedSchedulerNode](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L1322) :
 
+
 ```
 class FusedSchedulerNode(BaseSchedulerNode):
     """
@@ -610,11 +620,11 @@ class FusedSchedulerNode(BaseSchedulerNode):
 
 # Case Study: epilogue aware matmul choice
 
-In autotuning between Cublas and Triton Templates for matmuls, we take into account the surrounding possible fusions before deciding which kernel to choose.
+In autotuning between Cublas and Triton Templates for matmuls, we take into account the surrounding possible fusions before deciding which kernel to choose. 
 
-During scheduling time we invoke [speedup_by_fusion](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L2750-L2756) which for matmuls will benchmark the possible fusion and finalize the choice as a TritonTemplate if a fusion is profitable.
+During scheduling time we invoke [speedup_by_fusion](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L2750-L2756) which for matmuls will benchmark the possible fusion and finalize the choice as a TritonTemplate if a fusion is profitable. 
 
-Below, a triton template for a matmul is not profitable on its own, but becomes profitable with fusion.
+Below, a triton template for a matmul is not profitable on its own, but becomes profitable with fusion. 
 
 ```python cell
 import torch
@@ -632,7 +642,7 @@ y = torch.rand([1024, 1024], device="cuda", dtype=torch.float16)
 _ = foo(x, y)
 ```
 
-```output
+```output python
 [DEBUG]:===== attempting fusion (1/10): 2 nodes =====
 [DEBUG]:fuse_nodes_once, candidates:
 [DEBUG]:  SchedulerNode(name='op0')
@@ -643,7 +653,7 @@ Autotune Choices Stats:
 AUTOTUNE mm(8192x1024, 1024x1024)
 strides: [1024, 1], [1024, 1]
 dtypes: torch.float16, torch.float16
-  mm 0.0300 ms 100.0%
+  mm 0.0300 ms 100.0% 
   triton_mm_17 0.0337 ms 88.8% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
   triton_mm_20 0.0338 ms 88.6% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=256, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
   triton_mm_18 0.0387 ms 77.4% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=8
@@ -672,11 +682,11 @@ Because compilation of Triton Matmuls is expensive, there are actually three pos
 
 We async compile any epilogue fusion, and store it as [a pending fusion](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L3022-L3027). Then, before we fuse either of its two nodes, or at the ending of the fusion, we resolve all pending fusions
 
-Any matmuls that are unfused, either because lack of fusion or lack of profitability, will be finalized post fusion and pre-codegen in [finalize_multi_template_buffers](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L2086).
+Any matmuls that are unfused, either because lack of fusion or lack of profitability, will be finalized post fusion and pre-codegen in [finalize_multi_template_buffers](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L2086). 
 
 # Combo Kernels / Horizontal Fusion
 
-The scheduler fusion examples above are _vertical_ fusion: two nodes share a producer/consumer relationship or a common buffer access pattern, so fusing them can remove a global read/write.
+The scheduler fusion examples above are *vertical* fusion: two nodes share a producer/consumer relationship or a common buffer access pattern, so fusing them can remove a global read/write.
 
 Combo kernels are a horizontal fusion pass. They target independent scheduler nodes that do not share tensors and do not have data dependencies. There is no loop-body rewrite to make them read the same data; the win is that several small kernels can share one launch.
 
@@ -732,11 +742,11 @@ def run_combo_kernel_demo(combo: bool):
 
 
 for combo in (False, True):
-    print(f"\n=== combo_kernels={combo} ===", flush=True)
+    print(f"\n=== combo_kernels={combo} ===")
     _ = run_combo_kernel_demo(combo)
 ```
 
-```output collapsed
+```output python
 === combo_kernels=False ===
 [INFO]:BEFORE FUSION
 op0: SchedulerNode(ComputedBuffer)
@@ -874,7 +884,7 @@ class op1_loop_body:
  [SchedulerNode(name='op0')]
 [DEBUG]:Schedule:
  [SchedulerNode(name='op1')]
-[DEBUG]:Output code:
+[DEBUG]:Output code: 
 # AOT ID: ['6_inference']
 import torch
 from torch import device, empty_strided
@@ -1194,7 +1204,7 @@ class op1_loop_body:
 
 
 
-[DEBUG]:Output code:
+[DEBUG]:Output code: 
 # AOT ID: ['7_inference']
 import torch
 from torch import device, empty_strided
@@ -1497,11 +1507,11 @@ def run_loop_reordering_demo(loop_reorder: bool):
 
 
 for loop_reorder in (False, True):
-    print(f"\n=== loop_ordering_after_fusion={loop_reorder} ===", flush=True)
+    print(f"\n=== loop_ordering_after_fusion={loop_reorder} ===")
     _ = run_loop_reordering_demo(loop_reorder)
 ```
 
-```output collapsed
+```output python
 === loop_ordering_after_fusion=False ===
 [INFO]:BEFORE FUSION
 op0: SchedulerNode(ComputedBuffer)
@@ -1639,7 +1649,7 @@ class op1_loop_body:
  [SchedulerNode(name='op0')]
 [DEBUG]:Schedule:
  [SchedulerNode(name='op1')]
-[DEBUG]:Output code:
+[DEBUG]:Output code: 
 # AOT ID: ['8_inference']
 import torch
 from torch import device, empty_strided
@@ -1878,7 +1888,7 @@ class op1_loop_body:
 [DEBUG]:fusing op0 with op1
 [INFO]:AFTER FUSION
 op0_op1: FusedSchedulerNode(SchedulerNode,SchedulerNode)
-op0_op1.writes =
+op0_op1.writes = 
     [   MemoryDep('buf0', d0, {d0: 256}),
         MemoryDep('buf1', d0 + 256*d1, {d0: 256, d1: 512})]
 op0_op1.unmet_dependencies = []
@@ -1953,7 +1963,7 @@ class op1_loop_body:
 
 [DEBUG]:Schedule:
  [SchedulerNode(name='op0'), SchedulerNode(name='op1')]
-[DEBUG]:Output code:
+[DEBUG]:Output code: 
 # AOT ID: ['9_inference']
 import torch
 from torch import device, empty_strided
@@ -2148,11 +2158,11 @@ def run_mix_order_demo(mix_order: bool):
 
 
 for mix_order in (False, True):
-    print(f"\n=== triton.mix_order_reduction={mix_order} ===", flush=True)
+    print(f"\n=== triton.mix_order_reduction={mix_order} ===")
     _ = run_mix_order_demo(mix_order)
 ```
 
-```output collapsed
+```output python
 === triton.mix_order_reduction=False ===
 [INFO]:BEFORE FUSION
 op0: SchedulerNode(ComputedBuffer)
@@ -2292,7 +2302,7 @@ class op1_loop_body:
  [SchedulerNode(name='op0')]
 [DEBUG]:Schedule:
  [SchedulerNode(name='op1')]
-[DEBUG]:Output code:
+[DEBUG]:Output code: 
 # AOT ID: ['10_inference']
 import torch
 from torch import device, empty_strided
@@ -2541,7 +2551,7 @@ class op1_loop_body:
 op1_op0: FusedMixOrderReductions(SchedulerNode,SchedulerNode)
 op1_op0.writes = [MemoryDep('buf0', d0, {d0: 768}), MemoryDep('buf1', d0, {d0: 32768})]
 op1_op0.unmet_dependencies = []
-op1_op0.met_dependencies =
+op1_op0.met_dependencies = 
     [   MemoryDep('arg0_1', 768*d0 + d1, {d0: 32768, d1: 768}),
         MemoryDep('arg0_1', d0 + 768*d1, {d0: 768, d1: 32768})]
 op1_op0.min_input_distance = 0
@@ -2613,7 +2623,7 @@ class op0_loop_body:
 
 
 
-[DEBUG]:Output code:
+[DEBUG]:Output code: 
 # AOT ID: ['11_inference']
 import torch
 from torch import device, empty_strided
@@ -2815,11 +2825,11 @@ def run_nested_reduction_demo(nested: bool):
 
 
 for nested in (False, True):
-    print(f"\n=== triton.nested_reduction={nested} ===", flush=True)
+    print(f"\n=== triton.nested_reduction={nested} ===")
     _ = run_nested_reduction_demo(nested)
 ```
 
-```output collapsed
+```output python
 === triton.nested_reduction=False ===
 [INFO]:BEFORE FUSION
 op0: SchedulerNode(ComputedBuffer)
@@ -2987,7 +2997,7 @@ class op1_loop_body:
  [SchedulerNode(name='op0')]
 [DEBUG]:Schedule:
  [SchedulerNode(name='op1')]
-[DEBUG]:Output code:
+[DEBUG]:Output code: 
 # AOT ID: ['12_inference']
 import torch
 from torch import device, empty_strided
@@ -3276,11 +3286,11 @@ class op1_loop_body:
 [DEBUG]:found 0 possible fusions
 [INFO]:AFTER FUSION
 op0_op1: FusedNestedReductions(SchedulerNode,SchedulerNode)
-op0_op1.writes =
+op0_op1.writes = 
     [   MemoryDep('buf0', d0, {d0: 128}),
         MemoryDep('buf1', 512*d0 + d1, {d0: 128, d1: 512})]
 op0_op1.unmet_dependencies = []
-op0_op1.met_dependencies =
+op0_op1.met_dependencies = 
     [   MemoryDep('arg0_1', 8192*d0 + 16*d1 + d2, {d0: 128, d1: 512, d2: 16}),
         MemoryDep('arg0_1', 8192*d0 + d1, {d0: 128, d1: 8192})]
 op0_op1.min_input_distance = 0
@@ -3366,7 +3376,7 @@ class op1_loop_body:
 
 
 
-[DEBUG]:Output code:
+[DEBUG]:Output code: 
 # AOT ID: ['13_inference']
 import torch
 from torch import device, empty_strided
@@ -3534,10 +3544,11 @@ These are still worth mentioning, but they are better as short context slides th
 
 - [Reorder Compute And Comm](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L2102-L2103) (off by default, though being worked on)
 
+
 ## Debug Utility I did not get into
 
 `INDUCTOR_WRITE_SCHEDULER_GRAPH=1 TORCH_COMPILE_DEBUG=1`
 
-For the above, .sum() + .sum() example, we get the following graph.
+For the above, .sum() + .sum() example, we get the following graph. 
 
 <center><img src="./media/inductor-walkthrough/sum-sum-scheduler-graph.svg" alt="Scheduler graph for the sum + sum example: op0 computes one sum, and op1_op2 fuses the other sum with the add."></center>

@@ -1,23 +1,26 @@
 import { Properties } from "hast"
-import { BlockContent, Code, Emphasis, Root } from "mdast"
+import { BlockContent, Code, Root } from "mdast"
 import { visit } from "unist-util-visit"
 import { QuartzTransformerPlugin } from "../types"
+// @ts-ignore
+import script from "../../components/scripts/notebookCells.inline.ts"
 import { takeFenceFlag } from "./fenceMeta"
 
 // Render ```python cell fences as Jupyter-style input cells. An immediately following
-// ```output fence becomes that cell's output; add `collapsed` to start it folded.
+// ```output fence becomes that cell's output, shown beside the code on wide screens.
+// Write ```output python to highlight the output as that language; it defaults to text.
 const outputLanguage = "output"
-
-const label = (className: string[], value: string): Emphasis => ({
-  type: "emphasis",
-  data: { hName: "span", hProperties: { className } },
-  children: [{ type: "text", value }],
-})
 
 const block = (hName: string, hProperties: Properties, children: BlockContent[]): BlockContent => ({
   type: "blockquote",
   data: { hName, hProperties },
   children,
+})
+
+const prompt = (className: string, value: string): BlockContent => ({
+  type: "paragraph",
+  data: { hName: "span", hProperties: { className: ["nb-prompt", className] } },
+  children: [{ type: "text", value }],
 })
 
 export const NotebookCells: QuartzTransformerPlugin = () => ({
@@ -38,13 +41,9 @@ export const NotebookCells: QuartzTransformerPlugin = () => ({
           node.meta = meta
           count++
 
-          const children: BlockContent[] = [
+          const children = [
             block("div", { className: ["nb-input"] }, [
-              {
-                type: "paragraph",
-                data: { hName: "span", hProperties: { className: ["nb-prompt", "nb-prompt-in"] } },
-                children: [{ type: "text", value: `In [${count}]:` }],
-              },
+              prompt("nb-prompt-in", `In [${count}]:`),
               node,
             ]),
           ]
@@ -52,20 +51,12 @@ export const NotebookCells: QuartzTransformerPlugin = () => ({
           const output =
             next?.type === "code" && next.lang === outputLanguage ? (next as Code) : null
           if (output) {
-            const { present: collapsed, meta: outputMeta } = takeFenceFlag(output.meta, "collapsed")
-            const lines = output.value.split("\n").length
-            output.lang = "text"
-            output.meta = outputMeta
+            const [language, ...meta] = (output.meta ?? "").trim().split(/\s+/)
+            output.lang = language || "text"
+            output.meta = meta.join(" ") || null
             children.push(
-              block("details", { className: ["nb-output"], open: !collapsed }, [
-                {
-                  type: "paragraph",
-                  data: { hName: "summary" },
-                  children: [
-                    label(["nb-prompt", "nb-prompt-out"], `Out[${count}]:`),
-                    label(["nb-output-size"], `${lines} line${lines === 1 ? "" : "s"}`),
-                  ],
-                },
+              block("div", { className: ["nb-output"] }, [
+                prompt("nb-prompt-out", `Out[${count}]:`),
                 output,
               ]),
             )
@@ -79,5 +70,17 @@ export const NotebookCells: QuartzTransformerPlugin = () => ({
         })
       },
     ]
+  },
+  externalResources() {
+    // Transformer resources are classic scripts, unlike the isolated component bundles.
+    return {
+      js: [
+        {
+          script: `(function () {${script}})();`,
+          loadTime: "afterDOMReady",
+          contentType: "inline",
+        },
+      ],
+    }
   },
 })

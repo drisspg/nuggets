@@ -1,5 +1,10 @@
 import assert from "node:assert/strict"
+import { readFile } from "node:fs/promises"
+import path from "node:path"
 import { test } from "node:test"
+import { fileURLToPath } from "node:url"
+import { runInNewContext } from "node:vm"
+import { build } from "esbuild"
 import { Element, Root as HtmlRoot } from "hast"
 import { toString } from "hast-util-to-string"
 import remarkParse from "remark-parse"
@@ -8,8 +13,50 @@ import { unified } from "unified"
 import { visit } from "unist-util-visit"
 import { VFile } from "vfile"
 import { BuildCtx } from "../../util/ctx"
-import { NotebookCells } from "./notebookCells"
 import { SyntaxHighlighting } from "./syntax"
+
+// Match Quartz's inline-script loader, including bundling the real browser entrypoint.
+const bundle = await build({
+  entryPoints: [fileURLToPath(new URL("./notebookCells.ts", import.meta.url))],
+  bundle: true,
+  write: false,
+  platform: "node",
+  format: "esm",
+  plugins: [
+    {
+      name: "quartz-inline-script",
+      setup(builder) {
+        builder.onLoad({ filter: /\.inline\.ts$/ }, async ({ path: entry }) => {
+          const script = await build({
+            stdin: {
+              contents: await readFile(entry, "utf8"),
+              loader: "ts",
+              resolveDir: path.dirname(entry),
+              sourcefile: entry,
+            },
+            bundle: true,
+            write: false,
+            minify: true,
+            platform: "browser",
+            format: "esm",
+          })
+          return { contents: script.outputFiles[0].text, loader: "text" }
+        })
+      },
+    },
+  ],
+})
+const { NotebookCells } = (await import(
+  `data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`
+)) as typeof import("./notebookCells")
+
+test("the bundled prose linker does not leak minified bindings into other classic scripts", () => {
+  const resource = NotebookCells().externalResources!({} as BuildCtx).js![0]
+  assert("script" in resource)
+  const sandbox = { document: { addEventListener() {} } }
+  runInNewContext(resource.script, sandbox)
+  assert.deepEqual(Object.keys(sandbox), ["document"])
+})
 
 const ctx = {} as BuildCtx
 
@@ -65,8 +112,6 @@ test("cells are numbered in page order and outputs attach to the preceding cell"
     ["In [1]:", "Out[1]:", "In [2]:"],
   )
   const [output] = byClass(tree, "nb-output")
-  assert.equal(output.tagName, "details")
-  assert.equal(output.properties.open, true)
   assert.match(toString(output), /\b1\b/)
   assert.equal(byClass(cells[1], "nb-output").length, 0)
   // The cell flag is consumed while other fence metadata keeps working.
@@ -78,11 +123,16 @@ test("cells are numbered in page order and outputs attach to the preceding cell"
   )
 })
 
-test("collapsed outputs start closed and report their size", async () => {
-  const tree = await render("```python cell\nrun()\n```\n\n```output collapsed\na\nb\nc\n```")
+test("an output fence may name its highlighting language", async () => {
+  const tree = await render("```python cell\nrun()\n```\n\n```output python\nx = 1\n```")
   const [output] = byClass(tree, "nb-output")
-  assert.notEqual(output.properties.open, true)
-  assert.equal(toString(byClass(output, "nb-output-size")[0]), "3 lines")
+  const pre = byClass(output, "nb-prompt")[0]
+  assert.equal(toString(pre), "Out[1]:")
+  let language: unknown
+  visit(output, "element", (element) => {
+    if (element.tagName === "pre") language = element.properties["data-language"]
+  })
+  assert.equal(language, "python")
 })
 
 test("an output fence without a cell fails with the page filepath", async () => {
