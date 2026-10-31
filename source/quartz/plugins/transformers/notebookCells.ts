@@ -10,6 +10,8 @@ import { takeFenceFlag } from "./fenceMeta"
 // ```output fence becomes that cell's output, shown beside the code on wide screens.
 // Write ```output python to highlight the output as that language; it defaults to text.
 const outputLanguage = "output"
+// Outputs longer than this scroll in a fixed-height box; shorter ones size to fit.
+const longOutputLines = 20
 
 const block = (hName: string, hProperties: Properties, children: BlockContent[]): BlockContent => ({
   type: "blockquote",
@@ -55,10 +57,14 @@ export const NotebookCells: QuartzTransformerPlugin = () => ({
             output.lang = language || "text"
             output.meta = meta.join(" ") || null
             children.push(
-              block("div", { className: ["nb-output"] }, [
-                prompt("nb-prompt-out", `Out[${count}]:`),
-                output,
-              ]),
+              block(
+                "div",
+                {
+                  className: ["nb-output"],
+                  dataNbLong: output.value.split("\n").length > longOutputLines ? "" : undefined,
+                },
+                [prompt("nb-prompt-out", `Out[${count}]:`), output],
+              ),
             )
           }
           parent!.children.splice(

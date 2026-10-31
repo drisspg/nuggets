@@ -30,15 +30,25 @@
 
   .nb-prompt-out {
     color: var(--nb-out);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
   }
 
-  figure[data-rehype-pretty-code-figure] {
-    min-width: 0;
-    margin: 0;
-  }
+  .nb-expand {
+    font: inherit;
+    color: var(--editorial-muted);
+    background: none;
+    border: 1px solid var(--editorial-rule);
+    border-radius: 2px;
+    padding: 0 0.45rem;
+    cursor: pointer;
 
-  pre {
-    margin: 0;
+    &:hover,
+    &:focus-visible {
+      color: var(--dark);
+      border-color: var(--nb-out);
+    }
   }
 
   // Notebook cells read as runnable snippets, not referenced listings.
@@ -56,10 +66,14 @@
     max-height: var(--nb-output-height);
     overflow: auto;
 
+    // Scroll the box in both directions so the horizontal scrollbar sits at its bottom.
     > code {
       font-size: 0.74rem;
       line-height: 1.55;
       padding: 0.6rem 0;
+      overflow: visible;
+      width: max-content;
+      min-width: 100%;
     }
   }
 
@@ -85,7 +99,8 @@
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     }
 
-    .nb-output {
+    // Long logs fill the row (at least --nb-output-height) and scroll inside it.
+    .nb-output[data-nb-long] {
       position: relative;
       min-height: var(--nb-output-height);
 
@@ -100,6 +115,33 @@
         max-height: none;
       }
     }
+  }
+
+  // Expanded: the log drops under the code at full width and shows every line.
+  &[data-nb-expanded] {
+    grid-template-columns: minmax(0, 1fr);
+
+    .nb-output {
+      position: static;
+      min-height: 0;
+
+      figure[data-rehype-pretty-code-figure] {
+        position: static;
+      }
+
+      pre {
+        max-height: none;
+      }
+    }
+  }
+
+  figure[data-rehype-pretty-code-figure] {
+    min-width: 0;
+    margin: 0;
+  }
+
+  pre {
+    margin: 0;
   }
 }
 

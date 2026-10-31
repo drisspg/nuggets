@@ -104,7 +104,38 @@ function linkNotebookProse(article: HTMLElement) {
   })
 }
 
+// Long logs scroll in a box beside the code; let readers open one at full width and height.
+function addExpandToggles(article: HTMLElement) {
+  const buttons = Array.from(article.querySelectorAll<HTMLElement>(".nb-output[data-nb-long]")).map(
+    (output) => {
+      const cell = output.closest<HTMLElement>(".nb-cell")!
+      const button = document.createElement("button")
+      button.type = "button"
+      button.className = "nb-expand"
+      const render = (expanded: boolean) => {
+        button.textContent = expanded ? "collapse ↙" : "expand ↗"
+        button.setAttribute("aria-expanded", String(expanded))
+      }
+      render(false)
+      button.addEventListener("click", () => {
+        const expanded = !("nbExpanded" in cell.dataset)
+        if (expanded) cell.dataset.nbExpanded = ""
+        else delete cell.dataset.nbExpanded
+        render(expanded)
+        if (!expanded && cell.getBoundingClientRect().top < 0) {
+          cell.scrollIntoView({ block: "start" })
+        }
+      })
+      output.querySelector(".nb-prompt")!.append(button)
+      return button
+    },
+  )
+  window.addCleanup(() => buttons.forEach((button) => button.remove()))
+}
+
 document.addEventListener("nav", () => {
   const article = document.querySelector<HTMLElement>("article")
-  if (article) linkNotebookProse(article)
+  if (!article) return
+  linkNotebookProse(article)
+  addExpandToggles(article)
 })
