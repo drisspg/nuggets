@@ -1,0 +1,173 @@
+@use "../../styles/variables.scss" as *;
+
+// Jupyter-style cells produced by the NotebookCells transformer.
+.nb-cell {
+  --nb-gutter: 4.75rem;
+  --nb-in: var(--secondary);
+  --nb-out: var(--callout-color-caveat);
+  margin-block: 1.75rem;
+
+  .nb-input,
+  .nb-output {
+    display: grid;
+    grid-template-columns: var(--nb-gutter) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .nb-prompt {
+    font-family: var(--codeFont);
+    font-size: 0.75rem;
+    line-height: 1.7;
+    padding-top: 0.85rem;
+    padding-right: 0.6rem;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .nb-prompt-in {
+    color: var(--nb-in);
+  }
+
+  .nb-prompt-out {
+    color: var(--nb-out);
+  }
+
+  figure[data-rehype-pretty-code-figure] {
+    min-width: 0;
+    margin: 0;
+  }
+
+  // Notebook cells read as runnable snippets, not referenced listings.
+  pre > code > [data-line]::before {
+    display: none;
+  }
+
+  pre {
+    margin: 0;
+  }
+
+  .nb-input pre {
+    border-left: 3px solid color-mix(in srgb, var(--nb-in) 55%, transparent);
+  }
+
+  .nb-output {
+    margin-top: 0.4rem;
+
+    > summary {
+      display: contents;
+      cursor: pointer;
+      list-style: none;
+
+      &::-webkit-details-marker {
+        display: none;
+      }
+
+      .nb-prompt {
+        grid-column: 1;
+      }
+    }
+
+    &:not([open]) > summary .nb-output-size {
+      grid-column: 2;
+      margin-top: 0.5rem;
+    }
+
+    &[open] > summary .nb-output-size {
+      display: none;
+    }
+
+    .nb-output-size {
+      font-family: var(--codeFont);
+      font-size: 0.75rem;
+      font-style: normal;
+      color: var(--editorial-muted);
+      border: 1px dashed var(--editorial-rule);
+      border-radius: 2px;
+      padding: 0.35rem 0.75rem;
+
+      &::before {
+        content: "▸ show output · ";
+      }
+    }
+
+    > summary:hover .nb-prompt-out::before,
+    > summary:focus-visible .nb-prompt-out::before {
+      content: "▾ ";
+    }
+
+    &:not([open]) > summary:hover .nb-prompt-out::before {
+      content: "▸ ";
+    }
+
+    > summary:focus-visible {
+      outline: none;
+
+      .nb-prompt-out {
+        text-decoration: underline;
+      }
+    }
+
+    pre {
+      background: transparent !important;
+      border: 0;
+      border-left: 3px solid color-mix(in srgb, var(--nb-out) 45%, transparent);
+      border-radius: 0;
+      max-height: 26rem;
+      overflow: auto;
+
+      > code {
+        font-size: 0.75rem;
+        line-height: 1.55;
+        padding: 0.6rem 0;
+      }
+    }
+  }
+
+  @media all and #{$mobile} {
+    .nb-input,
+    .nb-output {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .nb-prompt {
+      text-align: left;
+      padding: 0 0 0.2rem;
+    }
+
+    .nb-output:not([open]) > summary .nb-output-size {
+      grid-column: 1;
+      margin-top: 0;
+    }
+  }
+}
+
+// Doubled class outranks the base `a.internal` link chip.
+a.colab-badge.colab-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--codeFont);
+  font-size: 0.8rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--editorial-rule);
+  border-radius: 2px;
+  background: var(--editorial-panel);
+  color: var(--dark);
+  text-decoration: none;
+  margin: 0 0.5rem 0.5rem 0;
+
+  &:hover {
+    border-color: var(--nb-out, var(--callout-color-caveat));
+    color: var(--dark);
+  }
+
+  &::before {
+    content: "";
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: var(--callout-color-caveat);
+    box-shadow: 0.35rem 0 0 color-mix(in srgb, var(--callout-color-caveat) 55%, transparent);
+    margin-right: 0.35rem;
+  }
+}

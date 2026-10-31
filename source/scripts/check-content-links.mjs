@@ -36,11 +36,18 @@ async function allMarkdownFiles(dir = CONTENT_DIR) {
   return files
 }
 
+// Code is rendered literally, so `[[...]]` inside fences or inline code is not a link.
+function withoutCode(markdown) {
+  return markdown
+    .replace(/^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^ {0,3}\1[`~]*[ \t]*$|(?![\s\S]))/gm, "")
+    .replace(/(`+)(?!`)[\s\S]*?[^`]\1(?!`)/g, "")
+}
+
 function linkTargets(markdown) {
   const targets = []
   const wikilinkPattern = /!??\[\[([^\]]+)\]\]/g
 
-  for (const match of markdown.matchAll(wikilinkPattern)) {
+  for (const match of withoutCode(markdown).matchAll(wikilinkPattern)) {
     const rawTarget = match[1].split("|")[0].split("#")[0].trim()
     if (rawTarget && !rawTarget.match(/^[a-z]+:/i)) {
       targets.push(rawTarget)

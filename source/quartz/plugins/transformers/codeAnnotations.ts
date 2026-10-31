@@ -4,12 +4,11 @@ import { visit } from "unist-util-visit"
 import { QuartzTransformerPlugin } from "../types"
 // @ts-ignore
 import script from "../../components/scripts/codeAnnotations.inline.ts"
+import { takeFenceFlag } from "./fenceMeta"
 
 // Pair fences with Markdown notes before highlighting, then attach references to
 // Shiki's line spans without replacing its syntax tokens or reparsing the notes.
 const embedLanguages = new Set(["chart", "plotly", "perfetto", "html-widget", "mermaid", "math"])
-// Quoted titles and slash-delimited character highlights may themselves contain "annotate".
-const metaTokens = /(?:[^\s"'/]+|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/(?:\\.|[^/\\])*\/|\/)+/g
 const markerComment =
   /(?:#|\/\/|--)[ \t]*((?:\([^()\r\n]*\)![ \t]*)+)$|\/\*[ \t]*((?:\([^()\r\n]*\)![ \t]*)+)\*\/[ \t]*$|<!--[ \t]*((?:\([^()\r\n]*\)![ \t]*)+)-->[ \t]*$/
 
@@ -26,13 +25,8 @@ export const CodeAnnotations: QuartzTransformerPlugin = () => ({
         let block = 0
         visit(tree, "code", (node, position, parent) => {
           if (embedLanguages.has(node.lang ?? "")) return
-          let optedIn = false
-          const meta = node.meta?.replace(metaTokens, (token) => {
-            if (token !== "annotate") return token
-            optedIn = true
-            return ""
-          })
-          if (!optedIn) return
+          const { present, meta } = takeFenceFlag(node.meta, "annotate")
+          if (!present) return
 
           const fail = (message: string): never => {
             throw new Error(`${file.path}: code annotations: ${message}`)
