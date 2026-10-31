@@ -1,12 +1,10 @@
 @use "../../styles/variables.scss" as *;
 
-// Jupyter-style cells produced by the NotebookCells transformer.
+// Jupyter-style cells produced by the NotebookCells transformer: code across the top,
+// then the commentary beside a log that stays in view while you read it.
 .nb-cell {
   --nb-in: var(--secondary);
   --nb-out: var(--callout-color-caveat);
-  --nb-output-height: 24rem;
-  display: grid;
-  gap: 0.6rem 1rem;
   margin-block: 1.75rem;
 
   .nb-input,
@@ -16,7 +14,14 @@
     min-width: 0;
   }
 
+  .nb-output {
+    margin-top: 1rem;
+  }
+
   .nb-prompt {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
     font-family: var(--codeFont);
     font-size: 0.72rem;
     line-height: 1.6;
@@ -30,24 +35,22 @@
 
   .nb-prompt-out {
     color: var(--nb-out);
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
   }
 
-  .nb-expand {
-    font: inherit;
-    color: var(--editorial-muted);
-    background: none;
-    border: 1px solid var(--editorial-rule);
-    border-radius: 2px;
-    padding: 0 0.45rem;
-    cursor: pointer;
+  figure[data-rehype-pretty-code-figure] {
+    min-width: 0;
+    margin: 0;
+  }
 
-    &:hover,
-    &:focus-visible {
-      color: var(--dark);
-      border-color: var(--nb-out);
+  pre {
+    margin: 0;
+  }
+
+  // Panes expand into a dialog with its own copy button instead.
+  .nb-input,
+  .nb-output {
+    .clipboard-button {
+      display: none;
     }
   }
 
@@ -63,7 +66,7 @@
   .nb-output pre {
     background: color-mix(in srgb, var(--nb-out) 4%, var(--light)) !important;
     border-left: 3px solid color-mix(in srgb, var(--nb-out) 45%, transparent);
-    max-height: var(--nb-output-height);
+    max-height: 28rem;
     overflow: auto;
 
     // Scroll the box in both directions so the horizontal scrollbar sits at its bottom.
@@ -93,55 +96,139 @@
     border-left-color: var(--nb-out);
   }
 
-  // Wide screens: code on the left, its logs scrolling beside it.
+  .nb-explain {
+    display: flex;
+    flex-direction: column;
+
+    > .nb-output {
+      order: -1;
+    }
+  }
+
+  .nb-commentary > :first-child {
+    margin-top: 1rem;
+  }
+
+  // Wide screens: commentary on the left, its log pinned beside it.
   @media all and (min-width: 1000px) {
-    &:has(> .nb-output) {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    }
+    .nb-explain {
+      display: grid;
+      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+      gap: 2rem;
+      align-items: start;
 
-    // Long logs fill the row (at least --nb-output-height) and scroll inside it.
-    .nb-output[data-nb-long] {
-      position: relative;
-      min-height: var(--nb-output-height);
+      > .nb-output {
+        order: 0;
+        position: sticky;
+        top: 1rem;
 
-      figure[data-rehype-pretty-code-figure] {
-        position: absolute;
-        inset: 1.4rem 0 0 0;
-        display: flex;
-      }
-
-      pre {
-        flex: 1;
-        max-height: none;
+        pre {
+          max-height: calc(100vh - 4rem);
+        }
       }
     }
   }
+}
 
-  // Expanded: the log drops under the code at full width and shows every line.
-  &[data-nb-expanded] {
-    grid-template-columns: minmax(0, 1fr);
+.nb-expand,
+.nb-focus-header button {
+  font-family: var(--codeFont);
+  font-size: 0.72rem;
+  color: var(--editorial-muted);
+  background: none;
+  border: 1px solid var(--editorial-rule);
+  border-radius: 2px;
+  padding: 0 0.45rem;
+  cursor: pointer;
 
-    .nb-output {
-      position: static;
-      min-height: 0;
+  &:hover,
+  &:focus-visible {
+    color: var(--dark);
+    border-color: var(--callout-color-caveat);
+    outline: none;
+  }
+}
 
-      figure[data-rehype-pretty-code-figure] {
-        position: static;
-      }
+// One pane at a time, floating above the page.
+dialog.nb-focus {
+  width: min(1200px, 94vw);
+  max-height: 90vh;
+  padding: 0;
+  border: 1px solid var(--editorial-rule);
+  border-radius: 4px;
+  background: var(--light);
+  color: var(--dark);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
 
-      pre {
-        max-height: none;
-      }
+  &[open] {
+    display: flex;
+    flex-direction: column;
+    animation: nb-focus-in 160ms ease-out;
+  }
+
+  &::backdrop {
+    background: rgba(10, 12, 10, 0.55);
+    backdrop-filter: blur(3px);
+  }
+
+  .nb-focus-header {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--editorial-rule);
+
+    .nb-prompt {
+      font-family: var(--codeFont);
+      font-size: 0.8rem;
+      margin-right: auto;
+    }
+
+    .nb-prompt-in {
+      color: var(--secondary);
+    }
+
+    .nb-prompt-out {
+      color: var(--callout-color-caveat);
     }
   }
 
-  figure[data-rehype-pretty-code-figure] {
-    min-width: 0;
-    margin: 0;
-  }
+  .nb-focus-body {
+    overflow: auto;
+    min-height: 0;
 
-  pre {
-    margin: 0;
+    figure {
+      margin: 0;
+    }
+
+    pre {
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+      overflow: visible;
+
+      > code {
+        font-size: 0.8rem;
+        width: max-content;
+        min-width: 100%;
+      }
+
+      > code > [data-line]::before {
+        display: none;
+      }
+    }
+
+    .clipboard-button {
+      display: none;
+    }
+  }
+}
+
+@keyframes nb-focus-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
   }
 }
 

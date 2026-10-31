@@ -1,5 +1,5 @@
-// Link inline code in prose to the notebook lines it quotes. Prose usually discusses
-// the cell just above it, so that cell is searched first, then the one below.
+// Link inline code in prose to the notebook lines it quotes. Commentary searches its own
+// cell; other prose usually discusses the cell just above it, then the one below.
 const minimumQuote = 3
 // A quote that matches more lines than this is a generic name, not a pointer.
 const maximumHits = 24
@@ -29,18 +29,19 @@ function linkNotebookProse(article: HTMLElement) {
   let pinned: HTMLElement | undefined
 
   const quotes = Array.from(article.querySelectorAll<HTMLElement>("code")).filter(
-    (code) => !code.closest("pre, .nb-cell, a"),
+    (code) => !code.closest("pre, a, .nb-prompt"),
   )
   for (const quote of quotes) {
     const needle = normalize(quote.textContent ?? "")
     if (needle.length < minimumQuote) continue
+    const own = quote.closest<HTMLElement>(".nb-cell")
     const following = cells.findIndex(
       (cell) => quote.compareDocumentPosition(cell) & Node.DOCUMENT_POSITION_FOLLOWING,
     )
     const below = following === -1 ? undefined : cells[following]
     const above = following === -1 ? cells.at(-1) : cells[following - 1]
     let hits: HTMLElement[] = []
-    for (const cell of [above, below]) {
+    for (const cell of own ? [own] : [above, below]) {
       if (!cell) continue
       hits = lines
         .get(cell)!
@@ -104,38 +105,86 @@ function linkNotebookProse(article: HTMLElement) {
   })
 }
 
-// Long logs scroll in a box beside the code; let readers open one at full width and height.
-function addExpandToggles(article: HTMLElement) {
-  const buttons = Array.from(article.querySelectorAll<HTMLElement>(".nb-output[data-nb-long]")).map(
-    (output) => {
-      const cell = output.closest<HTMLElement>(".nb-cell")!
-      const button = document.createElement("button")
-      button.type = "button"
-      button.className = "nb-expand"
-      const render = (expanded: boolean) => {
-        button.textContent = expanded ? "collapse ↙" : "expand ↗"
-        button.setAttribute("aria-expanded", String(expanded))
-      }
-      render(false)
-      button.addEventListener("click", () => {
-        const expanded = !("nbExpanded" in cell.dataset)
-        if (expanded) cell.dataset.nbExpanded = ""
-        else delete cell.dataset.nbExpanded
-        render(expanded)
-        if (!expanded && cell.getBoundingClientRect().top < 0) {
-          cell.scrollIntoView({ block: "start" })
-        }
+// Every pane can open in a floating dialog above the page, at full size.
+function addFocusButtons(article: HTMLElement) {
+  const dialog = document.createElement("dialog")
+  dialog.className = "nb-focus"
+  dialog.setAttribute("aria-label", "Notebook cell")
+  const header = document.createElement("div")
+  header.className = "nb-focus-header"
+  const title = document.createElement("span")
+  title.className = "nb-prompt"
+  const copy = document.createElement("button")
+  copy.type = "button"
+  copy.textContent = "copy"
+  const close = document.createElement("button")
+  close.type = "button"
+  close.textContent = "close ✕"
+  const body = document.createElement("div")
+  body.className = "nb-focus-body"
+  header.append(title, copy, close)
+  dialog.append(header, body)
+  document.body.append(dialog)
+
+  const controller = new AbortController()
+  const { signal } = controller
+  close.addEventListener("click", () => dialog.close(), { signal })
+  // A click on the backdrop lands on the dialog element itself.
+  dialog.addEventListener("click", (event) => event.target === dialog && dialog.close(), {
+    signal,
+  })
+  dialog.addEventListener("close", () => body.replaceChildren(), { signal })
+  copy.addEventListener(
+    "click",
+    () => {
+      const code = body.querySelector("code")
+      if (!code) return
+      void navigator.clipboard.writeText(code.innerText).then(() => {
+        copy.textContent = "copied"
+        setTimeout(() => (copy.textContent = "copy"), 1200)
       })
-      output.querySelector(".nb-prompt")!.append(button)
-      return button
     },
+    { signal },
   )
-  window.addCleanup(() => buttons.forEach((button) => button.remove()))
+
+  for (const pane of article.querySelectorAll<HTMLElement>(".nb-input, .nb-output")) {
+    const prompt = pane.querySelector<HTMLElement>(".nb-prompt")!
+    const figure = pane.querySelector<HTMLElement>("figure, pre")
+    if (!figure) continue
+    const button = document.createElement("button")
+    button.type = "button"
+    button.className = "nb-expand"
+    button.textContent = "expand ⤢"
+    button.setAttribute("aria-label", `Expand ${prompt.textContent}`)
+    button.addEventListener(
+      "click",
+      () => {
+        title.textContent = prompt.firstChild?.textContent ?? ""
+        title.className = prompt.className
+        const clone = figure.cloneNode(true) as HTMLElement
+        clone
+          .querySelectorAll("[data-nb-hit]")
+          .forEach((line) => line.removeAttribute("data-nb-hit"))
+        body.replaceChildren(clone)
+        dialog.showModal()
+        close.focus()
+      },
+      { signal },
+    )
+    prompt.append(button)
+  }
+
+  window.addCleanup(() => {
+    controller.abort()
+    if (dialog.open) dialog.close()
+    dialog.remove()
+    article.querySelectorAll(".nb-expand").forEach((button) => button.remove())
+  })
 }
 
 document.addEventListener("nav", () => {
   const article = document.querySelector<HTMLElement>("article")
   if (!article) return
   linkNotebookProse(article)
-  addExpandToggles(article)
+  addFocusButtons(article)
 })

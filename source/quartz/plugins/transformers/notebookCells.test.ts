@@ -123,6 +123,57 @@ test("cells are numbered in page order and outputs attach to the preceding cell"
   )
 })
 
+test("prose after a cell sits beside its output until the cell's section closes", async () => {
+  const tree = await render(
+    [
+      "# Section",
+      "",
+      "```python cell",
+      "run()",
+      "```",
+      "",
+      "```output",
+      "log",
+      "```",
+      "",
+      "About the log.",
+      "",
+      "## Subsection",
+      "",
+      "Still about it.",
+      "",
+      "# Next section",
+      "",
+      "Unrelated.",
+      "",
+      "## Bare",
+      "",
+      "```python cell",
+      "again()",
+      "```",
+      "",
+      "```output",
+      "log",
+      "```",
+      "",
+      "## Sibling heading",
+    ].join("\n"),
+  )
+  const [first, second] = byClass(tree, "nb-cell")
+  const commentary = byClass(first, "nb-commentary")
+  assert.equal(commentary.length, 1)
+  assert.match(toString(commentary[0]), /About the log\.[\s\S]*Subsection[\s\S]*Still about it\./)
+  assert.doesNotMatch(toString(first), /Next section|Unrelated/)
+  // Commentary and output share a two-pane wrapper.
+  const [explain] = byClass(first, "nb-explain")
+  assert.equal(byClass(explain, "nb-output").length, 1)
+  // A heading at the cell's own level closes it immediately: the output stands alone.
+  assert.equal(byClass(second, "nb-explain").length, 0)
+  assert.equal(byClass(second, "nb-output").length, 1)
+  assert.match(toString(tree), /Sibling heading/)
+  assert.doesNotMatch(toString(second), /Sibling heading/)
+})
+
 test("an output fence may name its highlighting language", async () => {
   const tree = await render("```python cell\nrun()\n```\n\n```output python\nx = 1\n```")
   const [output] = byClass(tree, "nb-output")

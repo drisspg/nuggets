@@ -1,5 +1,5 @@
 import { Properties } from "hast"
-import { BlockContent, Code, Root } from "mdast"
+import { BlockContent, Code, Root, RootContent } from "mdast"
 import { visit } from "unist-util-visit"
 import { QuartzTransformerPlugin } from "../types"
 // @ts-ignore
@@ -7,11 +7,10 @@ import script from "../../components/scripts/notebookCells.inline.ts"
 import { takeFenceFlag } from "./fenceMeta"
 
 // Render ```python cell fences as Jupyter-style input cells. An immediately following
-// ```output fence becomes that cell's output, shown beside the code on wide screens.
-// Write ```output python to highlight the output as that language; it defaults to text.
+// ```output fence becomes that cell's output; write ```output python to highlight it.
+// The prose after a cell is its commentary and sits beside the output: it runs until the
+// next cell or a heading that closes the section containing the cell.
 const outputLanguage = "output"
-// Outputs longer than this scroll in a fixed-height box; shorter ones size to fit.
-const longOutputLines = 20
 
 const block = (hName: string, hProperties: Properties, children: BlockContent[]): BlockContent => ({
   type: "blockquote",
@@ -24,6 +23,18 @@ const prompt = (className: string, value: string): BlockContent => ({
   data: { hName: "span", hProperties: { className: ["nb-prompt", className] } },
   children: [{ type: "text", value }],
 })
+
+const isCell = (node: RootContent | undefined) =>
+  node?.type === "code" && takeFenceFlag(node.meta, "cell").present
+
+function sectionDepth(siblings: RootContent[], position: number) {
+  for (let index = position - 1; index >= 0; index--) {
+    const node = siblings[index]
+    if (node.type === "heading") return node.depth
+  }
+  // Outside any section, every heading ends the commentary.
+  return 6
+}
 
 export const NotebookCells: QuartzTransformerPlugin = () => ({
   name: "NotebookCells",
@@ -43,33 +54,51 @@ export const NotebookCells: QuartzTransformerPlugin = () => ({
           node.meta = meta
           count++
 
+          const siblings = parent!.children as RootContent[]
           const children = [
             block("div", { className: ["nb-input"] }, [
               prompt("nb-prompt-in", `In [${count}]:`),
               node,
             ]),
           ]
-          const next = parent!.children[position! + 1]
-          const output =
-            next?.type === "code" && next.lang === outputLanguage ? (next as Code) : null
-          if (output) {
-            const [language, ...meta] = (output.meta ?? "").trim().split(/\s+/)
+          let end = position! + 1
+          const next = siblings[end]
+          if (next?.type === "code" && next.lang === outputLanguage) {
+            const output = next as Code
+            const [language, ...outputMeta] = (output.meta ?? "").trim().split(/\s+/)
             output.lang = language || "text"
-            output.meta = meta.join(" ") || null
+            output.meta = outputMeta.join(" ") || null
+            end++
+
+            const depth = sectionDepth(siblings, position!)
+            const commentaryStart = end
+            while (
+              end < siblings.length &&
+              !isCell(siblings[end]) &&
+              !(
+                siblings[end].type === "heading" &&
+                (siblings[end] as { depth: number }).depth <= depth
+              )
+            ) {
+              end++
+            }
+            const commentary = siblings.slice(commentaryStart, end) as BlockContent[]
+            const outputPane = block("div", { className: ["nb-output"] }, [
+              prompt("nb-prompt-out", `Out[${count}]:`),
+              output,
+            ])
             children.push(
-              block(
-                "div",
-                {
-                  className: ["nb-output"],
-                  dataNbLong: output.value.split("\n").length > longOutputLines ? "" : undefined,
-                },
-                [prompt("nb-prompt-out", `Out[${count}]:`), output],
-              ),
+              commentary.length > 0
+                ? block("div", { className: ["nb-explain"] }, [
+                    block("div", { className: ["nb-commentary"] }, commentary),
+                    outputPane,
+                  ])
+                : outputPane,
             )
           }
-          parent!.children.splice(
+          siblings.splice(
             position!,
-            output ? 2 : 1,
+            end - position!,
             block("div", { className: ["nb-cell"], dataNbCount: String(count) }, children),
           )
           return position! + 1
