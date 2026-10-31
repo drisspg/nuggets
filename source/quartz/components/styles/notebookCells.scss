@@ -14,10 +14,6 @@
     min-width: 0;
   }
 
-  .nb-output {
-    margin-top: 1rem;
-  }
-
   .nb-prompt {
     display: flex;
     align-items: baseline;
@@ -96,31 +92,43 @@
     border-left-color: var(--nb-out);
   }
 
-  .nb-explain {
-    display: flex;
-    flex-direction: column;
+  .nb-lead,
+  .nb-commentary {
+    > :first-child {
+      margin-top: 0;
+    }
 
-    > .nb-output {
-      order: -1;
+    > :last-child {
+      margin-bottom: 0;
     }
   }
 
-  .nb-commentary > :first-child {
+  > * + * {
     margin-top: 1rem;
   }
 
-  // Wide screens: commentary on the left, its log pinned beside it.
+  // Wide screens: lead-in, code and commentary on the left; the log pinned on the right.
   @media all and (min-width: 1000px) {
-    .nb-explain {
+    &:has(> .nb-output) {
       display: grid;
       grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-      gap: 2rem;
-      align-items: start;
+      // The trailing flexible row absorbs a tall log so left-column items stay packed.
+      grid-template-rows: auto auto auto 1fr;
+      column-gap: 2rem;
+
+      > .nb-lead,
+      > .nb-input,
+      > .nb-commentary {
+        grid-column: 1;
+      }
 
       > .nb-output {
-        order: 0;
+        grid-column: 2;
+        grid-row: 1 / -1;
+        align-self: start;
         position: sticky;
         top: 1rem;
+        margin-top: 0;
 
         pre {
           max-height: calc(100vh - 4rem);

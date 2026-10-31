@@ -1,5 +1,5 @@
 import { Properties } from "hast"
-import { BlockContent, Code, Root, RootContent } from "mdast"
+import { BlockContent, Code, Heading, Root, RootContent } from "mdast"
 import { visit } from "unist-util-visit"
 import { QuartzTransformerPlugin } from "../types"
 // @ts-ignore
@@ -8,8 +8,9 @@ import { takeFenceFlag } from "./fenceMeta"
 
 // Render ```python cell fences as Jupyter-style input cells. An immediately following
 // ```output fence becomes that cell's output; write ```output python to highlight it.
-// The prose after a cell is its commentary and sits beside the output: it runs until the
-// next cell or a heading that closes the section containing the cell.
+// A cell with output gathers the prose around it: the lead-in since the last heading and
+// the commentary after it. On wide screens that prose and the code form the left column
+// beside a pinned log.
 const outputLanguage = "output"
 
 const block = (hName: string, hProperties: Properties, children: BlockContent[]): BlockContent => ({
@@ -26,6 +27,15 @@ const prompt = (className: string, value: string): BlockContent => ({
 
 const isCell = (node: RootContent | undefined) =>
   node?.type === "code" && takeFenceFlag(node.meta, "cell").present
+
+const cellBlock = (count: number, children: BlockContent[]) =>
+  block("div", { className: ["nb-cell"], dataNbCount: String(count) }, children)
+
+// Lead-in prose never reaches past a heading or an already-built cell.
+const isBoundary = (node: RootContent) =>
+  node.type === "heading" ||
+  isCell(node) ||
+  ((node.data?.hProperties?.className as string[] | undefined)?.includes("nb-cell") ?? false)
 
 function sectionDepth(siblings: RootContent[], position: number) {
   for (let index = position - 1; index >= 0; index--) {
@@ -44,6 +54,13 @@ export const NotebookCells: QuartzTransformerPlugin = () => ({
         const fail = (message: string): never => {
           throw new Error(`${file.path}: notebook cells: ${message}`)
         }
+        // Notebook Markdown often leaves fences untagged; a page can name their language.
+        const fenceLanguage = file.data.frontmatter?.notebookFenceLanguage
+        if (typeof fenceLanguage === "string") {
+          visit(tree, "code", (node) => {
+            node.lang ??= fenceLanguage
+          })
+        }
         let count = 0
         visit(tree, "code", (node, position, parent) => {
           if (node.lang === outputLanguage) {
@@ -55,53 +72,59 @@ export const NotebookCells: QuartzTransformerPlugin = () => ({
           count++
 
           const siblings = parent!.children as RootContent[]
-          const children = [
-            block("div", { className: ["nb-input"] }, [
-              prompt("nb-prompt-in", `In [${count}]:`),
-              node,
-            ]),
-          ]
+          const input = block("div", { className: ["nb-input"] }, [
+            prompt("nb-prompt-in", `In [${count}]:`),
+            node,
+          ])
+          let start = position!
           let end = position! + 1
           const next = siblings[end]
-          if (next?.type === "code" && next.lang === outputLanguage) {
-            const output = next as Code
-            const [language, ...outputMeta] = (output.meta ?? "").trim().split(/\s+/)
-            output.lang = language || "text"
-            output.meta = outputMeta.join(" ") || null
-            end++
-
-            const depth = sectionDepth(siblings, position!)
-            const commentaryStart = end
-            while (
-              end < siblings.length &&
-              !isCell(siblings[end]) &&
-              !(
-                siblings[end].type === "heading" &&
-                (siblings[end] as { depth: number }).depth <= depth
-              )
-            ) {
-              end++
-            }
-            const commentary = siblings.slice(commentaryStart, end) as BlockContent[]
-            const outputPane = block("div", { className: ["nb-output"] }, [
-              prompt("nb-prompt-out", `Out[${count}]:`),
-              output,
-            ])
-            children.push(
-              commentary.length > 0
-                ? block("div", { className: ["nb-explain"] }, [
-                    block("div", { className: ["nb-commentary"] }, commentary),
-                    outputPane,
-                  ])
-                : outputPane,
-            )
+          if (!(next?.type === "code" && next.lang === outputLanguage)) {
+            siblings.splice(start, 1, cellBlock(count, [input]))
+            return start + 1
           }
+          const output = next as Code
+          const [language, ...outputMeta] = (output.meta ?? "").trim().split(/\s+/)
+          output.lang = language || "text"
+          output.meta = outputMeta.join(" ") || null
+          end++
+
+          // Lead-in: the prose since the last heading or cell. Commentary: the prose after the
+          // output until the next cell or a heading that closes the cell's section.
+          while (start > 0 && !isBoundary(siblings[start - 1])) start--
+          const depth = sectionDepth(siblings, start)
+          const commentaryStart = end
+          while (
+            end < siblings.length &&
+            !isCell(siblings[end]) &&
+            !(siblings[end].type === "heading" && (siblings[end] as Heading).depth <= depth)
+          ) {
+            end++
+          }
+          const prose = (from: number, to: number, className: string) =>
+            to > from
+              ? [
+                  block(
+                    "div",
+                    { className: [className] },
+                    siblings.slice(from, to) as BlockContent[],
+                  ),
+                ]
+              : []
           siblings.splice(
-            position!,
-            end - position!,
-            block("div", { className: ["nb-cell"], dataNbCount: String(count) }, children),
+            start,
+            end - start,
+            cellBlock(count, [
+              ...prose(start, position!, "nb-lead"),
+              input,
+              block("div", { className: ["nb-output"] }, [
+                prompt("nb-prompt-out", `Out[${count}]:`),
+                output,
+              ]),
+              ...prose(commentaryStart, end, "nb-commentary"),
+            ]),
           )
-          return position! + 1
+          return start + 1
         })
       },
     ]

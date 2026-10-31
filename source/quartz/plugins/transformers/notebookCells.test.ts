@@ -60,8 +60,9 @@ test("the bundled prose linker does not leak minified bindings into other classi
 
 const ctx = {} as BuildCtx
 
-async function render(source: string) {
+async function render(source: string, frontmatter: Record<string, unknown> = {}) {
   const file = new VFile({ path: "/content/nested/notebook.md", value: source })
+  file.data.frontmatter = frontmatter as typeof file.data.frontmatter
   const processor = unified()
     .use(remarkParse)
     .use(NotebookCells().markdownPlugins!(ctx))
@@ -123,10 +124,12 @@ test("cells are numbered in page order and outputs attach to the preceding cell"
   )
 })
 
-test("prose after a cell sits beside its output until the cell's section closes", async () => {
+test("a cell with output gathers its lead-in and commentary until its section closes", async () => {
   const tree = await render(
     [
       "# Section",
+      "",
+      "Lead-in.",
       "",
       "```python cell",
       "run()",
@@ -160,15 +163,15 @@ test("prose after a cell sits beside its output until the cell's section closes"
     ].join("\n"),
   )
   const [first, second] = byClass(tree, "nb-cell")
+  assert.equal(toString(byClass(first, "nb-lead")[0]).trim(), "Lead-in.")
+  // The heading that opens the section stays outside the cell.
+  assert.doesNotMatch(toString(first), /^\s*Section/)
   const commentary = byClass(first, "nb-commentary")
   assert.equal(commentary.length, 1)
   assert.match(toString(commentary[0]), /About the log\.[\s\S]*Subsection[\s\S]*Still about it\./)
   assert.doesNotMatch(toString(first), /Next section|Unrelated/)
-  // Commentary and output share a two-pane wrapper.
-  const [explain] = byClass(first, "nb-explain")
-  assert.equal(byClass(explain, "nb-output").length, 1)
-  // A heading at the cell's own level closes it immediately: the output stands alone.
-  assert.equal(byClass(second, "nb-explain").length, 0)
+  // A heading at the cell's own level closes it immediately, and nothing leads in after one.
+  assert.equal(byClass(second, "nb-commentary").length + byClass(second, "nb-lead").length, 0)
   assert.equal(byClass(second, "nb-output").length, 1)
   assert.match(toString(tree), /Sibling heading/)
   assert.doesNotMatch(toString(second), /Sibling heading/)
@@ -184,6 +187,17 @@ test("an output fence may name its highlighting language", async () => {
     if (element.tagName === "pre") language = element.properties["data-language"]
   })
   assert.equal(language, "python")
+})
+
+test("a page can name the language of its untagged fences", async () => {
+  const tree = await render("```\nx = 1\n```\n\n```text\nplain\n```", {
+    notebookFenceLanguage: "python",
+  })
+  const languages: unknown[] = []
+  visit(tree, "element", (element) => {
+    if (element.tagName === "pre") languages.push(element.properties["data-language"])
+  })
+  assert.deepEqual(languages, ["python", "text"])
 })
 
 test("an output fence without a cell fails with the page filepath", async () => {
