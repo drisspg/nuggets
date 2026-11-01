@@ -15,8 +15,6 @@ Elias recently shared this notebook with me. I thought, "Wow, this is an amazing
 
 <a class="colab-badge" href="https://colab.research.google.com/github/drisspg/nuggets/blob/main/source/content/media/inductor-walkthrough/inductor_walkthrough.ipynb">Open in Colab</a> <a class="colab-badge" href="./media/inductor-walkthrough/inductor_walkthrough.ipynb" download>Download .ipynb</a>
 
-# Torchinductor Walkthrough 
-
 We are going to walk through the various stages of torch.compile IR. 
 
 ## Pre-grad: 
