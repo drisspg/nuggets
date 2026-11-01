@@ -284,3 +284,64 @@ a.colab-badge.colab-badge {
     margin-right: 0.35rem;
   }
 }
+
+// Native redraw of Elias's inlining figure; follows the page theme.
+.inlining-fig {
+  margin: 1.5rem auto;
+  max-width: 46rem;
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    color: var(--dark);
+  }
+
+  .e {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    marker-end: url(#inl-arrow);
+  }
+
+  .n circle {
+    fill: var(--light);
+    stroke: currentColor;
+    stroke-width: 2;
+  }
+
+  .n text,
+  .fl {
+    font-family: var(--codeFont);
+    fill: currentColor;
+  }
+
+  .n text {
+    font-size: 17px;
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+
+  .n.re circle {
+    fill: color-mix(in srgb, var(--secondary) 22%, var(--light));
+    stroke: var(--secondary);
+    stroke-dasharray: 5 4;
+  }
+
+  .fused {
+    fill: color-mix(in srgb, var(--callout-color-caveat) 20%, transparent);
+    stroke: var(--callout-color-caveat);
+    stroke-width: 2;
+  }
+
+  .fl {
+    font-size: 19px;
+    text-anchor: end;
+    fill: var(--callout-color-caveat);
+  }
+
+  .divider {
+    stroke: var(--lightgray);
+    stroke-width: 2;
+  }
+}
