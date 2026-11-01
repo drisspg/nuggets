@@ -32,7 +32,7 @@ function linkNotebookProse(article: HTMLElement) {
   let pinned: { quote: HTMLElement; show: (reveal: boolean) => void } | undefined
 
   const quotes = Array.from(article.querySelectorAll<HTMLElement>("code")).filter(
-    (code) => !code.closest("pre, a, .nb-prompt"),
+    (code) => !code.closest("pre, a, .nb-prompt, .sidenote"),
   )
   for (const quote of quotes) {
     const needle = normalize(quote.textContent ?? "")

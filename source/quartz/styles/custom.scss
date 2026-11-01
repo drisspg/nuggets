@@ -306,6 +306,23 @@ article.sidenotes :is(p, li):has(.sidenote-hover, .sidenote-pair) {
   transform: none;
 }
 
+// Inline hover notes pop up under their phrase instead of moving into the margin, so they
+// work on pages that do not reserve a sidenote column.
+.sidenote-hover--inline {
+  position: relative;
+
+  .sidenote.sidenote--hover-media {
+    top: calc(100% + 0.4rem);
+    left: 0;
+    width: min(24rem, 80vw);
+    padding: 0.6rem 0.75rem;
+    color: var(--darkgray);
+    font-size: 0.84rem;
+    line-height: 1.5;
+    white-space: normal;
+  }
+}
+
 .sidenote-hover-caption {
   display: block;
   margin-top: 0.35rem;

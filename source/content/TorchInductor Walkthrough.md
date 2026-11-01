@@ -558,7 +558,7 @@ _ = foo(torch.rand([10, 60], device="cuda"), torch.rand([10, 60], device="cuda")
 [DEBUG]:found 0 possible fusions
 ```
 
-Similarly, if the, reads and writes were accessed differently, we might not fuse. We do have an option to reorder loops in the scheduler to make fusion occur, which we are working on enabling by defualt. `loop_ordering_after_fusion`.
+Similarly, if the, reads and writes were accessed differently, we might not fuse. We do have an option to reorder loops in the scheduler to make fusion occur, which we are <span class="sidenote-hover sidenote-hover--inline"><button type="button" class="sidenote-trigger" aria-describedby="ed-loop-order">working on enabling by defualt</button><span id="ed-loop-order" class="sidenote sidenote--hover-media" role="note"><strong>Editor's note (Nov 2026):</strong> <code>loop_ordering_after_fusion</code> is now on by default in open-source builds (it is still off in Meta-internal builds).</span></span>. `loop_ordering_after_fusion`.
 
 Now that we have the basics of SchedulerNode down, lets take a higher level look at how the Scheduler works. At a high level, the Scheduler has a single objective: minimize global reads and writes. 
 
@@ -1394,7 +1394,7 @@ This is intentionally different from `FusedSchedulerNode`. A normal fused node c
 
 ## Codegen shape
 
-The generated Triton kernel flattens the launch grid across subkernels. Each program id chooses which original kernel body to execute:
+The generated Triton kernel flattens the launch grid across subkernels. <span class="sidenote-hover sidenote-hover--inline"><button type="button" class="sidenote-trigger" aria-describedby="ed-combo-shape">Each program id chooses which original kernel body to execute</button><span id="ed-combo-shape" class="sidenote sidenote--hover-media" role="note"><strong>Editor's note (Nov 2026):</strong> In the current nightly, each subkernel body is a separate <code>@triton.jit(noinline=True)</code> function called from these branches; the inline version below is simplified.</span></span>:
 
 ```python
 @triton.jit
@@ -2758,7 +2758,7 @@ if __name__ == "__main__":
 
 What to look for in the logs:
 
-- OFF: two reduction kernels, each reading the full input.
+- <span class="sidenote-hover sidenote-hover--inline"><button type="button" class="sidenote-trigger" aria-describedby="ed-mix-default">OFF</button><span id="ed-mix-default" class="sidenote sidenote--hover-media" role="note"><strong>Editor's note (Nov 2026):</strong> <code>triton.mix_order_reduction</code> is on by default now, so the OFF run explicitly turns a default feature off.</span></span>: two reduction kernels, each reading the full input.
 - ON: `FusedMixOrderReductions`, a main kernel that streams `x` once, and a smaller workspace finalization for the slow-axis reduction.
 
 This pattern matters for backward passes that need reductions along different axes of the same activation: layer norm / RMS norm backward, attention backward, and weight-gradient style reductions.
@@ -2781,7 +2781,7 @@ There are two reductions:
 
 The second reduction depends on the first because it needs the normalized full-resolution values. Without nested reduction, Inductor emits a variance kernel, then a second kernel that reloads `x`, reloads the variance, normalizes, and computes block amax.
 
-With `FusedNestedReductions`, one persistent-reduction kernel does both passes. It loads the row once, computes the RMS statistic, normalizes the register tile, reshapes that tile in registers, and reduces groups of 16 before storing the block amax.
+With `FusedNestedReductions`, <span class="sidenote-hover sidenote-hover--inline"><button type="button" class="sidenote-trigger" aria-describedby="ed-nested-kernel">one persistent-reduction kernel does both passes</button><span id="ed-nested-kernel" class="sidenote sidenote--hover-media" role="note"><strong>Editor's note (Nov 2026):</strong> In the H100 run shown here (D = 8192, fp32), Inductor emits a looped reduction (<code>triton_red_</code>) that reads the row twice, leaning on L2 for the second pass. It is still one kernel and the variance is never materialized.</span></span>. It loads the row once, computes the RMS statistic, normalizes the register tile, reshapes that tile in registers, and reduces groups of 16 before storing the block amax.
 
 ```python cell
 import os
@@ -3523,18 +3523,18 @@ if __name__ == "__main__":
 
 What to look for in the logs:
 
-- OFF: two kernels, with the full input loaded twice and the variance materialized.
+- <span class="sidenote-hover sidenote-hover--inline"><button type="button" class="sidenote-trigger" aria-describedby="ed-nested-default">OFF</button><span id="ed-nested-default" class="sidenote sidenote--hover-media" role="note"><strong>Editor's note (Nov 2026):</strong> <code>triton.nested_reduction</code> is on by default now, so the OFF run explicitly turns a default feature off.</span></span>: two kernels, with the full input loaded twice and the variance materialized.
 - ON: `FusedNestedReductions`, with the RMS statistic and the block amax in one generated kernel.
 - In output code, look for an in-register reshape of the large reduction tile followed by a smaller reduction over the grouped dimension.
 
-This is the quantization pipeline story: RMS norm, block amax, scale calculation, and sometimes an inline-asm pack can become one kernel instead of a sequence of memory-bound kernels.
+This is the quantization pipeline story: RMS norm, block amax, <span class="sidenote-hover sidenote-hover--inline"><button type="button" class="sidenote-trigger" aria-describedby="ed-quant">scale calculation, and sometimes an inline-asm pack</button><span id="ed-quant" class="sidenote sidenote--hover-media" role="note"><strong>Editor's note (Nov 2026):</strong> This notebook demonstrates RMS norm plus block amax; the scale calculation and inline-asm packing are not shown here.</span></span> can become one kernel instead of a sequence of memory-bound kernels.
 
 ## Misc Scheduler Passes I didn't get into
 
 - [Reorder for Peak Memory](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L2095) - on by default
-- [Cudagraph Partioning](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L2107) (soon to be enabled)
+- [Cudagraph Partioning](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L2107) (<span class="sidenote-hover sidenote-hover--inline"><button type="button" class="sidenote-trigger" aria-describedby="ed-graph-partition">soon to be enabled</button><span id="ed-graph-partition" class="sidenote sidenote--hover-media" role="note"><strong>Editor's note (Nov 2026):</strong> Graph partitioning (<code>graph_partition</code>) is already on by default in open-source builds, since about August 2025 (PR #154667).</span></span>)
 
-- [Reorder Compute And Comm](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L2102-L2103) (off by default, though being worked on)
+- [Reorder Compute And Comm](https://github.com/pytorch/pytorch/blob/f1d636f85b1d00e73c8e6d14c10d739efdaec124/torch/_inductor/scheduler.py#L2102-L2103) (<span class="sidenote-hover sidenote-hover--inline"><button type="button" class="sidenote-trigger" aria-describedby="ed-compute-comm">off by default, though being worked on</button><span id="ed-compute-comm" class="sidenote sidenote--hover-media" role="note"><strong>Editor's note (Nov 2026):</strong> Still off by default (<code>reorder_for_compute_comm_overlap = False</code>). For distributed overlap, the config now recommends <code>aten_distributed_optimizations</code>.</span></span>)
 
 
 ## Debug Utility I did not get into
