@@ -4,7 +4,7 @@ description: "A guest notebook by Elias Ellison: torch.compile's IR stages, how 
 date: 2026-10-31
 notebookFenceLanguage: python
 socialImage: media/social/inductor-walkthrough.png
-socialImageAlt: "The walkthrough's dark notebook layout: commentary quoting the 'cannot fuse op0 with op1_op2' line beside the Inductor fusion log, with the matching log lines highlighted."
+socialImageAlt: "Scheduler fusion diagram from the sum + sum example: op1 and op2 merge into one amber op1_op2 kernel, while op0 stays a separate kernel, its edge into op2 marked with a red numel-mismatch cross."
 tags:
   - pytorch
 ---
