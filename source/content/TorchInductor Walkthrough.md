@@ -249,7 +249,7 @@ Recomputing operations can allow us to improve fusion. Here, on the left, we ass
 
 This can be especially important when broadcasts result in a output of pointwise node being much larger than its inputs, and in the backward, where we often save smaller tensors that get reused multiple times, and broadcasted/converted to a larger dtype.
 
-<!-- TODO: inlining diagram (clone not fusible; cos and relu inlined into add) is not yet exported from the internal notebook. -->
+<!-- TODO: inlining diagram (clone not fusible; cos and relu inlined into add) still needs to be added. -->
 
 
 
@@ -3527,16 +3527,6 @@ What to look for in the logs:
 - In output code, look for an in-register reshape of the large reduction tile followed by a smaller reduction over the grouped dimension.
 
 This is the quantization pipeline story: RMS norm, block amax, scale calculation, and sometimes an inline-asm pack can become one kernel instead of a sequence of memory-bound kernels.
-
-# Other PR Topics Not Covered In Depth
-
-These are still worth mentioning, but they are better as short context slides than full walkthroughs here:
-
-- **Loop reindexing after fusion:** related to loop reordering, but changes the iteration factorization. Good example: reshape before RMS/qknorm reduction, where `[16, 8192]` and `[1024, 128]` represent the same elements differently.
-- **Index inversion in fusion:** pushes a reshape/permute/reshape swizzle from the consumer load to the final store. This is useful for MX-fp8 scale swizzles where the natural reduction layout differs from the layout expected by `_scaled_mm`.
-- **Inline ASM integration:** `inline_asm_elementwise` is a fusible elementwise op in Inductor IR. It lets E8M0/NVFP4-style hardware instructions sit inside a larger fused kernel rather than forcing a custom op boundary.
-- **Helion external-template epilogue fusion:** Helion-authored Triton templates can expose Inductor template hooks like `<STORE_OUTPUT_0>` and participate in the same epilogue fusion as native Inductor templates.
-- **Cute DSL / FlexAttention template integration:** referenced by the PR notes, but not expanded here. Treat it as a pointer to template extensibility rather than a scheduler-fusion case study.
 
 ## Misc Scheduler Passes I didn't get into
 

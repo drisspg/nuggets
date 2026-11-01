@@ -39,8 +39,8 @@ async function allMarkdownFiles(dir = CONTENT_DIR) {
 // Code is rendered literally, so `[[...]]` inside fences or inline code is not a link.
 function withoutCode(markdown) {
   return markdown
-    .replace(/^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^ {0,3}\1[`~]*[ \t]*$|(?![\s\S]))/gm, "")
-    .replace(/(`+)(?!`)[\s\S]*?[^`]\1(?!`)/g, "")
+    .replace(/^ {0,3}((`|~)\2{2,})[^\n]*\n[\s\S]*?(?:^ {0,3}\1\2*[ \t]*$|(?![\s\S]))/gm, "")
+    .replace(/(`+)(?!`)(?:(?!\n[ \t]*\n)[^])*?[^`]\1(?!`)/g, "")
 }
 
 function linkTargets(markdown) {

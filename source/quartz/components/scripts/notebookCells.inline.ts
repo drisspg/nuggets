@@ -26,7 +26,7 @@ function linkNotebookProse(article: HTMLElement) {
   const controller = new AbortController()
   const { signal } = controller
   const linked: HTMLElement[] = []
-  let pinned: HTMLElement | undefined
+  let pinned: { quote: HTMLElement; show: (reveal: boolean) => void } | undefined
 
   const quotes = Array.from(article.querySelectorAll<HTMLElement>("code")).filter(
     (code) => !code.closest("pre, a, .nb-prompt"),
@@ -52,33 +52,39 @@ function linkNotebookProse(article: HTMLElement) {
     if (hits.length === 0 || hits.length > maximumHits) continue
 
     const cell = hits[0].closest<HTMLElement>(".nb-cell")!
-    const show = () => {
+    const show = (reveal = true) => {
       for (const line of hits) line.dataset.nbHit = ""
       cell.dataset.nbReferenced = ""
+      if (!reveal) return
       for (const box of new Set(hits.map((line) => line.closest("pre")))) {
         revealWithinBox(hits.find((line) => line.closest("pre") === box)!)
       }
     }
-    const hide = () => {
-      if (pinned === quote) return
+    const clear = () => {
       for (const line of hits) delete line.dataset.nbHit
       delete cell.dataset.nbReferenced
+    }
+    // Hovering another quote must not erase the pinned quote's highlight.
+    const hide = () => {
+      if (pinned?.quote === quote) return
+      clear()
+      pinned?.show(false)
     }
     quote.classList.add("nb-quote")
     quote.tabIndex = 0
     quote.title = "Highlight in the notebook cell"
     linked.push(quote)
-    quote.addEventListener("pointerenter", show, { signal })
-    quote.addEventListener("focus", show, { signal })
+    quote.addEventListener("pointerenter", () => show(), { signal })
+    quote.addEventListener("focus", () => show(), { signal })
     quote.addEventListener("pointerleave", hide, { signal })
     quote.addEventListener("blur", hide, { signal })
     quote.addEventListener(
       "click",
       () => {
         const previous = pinned
-        pinned = previous === quote ? undefined : quote
-        previous?.classList.remove("nb-quote-pinned")
-        previous?.dispatchEvent(new Event("pointerleave"))
+        pinned = previous?.quote === quote ? undefined : { quote, show }
+        previous?.quote.classList.remove("nb-quote-pinned")
+        previous?.quote.dispatchEvent(new Event("pointerleave"))
         if (pinned) {
           quote.classList.add("nb-quote-pinned")
           show()
@@ -107,6 +113,7 @@ function linkNotebookProse(article: HTMLElement) {
 
 // Every pane can open in a floating dialog above the page, at full size.
 function addFocusButtons(article: HTMLElement) {
+  if (!article.querySelector(".nb-cell")) return
   const dialog = document.createElement("dialog")
   dialog.className = "nb-focus"
   dialog.setAttribute("aria-label", "Notebook cell")
@@ -138,11 +145,14 @@ function addFocusButtons(article: HTMLElement) {
     "click",
     () => {
       const code = body.querySelector("code")
-      if (!code) return
-      void navigator.clipboard.writeText(code.innerText).then(() => {
-        copy.textContent = "copied"
-        setTimeout(() => (copy.textContent = "copy"), 1200)
-      })
+      if (!code || !navigator.clipboard) return
+      navigator.clipboard.writeText(code.innerText).then(
+        () => {
+          copy.textContent = "copied"
+          setTimeout(() => (copy.textContent = "copy"), 1200)
+        },
+        () => (copy.textContent = "copy failed"),
+      )
     },
     { signal },
   )

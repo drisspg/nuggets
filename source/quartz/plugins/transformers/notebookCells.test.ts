@@ -177,6 +177,69 @@ test("a cell with output gathers its lead-in and commentary until its section cl
   assert.doesNotMatch(toString(second), /Sibling heading/)
 })
 
+test("a subheading that leads into the next cell introduces that cell", async () => {
+  const fence = (code: string) => ["```python cell", code, "```", "", "```output", "log", "```", ""]
+  const tree = await render(
+    [
+      "# A",
+      "",
+      ...fence("one()"),
+      "About one.",
+      "",
+      "## B",
+      "",
+      "Sets up two.",
+      "",
+      ...fence("two()"),
+    ].join("\n"),
+  )
+  const [first, second] = byClass(tree, "nb-cell")
+  assert.equal(toString(byClass(first, "nb-commentary")[0]).trim(), "About one.")
+  assert.equal(toString(byClass(second, "nb-lead")[0]).trim(), "Sets up two.")
+  assert.doesNotMatch(toString(first), /\bB\b|Sets up two/)
+})
+
+test("fences nested in a cell's prose are still converted and checked", async () => {
+  const nested = await render(
+    [
+      "```python cell",
+      "one()",
+      "```",
+      "",
+      "```output",
+      "log",
+      "```",
+      "",
+      "- item",
+      "",
+      "  ```python cell",
+      "  two()",
+      "  ```",
+    ].join("\n"),
+  )
+  assert.equal(byClass(nested, "nb-cell").length, 2)
+  await assert.rejects(
+    render(
+      [
+        "```python cell",
+        "one()",
+        "```",
+        "",
+        "```output",
+        "log",
+        "```",
+        "",
+        "Prose.",
+        "",
+        "```output",
+        "stray",
+        "```",
+      ].join("\n"),
+    ),
+    /an output fence must immediately follow a cell fence/,
+  )
+})
+
 test("an output fence may name its highlighting language", async () => {
   const tree = await render("```python cell\nrun()\n```\n\n```output python\nx = 1\n```")
   const [output] = byClass(tree, "nb-output")

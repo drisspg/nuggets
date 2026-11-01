@@ -90,7 +90,8 @@ export const NotebookCells: QuartzTransformerPlugin = () => ({
           end++
 
           // Lead-in: the prose since the last heading or cell. Commentary: the prose after the
-          // output until the next cell or a heading that closes the cell's section.
+          // output until the next cell or a heading that closes the cell's section. A subheading
+          // that leads straight into the next cell introduces that cell, so leave it outside.
           while (start > 0 && !isBoundary(siblings[start - 1])) start--
           const depth = sectionDepth(siblings, start)
           const commentaryStart = end
@@ -100,6 +101,12 @@ export const NotebookCells: QuartzTransformerPlugin = () => ({
             !(siblings[end].type === "heading" && (siblings[end] as Heading).depth <= depth)
           ) {
             end++
+          }
+          if (isCell(siblings[end])) {
+            const lastHeading = siblings
+              .slice(commentaryStart, end)
+              .findLastIndex((node) => node.type === "heading")
+            if (lastHeading !== -1) end = commentaryStart + lastHeading
           }
           const prose = (from: number, to: number, className: string) =>
             to > from
@@ -124,7 +131,8 @@ export const NotebookCells: QuartzTransformerPlugin = () => ({
               ...prose(commentaryStart, end, "nb-commentary"),
             ]),
           )
-          return start + 1
+          // Revisit the new cell so nested fences in its prose are converted or rejected too.
+          return start
         })
       },
     ]
