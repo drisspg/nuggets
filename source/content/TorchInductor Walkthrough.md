@@ -1,7 +1,6 @@
 ---
 title: TorchInductor Walkthrough
 description: "A guest notebook by Elias Ellison: torch.compile's IR stages, how the Inductor scheduler decides what to fuse, and newer scheduler passes, with real logs from every cell."
-draft: true
 date: 2026-10-31
 notebookFenceLanguage: python
 tags:
