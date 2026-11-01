@@ -3,6 +3,8 @@ title: TorchInductor Walkthrough
 description: "A guest notebook by Elias Ellison: torch.compile's IR stages, how the Inductor scheduler decides what to fuse, and newer scheduler passes, with real logs from every cell."
 date: 2026-10-31
 notebookFenceLanguage: python
+socialImage: media/social/inductor-walkthrough.png
+socialImageAlt: "The walkthrough's dark notebook layout: commentary quoting the 'cannot fuse op0 with op1_op2' line beside the Inductor fusion log, with the matching log lines highlighted."
 tags:
   - pytorch
 ---

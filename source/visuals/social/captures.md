@@ -11,15 +11,16 @@ The final 1200×630 cards are assembled automatically by Quartz. This directory 
 | `ulp-binades.png` | `content/widgets/ulp-binades.html` | The existing overview SVG, including its original dark palette. |
 | `clc-workers.png` | `content/widgets/clc-work-distribution.html` | Eight steps of the existing simulation; controls hidden and workers arranged in two columns for the banner. No work values changed. |
 | `fast-math-sin.png` | `content/media/fast-math/fast-math-explorer.html` | The actual `sin` heatmaps (CUDA default vs `--use_fast_math`), zoomed to rows 2^-23..2^23, controls and cursor hidden. |
+| `inductor-walkthrough.png` | Built `TorchInductor-Walkthrough.html` page | The actual notebook layout in the site's default dark theme at a 1440px-wide viewport: the `[DEBUG]:cannot fuse op0 with op1_op2` commentary quote is pinned, so its lines are highlighted in the pinned log. |
 | `flex-determinism.png` | Two screenshots already in `content/media/`, dated 2025-10-17 at 11.34.06 AM and 12.11.58 PM | Cropped forward/backward result columns, with before/after labels. The SVG embeds the original pixels during rendering. |
 
-Regenerate the five widget captures with an **ephemeral** Playwright install exposed through `NODE_PATH`, from `source/`:
+Regenerate the six page/widget captures with an **ephemeral** Playwright install exposed through `NODE_PATH`, from `source/` (run `npm run build` first; the TorchInductor capture reads the built page from `public/`):
 
 ```sh
 NODE_PATH=/path/to/temp-playwright/node_modules node visuals/social/capture.cjs
 ```
 
-The capture script opens the existing self-contained HTML files locally, uses a 1080×286 viewport at device scale 2, and writes PNGs. It does not change the widgets or require a running site. Playwright is deliberately not a blog dependency.
+The capture script opens the existing self-contained HTML files locally, uses a 1080×286 viewport at device scale 2, and writes PNGs. For the TorchInductor post it serves `public/` from a temporary local server, because the notebook-quote script does not run over `file://`. It does not change the widgets or require a separately running site. Playwright is deliberately not a blog dependency.
 
 ## New illustrations
 
@@ -33,4 +34,4 @@ node visuals/social/render.mjs
 
 The renderer embeds local screenshot references, uses the bundled IBM Plex fonts without system-font discovery, and writes PNG banners. Run `npm run build` afterwards to refresh all final cards. Editing only a raw asset does not trigger a full rebuild in Quartz's default preview watcher; explicitly rebuild after regenerating banners.
 
-The article bodies and their existing interactive graphics are unchanged. Collection pages retain the common Nuggets artwork; all 15 published posts have their own banner.
+The article bodies and their existing interactive graphics are unchanged. Collection pages retain the common Nuggets artwork; all 16 published posts have their own banner.
