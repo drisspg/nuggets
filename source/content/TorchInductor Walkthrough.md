@@ -10,7 +10,7 @@ tags:
 
 #### Written: October 31, 2026 · Guest post by Elias Ellison
 
-This is Elias's notebook, as he wrote it. Each cell's logs, captured on an H100 with `torch 2.16.0.dev20261031+cu132`, sit beside Elias's commentary on them. Hover over quoted code in the text to highlight it in the logs, and use expand to look at any pane on its own. To run it yourself:
+Elias recently shared this notebook with me. I thought, "Wow, this is an amazing description of inductor, we should share this."
 
 <a class="colab-badge" href="https://colab.research.google.com/github/drisspg/nuggets/blob/main/source/content/media/inductor-walkthrough/inductor_walkthrough.ipynb">Open in Colab</a> <a class="colab-badge" href="./media/inductor-walkthrough/inductor_walkthrough.ipynb" download>Download .ipynb</a>
 
