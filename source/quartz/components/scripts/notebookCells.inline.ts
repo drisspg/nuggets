@@ -6,8 +6,11 @@ const maximumHits = 24
 
 const normalize = (text: string) => text.replace(/\s+/g, " ").trim()
 
+// Only the cell's code and log count; code blocks quoted in the prose would match themselves.
 function cellLines(cell: HTMLElement) {
-  return Array.from(cell.querySelectorAll<HTMLElement>("pre [data-line]")).map((line) => ({
+  return Array.from(
+    cell.querySelectorAll<HTMLElement>(".nb-input pre [data-line], .nb-output pre [data-line]"),
+  ).map((line) => ({
     line,
     text: normalize(line.textContent ?? ""),
   }))
@@ -40,12 +43,14 @@ function linkNotebookProse(article: HTMLElement) {
     )
     const below = following === -1 ? undefined : cells[following]
     const above = following === -1 ? cells.at(-1) : cells[following - 1]
+    // Inductor's IR dumps print private fields as attributes: `_sizes` appears as `op0.sizes`.
+    const needles = /^_\w+$/.test(needle) ? [needle, `.${needle.slice(1)}`] : [needle]
     let hits: HTMLElement[] = []
     for (const cell of own ? [own] : [above, below]) {
       if (!cell) continue
       hits = lines
         .get(cell)!
-        .filter(({ text }) => text.includes(needle))
+        .filter(({ text }) => needles.some((candidate) => text.includes(candidate)))
         .map(({ line }) => line)
       if (hits.length > 0) break
     }
