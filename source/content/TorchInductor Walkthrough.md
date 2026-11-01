@@ -250,7 +250,7 @@ Recomputing operations can allow us to improve fusion. Here, on the left, we ass
 
 This can be especially important when broadcasts result in a output of pointwise node being much larger than its inputs, and in the backward, where we often save smaller tensors that get reused multiple times, and broadcasted/converted to a larger dtype.
 
-<!-- TODO: inlining diagram (clone not fusible; cos and relu inlined into add) still needs to be added. -->
+<center><img src="./media/inductor-walkthrough/inlining.png" alt="Two fusion graphs. Left: cos and relu form fused_1, clone cannot be fused, and add reads cos and relu from global memory inside fused_0. Right: cos and relu are recomputed inside fused_0, so add no longer depends on fused_1."></center>
 
 
 
