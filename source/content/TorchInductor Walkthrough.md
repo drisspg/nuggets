@@ -10,7 +10,7 @@ tags:
 
 #### Written: October 31, 2026 · Guest post by Elias Ellison
 
-Elias recently shared this notebook with me. I thought, "Wow, this is an amazing description of inductor, we should share this."
+Elias recently shared this notebook with me. I thought, "Wow, this is an amazing description of inductor, we should share this." So here it is :)
 
 <a class="colab-badge" href="https://colab.research.google.com/github/drisspg/nuggets/blob/main/source/content/media/inductor-walkthrough/inductor_walkthrough.ipynb">Open in Colab</a> <a class="colab-badge" href="./media/inductor-walkthrough/inductor_walkthrough.ipynb" download>Download .ipynb</a>
 
