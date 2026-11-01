@@ -11,7 +11,7 @@ tags:
 
 #### Written: October 31, 2026 · Guest post by Elias Ellison
 
-![Scheduler fusion diagram from the sum + sum example: op1 and op2 merge into one op1_op2 kernel, while op0 stays separate because of a numel mismatch.](./media/social/inductor-walkthrough.png)
+<figure class="post-banner"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 286" role="img" aria-label="Scheduler fusion diagram from the sum + sum example: op1 and op2 merge into one op1_op2 kernel, while op0 stays separate because of a numel mismatch." style="display:block;width:100%;height:auto;border-radius:2px"><defs><marker id="banner-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1a2e22"/></marker></defs><rect width="1080" height="286" fill="#f4f0e8"/><path d="M0 34H1080 M0 68H1080 M0 102H1080 M0 136H1080 M0 170H1080 M0 204H1080 M0 238H1080 M0 272H1080" stroke="#d0ccc4" stroke-width="1" opacity="0.35"/><g font-family="IBM Plex Sans" font-weight="600" text-anchor="middle"><g fill="#5f7f67" fill-opacity=".22" stroke="#1a2e22" stroke-width="2"><rect x="96" y="54" width="120" height="64" rx="6"/><rect x="96" y="164" width="144" height="64" rx="6"/></g><path d="M120 54v64M144 54v64M168 54v64M192 54v64 M120 164v64M144 164v64M168 164v64M192 164v64M216 164v64" stroke="#1a2e22" stroke-width="1.4" opacity=".45"/><text x="78" y="95" font-size="26" text-anchor="end" style="fill:#1a2e22">x</text><text x="78" y="205" font-size="26" text-anchor="end" style="fill:#1a2e22">y</text><rect x="324" y="34" width="128" height="112" rx="22" fill="none" stroke="#5f7f67" stroke-width="3" stroke-dasharray="9 7"/><rect x="532" y="138" width="430" height="124" rx="26" fill="#b98049" fill-opacity=".22" stroke="#b98049" stroke-width="3.5"/><text x="944" y="250" font-size="20" text-anchor="end" style="fill:#8a5c30">op1_op2</text><g fill="none" stroke="#1a2e22" stroke-width="3" marker-end="url(#banner-arrow)"><path d="M216 90H340"/><path d="M240 200H582"/><path d="M670 200H790"/><path d="M878 200H994"/><path d="M428 90H838V152"/></g><rect x="1002" y="168" width="30" height="64" rx="5" fill="#b98049" fill-opacity=".35" stroke="#1a2e22" stroke-width="2"/><circle cx="660" cy="90" r="25" fill="#f4f0e8" stroke="#aa413a" stroke-width="3.5"/><path d="M650 80l20 20M670 80l-20 20" stroke="#aa413a" stroke-width="4.5" stroke-linecap="round"/><text x="660" y="50" font-size="21" style="fill:#aa413a">numel mismatch</text><g fill="#f4f0e8" stroke="#1a2e22" stroke-width="3"><circle cx="388" cy="90" r="40"/><circle cx="630" cy="200" r="40"/><circle cx="838" cy="200" r="40"/></g><g font-size="25" fill="#1a2e22"><text x="388" y="99" style="fill:#1a2e22">op0</text><text x="630" y="209" style="fill:#1a2e22">op1</text><text x="838" y="209" style="fill:#1a2e22">op2</text></g></g></svg></figure>
 
 Elias recently shared this notebook with me. I thought, "Wow, this is an amazing description of inductor, we should share this." So here it is :)
 
@@ -861,66 +861,5 @@ op1.max_input_distance = 0
 op1.outputs = [
     buf1: ComputedBuffer
     buf1.layout = FixedLayout('cuda:0', torch.float32, size=[1024], stride=[1])
-    buf1.users = [NodeUser(node=OUTPUT, can_inplace=False, is_weak=False)]
-]
-op1.group.device = cuda:0
-op1.group.iteration = (1024, 512)
-op1.sizes = ((1024,), (512,))
-arg1_1_layout = FixedLayout('cuda:0', torch.float32, size=[1024, 512], stride=[512, 1])
-buf1_layout = FixedLayout('cuda:0', torch.float32, size=[1024], stride=[1])
-class op1_loop_body:
-    var_ranges = {p0: 1024, p1: 512}
-    index0 = 512*p0 + p1
-    index1 = p0
-    def body(self, ops):
-        get_index = self.get_index('index0')
-        load = ops.load('arg1_1', get_index)
-        reduction = ops.reduction(torch.float32, torch.float32, 'sum', load)
-        get_index_1 = self.get_index('index1')
-        store_reduction = ops.store_reduction('buf1', get_index_1, reduction)
-        return None
 
-
-
-[DEBUG]:Schedule:
- [SchedulerNode(name='op0')]
-[DEBUG]:Schedule:
- [SchedulerNode(name='op1')]
-[DEBUG]:Output code: 
-# AOT ID: ['6_inference']
-import torch
-from torch import device, empty_strided
-from torch._inductor.async_compile import AsyncCompile
-from torch._C._dynamo.guards import copy_if_misaligned
-from torch._C import _cuda_getCurrentRawStream as get_raw_stream
-
-assert_size_stride = torch._C._dynamo.guards.assert_size_stride
-empty_strided_cuda = torch._C._dynamo.guards._empty_strided_cuda
-async_compile = AsyncCompile()
-
-
-# kernel path: /tmp/torchinductor_root/tmp2ky1qoba/wg/cwgfo7ozgqp56wljn54hdi5gjwhuhz7hrt4kvk4s5hvpaigwngvg.py
-# Topologically Sorted Source Nodes: [sum_1], Original ATen: [aten.sum]
-# Source node to ATen node mapping:
-#   sum_1 => sum_1
-# Graph fragment:
-#   %arg0_1 : Tensor "f32[1024, 64][64, 1]cuda:0" = PlaceHolder[target=arg0_1]
-#   %sum_1 : Tensor "f32[1024][1]cuda:0"[num_users=1] = call_function[target=torch.ops.aten.sum.dim_IntList](args = (%arg0_1, [-1]), kwargs = {})
-#   return %sum_1
-import os
-from torch._inductor.runtime.runtime_utils import cache_dir
-
-import triton
-import triton.language as tl
-
-from torch._inductor.runtime import triton_helpers, triton_heuristics
-from torch._inductor.runtime.triton_helpers import libdevice, math as tl_math
-from torch._inductor.runtime.hints import AutotuneHint, ReductionHint, TileHint, DeviceProperties
-triton_helpers.set_driver_to_gpu()
-
-@triton_heuristics.persistent_reduction(
-    size_hints={'x': 1024, 'r0_': 64},
-    reduction_hint=ReductionHint.INNER,
-
-
-[Showing lines 1-924 of 925 (50.0KB limit). Use offset=925 to continue.]
+[Showing lines 1-863 of 927 (50.0KB limit). Use offset=864 to continue.]
